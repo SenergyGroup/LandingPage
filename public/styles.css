@@ -1,0 +1,248 @@
+:root {
+  color-scheme: light;
+  --bg: #f5f6f8;
+  --bg-accent: #ffffff;
+  --text: #1f2328;
+  --muted: #5c6670;
+  --primary: #1a1f36;
+  --primary-soft: #2d3a5f;
+  --border: #d9dde3;
+  --shadow: 0 20px 40px rgba(31, 35, 40, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at top right, #ffffff 0%, #f0f2f5 45%, #eef1f6 100%);
+}
+
+h1 {
+  font-family: "Playfair Display", "Times New Roman", serif;
+  font-size: clamp(2.2rem, 4vw, 3rem);
+  margin: 0 0 0.5rem;
+}
+
+p {
+  line-height: 1.6;
+}
+
+a {
+  color: inherit;
+}
+
+.site-header {
+  padding: 2.5rem 6vw 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-family: "Playfair Display", "Times New Roman", serif;
+  font-size: 1.4rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 3.5rem 6vw 4rem;
+}
+
+.container.narrow {
+  max-width: 780px;
+}
+
+.hero {
+  margin-bottom: 2.5rem;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.subhead {
+  font-size: 1.1rem;
+  color: var(--muted);
+  margin-top: 0;
+}
+
+.widget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.widget-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: var(--bg-accent);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.widget-card input {
+  display: none;
+}
+
+.widget-card:has(input:checked) {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.widget-thumbnail {
+  width: 100%;
+  padding-top: 60%;
+  border-radius: 16px;
+  background-size: cover;
+  background-position: center;
+  background-color: #e7ebf0;
+}
+
+.widget-thumbnail.large {
+  width: 180px;
+  padding-top: 120px;
+}
+
+.widget-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.widget-desc {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.claim-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+input[type="email"] {
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  font-size: 1rem;
+}
+
+.primary-button,
+.secondary-button {
+  padding: 0.9rem 1.5rem;
+  border-radius: 999px;
+  border: none;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.primary-button {
+  background: var(--primary);
+  color: white;
+  margin-bottom: 0.75rem;
+}
+
+.secondary-button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--primary);
+}
+
+.secondary-link {
+  margin-top: 1.5rem;
+  display: inline-block;
+  color: var(--primary-soft);
+}
+
+.microcopy {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.site-footer {
+  padding: 2rem 6vw 3rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.footer-divider {
+  height: 1px;
+  background: var(--border);
+  margin-bottom: 1.5rem;
+}
+
+.message-card {
+  background: var(--bg-accent);
+  border-radius: 24px;
+  padding: 2.5rem;
+  box-shadow: var(--shadow);
+}
+
+.widget-preview {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  margin: 2rem 0;
+}
+
+.install-notes {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border-left: 3px solid var(--primary);
+  background: #f2f4f8;
+  border-radius: 12px;
+}
+
+.support-note {
+  margin-top: 2rem;
+  color: var(--muted);
+}
+
+.error {
+  color: #b42318;
+  margin-top: 1rem;
+}
+
+.privacy {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 700px) {
+  .widget-preview {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .widget-thumbnail.large {
+    width: 100%;
+  }
+
+  .message-card {
+    padding: 2rem;
+  }
+}

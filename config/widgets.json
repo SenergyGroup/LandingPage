@@ -1,0 +1,23 @@
+[
+  {
+    "id": "aurora-glass",
+    "name": "Aurora Glass",
+    "description": "Soft gradients and luminous borders for modern streams.",
+    "thumbnail": "/public/images/aurora-glass.svg",
+    "zip": "aurora-glass.zip"
+  },
+  {
+    "id": "mono-tech",
+    "name": "Mono Tech",
+    "description": "Minimal monochrome with sharp editorial lines.",
+    "thumbnail": "/public/images/mono-tech.svg",
+    "zip": "mono-tech.zip"
+  },
+  {
+    "id": "signal-wave",
+    "name": "Signal Wave",
+    "description": "Subtle grid overlays and calm, high-contrast type.",
+    "thumbnail": "/public/images/signal-wave.svg",
+    "zip": "signal-wave.zip"
+  }
+]
