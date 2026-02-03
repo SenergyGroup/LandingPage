@@ -19,5 +19,13 @@
     "description": "Subtle grid overlays and calm, high-contrast type.",
     "thumbnail": "/public/images/signal-wave.svg",
     "zip": "signal-wave.zip"
+  },
+  {
+    "id": "cyberpunk-red",
+    "name": "Cyberpunk Red",
+    "description": "Vibrant neon accents and high-contrast typography.",
+    "thumbnail": "/public/images/cyberpunk-red.png",
+    "zip": "cyberpunk-red.zip"
   }
+
 ]
