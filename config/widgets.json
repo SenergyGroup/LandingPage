@@ -1,24 +1,52 @@
 [
   {
-    "id": "aurora-glass",
-    "name": "Aurora Glass",
-    "description": "Soft gradients and luminous borders for modern streams.",
-    "thumbnail": "/public/images/aurora-glass.svg",
-    "zip": "aurora-glass.zip"
+    "id": "windows-95",
+    "name": "Windows 95",
+    "description": "Classic 8-bit gray UI with the iconic retro desktop feel.",
+    "thumbnail": "/public/images/windows-95.png",
+    "zip": "windows-95.zip"
   },
   {
-    "id": "mono-tech",
-    "name": "Mono Tech",
-    "description": "Minimal monochrome with sharp editorial lines.",
-    "thumbnail": "/public/images/mono-tech.svg",
-    "zip": "mono-tech.zip"
+    "id": "windows-xp",
+    "name": "Windows XP",
+    "description": "The nostalgic Bliss-inspired blue taskbar and green start button.",
+    "thumbnail": "/public/images/windows-xp.png",
+    "zip": "windows-xp.zip"
   },
   {
-    "id": "signal-wave",
-    "name": "Signal Wave",
-    "description": "Subtle grid overlays and calm, high-contrast type.",
-    "thumbnail": "/public/images/signal-wave.svg",
-    "zip": "signal-wave.zip"
+    "id": "windows-vista",
+    "name": "Windows Vista",
+    "description": "Glossy Aero glass effects and high-shine gradients.",
+    "thumbnail": "/public/images/windows-vista.png",
+    "zip": "windows-vista.zip"
+  },
+  {
+    "id": "windows-7",
+    "name": "Windows 7",
+    "description": "Refined transparency and the peak of the Aero design era.",
+    "thumbnail": "/public/images/windows-7.png",
+    "zip": "windows-7.zip"
+  },
+  {
+    "id": "windows-10",
+    "name": "Windows 10",
+    "description": "Modern flat design with clean lines and semi-transparent tiles.",
+    "thumbnail": "/public/images/windows-10.png",
+    "zip": "windows-10.zip"
+  },
+  {
+    "id": "notepad",
+    "name": "Notepad",
+    "description": "A cozy yellow notepad with hand-drawn doodle message vibes.",
+    "thumbnail": "/public/images/notepad.png",
+    "zip": "notepad.zip"
+  },
+  {
+    "id": "rainy-day",
+    "name": "Rainy Day",
+    "description": "A cozy windowpane view with stormy atmospheric backgrounds.",
+    "thumbnail": "/public/images/rainy-day.png",
+    "zip": "rainy-day.zip"
   },
   {
     "id": "cyberpunk-red",
@@ -26,6 +54,68 @@
     "description": "Vibrant neon accents and high-contrast typography.",
     "thumbnail": "/public/images/cyberpunk-red.png",
     "zip": "cyberpunk-red.zip"
+  },
+  {
+    "id": "cyberpunk-kabuki",
+    "name": "Cyberpunk Kabuki",
+    "description": "Neon-drenched style inspired by the bustling nightlife of Kabuki.",
+    "thumbnail": "/public/images/cyberpunk-kabuki.png",
+    "zip": "cyberpunk-kabuki.zip"
+  },
+  {
+    "id": "cyberpunk-highlife",
+    "name": "Cyberpunk Highlife",
+    "description": "Sleek, corporate aesthetic for the elite of Night City.",
+    "thumbnail": "/public/images/cyberpunk-highlife.png",
+    "zip": "cyberpunk-highlife.zip"
+  },
+  {
+    "id": "cyberpunk-traumateam",
+    "name": "Cyberpunk Trauma Team",
+    "description": "Industrial medical UI with emergency response vibes.",
+    "thumbnail": "/public/images/cyberpunk-traumateam.png",
+    "zip": "cyberpunk-traumateam.zip"
+  },
+  {
+    "id": "cyberpunk-maelstrom",
+    "name": "Cyberpunk Maelstrom",
+    "description": "Aggressive, chrome-heavy aesthetic with a chaotic edge.",
+    "thumbnail": "/public/images/cyberpunk-maelstrom.png",
+    "zip": "cyberpunk-maelstrom.zip"
+  },
+  {
+    "id": "cyberpunk-rockerboy",
+    "name": "Cyberpunk Rockerboy",
+    "description": "Rebellious, graffiti-styled UI for the street legends.",
+    "thumbnail": "/public/images/cyberpunk-rockerboy.png",
+    "zip": "cyberpunk-rockerboy.zip"
+  },
+  {
+    "id": "cyberpunk-aldecaldos",
+    "name": "Cyberpunk Aldecaldos",
+    "description": "Rugged, wasteland-inspired design with a nomad feel.",
+    "thumbnail": "/public/images/cyberpunk-aldecaldos.png",
+    "zip": "cyberpunk-aldecaldos.zip"
+  },
+  {
+    "id": "cyberpunk-ncpd",
+    "name": "Cyberpunk NCPD",
+    "description": "Law enforcement tactical interface with siren-inspired accents.",
+    "thumbnail": "/public/images/cyberpunk-ncpd.png",
+    "zip": "cyberpunk-ncpd.zip"
+  },
+  {
+    "id": "cyberpunk-netrunner",
+    "name": "Cyberpunk Netrunner",
+    "description": "Deep-web aesthetic with data-stream overlays and hacking vibes.",
+    "thumbnail": "/public/images/cyberpunk-netrunner.png",
+    "zip": "cyberpunk-netrunner.zip"
+  },
+  {
+    "id": "cyberpunk-mox",
+    "name": "Cyberpunk Mox",
+    "description": "Bright neons and bold punk aesthetics inspired by Lizzie’s.",
+    "thumbnail": "/public/images/cyberpunk-mox.png",
+    "zip": "cyberpunk-mox.zip"
   }
-
 ]
