@@ -219,7 +219,7 @@ const createOrUpdateSubscriber = async ({ email, token, widgetId }) => {
   };
 
   try {
-    const response = await fetch(`https://api.convertkit.com/v4/forms/${KIT_FORM_ID}/subscribe`, {
+    const response = await fetch(`https://api.convertkit.com/v3/forms/${KIT_FORM_ID}/subscribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
