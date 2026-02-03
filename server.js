@@ -204,6 +204,7 @@ const rateLimitReached = (ipHash) => {
 
 const createOrUpdateSubscriber = async ({ email, token, widgetId }) => {
   if (!KIT_API_KEY || !KIT_FORM_ID) {
+    console.error("Missing Kit Credentials in .env");
     return { subscriber: null };
   }
 
@@ -217,21 +218,29 @@ const createOrUpdateSubscriber = async ({ email, token, widgetId }) => {
     }
   };
 
-  const response = await fetch(`https://api.convertkit.com/v3/forms/${KIT_FORM_ID}/subscribe`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
+  try {
+    const response = await fetch(`https://api.convertkit.com/v4/forms/${KIT_FORM_ID}/subscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
 
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Kit error: ${response.status} ${body}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      // THIS WILL LOG THE EXACT ERROR FROM KIT IN YOUR TERMINAL
+      console.error("--- Kit API Error ---");
+      console.error(JSON.stringify(data, null, 2));
+      throw new Error(`Kit error: ${response.status}`);
+    }
+
+    console.log("--- Kit Success ---");
+    console.log(`Subscriber ${email} processed successfully.`);
+    return { subscriber: data.subscription };
+  } catch (error) {
+    console.error("Network or Kit Error:", error.message);
+    throw error;
   }
-
-  const data = await response.json();
-  return { subscriber: data.subscription };
 };
 
 app.get(["/", "/claim"], (req, res) => {
