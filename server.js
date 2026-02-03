@@ -122,7 +122,9 @@ const renderClaimPage = (widgets, errorMessage = "") => {
           <input id="email" name="email" type="email" placeholder="you@example.com" required />
         </div>
         <button type="submit" class="primary-button">Send me my widget</button>
-        <p class="microcopy">You’ll receive a confirmation email first (prevents spam).</p>
+        <p class="microcopy">By claiming your widget, you agree to join the SenergyGroup newsletter. 
+          We’ll send you monthly widget drops and community votes. 
+          No spam. Unsubscribe with one click at any time.</p>
       </form>
     </main>
     ${renderFooter()}
