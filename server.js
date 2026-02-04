@@ -312,22 +312,36 @@ app.get("/check-email", (req, res) => {
 app.get("/confirmed", (req, res) => {
   const token = req.query.token;
   const email = req.query.email;
+  const subId = req.query.subscriber_id;
   let claim = null;
 
-  if (token) {
+  // 1. First priority: Try to find by Kit Subscriber ID (The "Pro" Way)
+  if (subId) {
+    claim = db
+      .prepare("SELECT * FROM widget_claims WHERE kit_subscriber_id = ? ORDER BY created_at DESC LIMIT 1")
+      .get(subId);
+  }
+
+  // 2. Second priority: Try to find by Token (if ID lookup failed or wasn't provided)
+  if (!claim && token) {
     claim = db.prepare("SELECT * FROM widget_claims WHERE claim_token = ?").get(token);
-  } else if (email) {
+  }
+
+  // 3. Third priority: Try to find by Email (as a last resort fallback)
+  if (!claim && email) {
     claim = db
       .prepare("SELECT * FROM widget_claims WHERE email = ? ORDER BY created_at DESC LIMIT 1")
       .get(email);
   }
 
+  // If after all three checks we still have nothing, show the error
   if (!claim) {
     res.status(404).send(renderErrorPage("We could not find your claim. Please resubmit your request."));
     return;
   }
 
-  if (claim.status !== "confirmed") {
+  // Update status to 'confirmed' if it hasn't been done yet
+  if (claim.status !== "confirmed" && claim.status !== "delivered") {
     const confirmedAt = new Date().toISOString();
     db.prepare("UPDATE widget_claims SET status = ?, confirmed_at = ? WHERE id = ?").run(
       "confirmed",
@@ -338,6 +352,7 @@ app.get("/confirmed", (req, res) => {
     claim.confirmed_at = confirmedAt;
   }
 
+  // Load the specific widget details for the UI
   const widgets = loadWidgets();
   const widget = widgets.find((item) => item.id === claim.widget_id);
 
@@ -394,3 +409,4 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 
 });
+
