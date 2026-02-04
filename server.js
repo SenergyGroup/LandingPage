@@ -218,7 +218,7 @@ const rateLimitReached = (ipHash) => {
 const createOrUpdateSubscriber = async ({ email, token, widgetId }) => {
   if (!KIT_API_KEY || !KIT_FORM_ID) {
     console.error("Missing Kit Credentials in .env");
-    return { subscriber: null };
+    return null; // Return null instead of an object to make the next part easier
   }
 
   const payload = {
@@ -232,7 +232,7 @@ const createOrUpdateSubscriber = async ({ email, token, widgetId }) => {
   };
 
   try {
-    const response = await fetch(`https://api.convertkit.com/v3/forms/${KIT_FORM_ID}/subscribe`, {
+    const response = await fetch(`https://api.kit.com/v3/forms/${KIT_FORM_ID}/subscribe`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -241,15 +241,19 @@ const createOrUpdateSubscriber = async ({ email, token, widgetId }) => {
     const data = await response.json();
 
     if (!response.ok) {
-      // THIS WILL LOG THE EXACT ERROR FROM KIT IN YOUR TERMINAL
       console.error("--- Kit API Error ---");
       console.error(JSON.stringify(data, null, 2));
       throw new Error(`Kit error: ${response.status}`);
     }
 
-    console.log("--- Kit Success ---");
-    console.log(`Subscriber ${email} processed successfully.`);
-    return { subscriber: data.subscription };
+    // Capture the ID. Kit puts it in different places based on if the user is new or existing.
+    // We check: subscription.subscriber.id OR subscription.id
+    const kitId = data.subscription?.subscriber?.id || data.subscription?.id;
+
+    console.log(`--- Kit Success ---`);
+    console.log(`Subscriber: ${email} | Captured Kit ID: ${kitId}`);
+    
+    return kitId; 
   } catch (error) {
     console.error("Network or Kit Error:", error.message);
     throw error;
@@ -281,21 +285,24 @@ app.post("/claim", async (req, res) => {
   const claimId = crypto.randomUUID();
   const now = new Date().toISOString();
 
-  let subscriberId = null;
+  let capturedKitId = null;
 
   try {
-    const kitResult = await createOrUpdateSubscriber({ email, token: claimToken, widgetId });
-    subscriberId = kitResult.subscriber?.subscriber?.id || null;
+    // We now get the ID directly back from the function
+    capturedKitId = await createOrUpdateSubscriber({ email, token: claimToken, widgetId });
   } catch (error) {
     res.status(502).send(renderErrorPage("We could not send your confirmation email. Please try again."));
     return;
   }
 
+  // Double check our logs to see if we are about to save a NULL or a real ID
+  console.log(`Attempting to save claim for ${email} with Kit ID: ${capturedKitId}`);
+
   db.prepare(
     `INSERT INTO widget_claims
       (id, email, widget_id, status, kit_subscriber_id, claim_token, ip_hash, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(claimId, email, widgetId, "submitted", subscriberId, claimToken, ipHash, now);
+  ).run(claimId, email, widgetId, "submitted", capturedKitId ? capturedKitId.toString() : null, claimToken, ipHash, now);
 
   res.redirect(`/check-email?email=${encodeURIComponent(email)}`);
 });
@@ -409,5 +416,6 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 
 });
+
 
 
