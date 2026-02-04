@@ -151,27 +151,38 @@ const renderCheckEmailPage = (email) =>
 
 const renderConfirmedPage = (claim, widget) =>
   formatHtml(
-    "You’re confirmed",
+    "Your Widget is Ready!",
     `
     ${renderHeader()}
     <main class="container narrow">
       <section class="message-card">
-        <h1>You’re confirmed</h1>
-        <p class="subhead">Here is your selected widget theme.</p>
+        <div class="success-icon">✓</div>
+        <h1>Success! Your widget is ready</h1>
+        <p class="subhead">The <strong>${widget.name}</strong> theme has been unlocked.</p>
+        
         <div class="widget-preview">
           <div class="widget-thumbnail large" style="background-image: url('${widget.thumbnail}')"></div>
-          <div>
+          <div class="widget-info">
             <div class="widget-name">${widget.name}</div>
             <div class="widget-desc">${widget.description}</div>
           </div>
         </div>
-        <a class="primary-button" href="/download/${claim.claim_token}">Download your widget ZIP</a>
-        <div class="install-notes">
-          <p><strong>Install in Streamlabs browser first;</strong> desktop doesn’t support these steps.</p>
-          <p>Your download includes 4 text files: HTML, CSS, JS, Custom Fields.</p>
+
+        <div class="button-group">
+          <a class="primary-button" href="/download/${claim.claim_token}">Download ZIP File</a>
+          <!-- ADDED YOUR ETSY LINK HERE -->
+          <a class="secondary-button" href="https://www.etsy.com/shop/SenergyGroup" target="_blank">Browse Our Other Themes on Etsy</a>
         </div>
-        <a class="secondary-link" href="${GUIDE_URL}" target="_blank" rel="noopener">Open the full installation guide (PDF)</a>
-        <p class="support-note">Support: <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> · Response time within 24 hours.</p>
+
+        <div class="install-notes-callout">
+          <h4>Installation Note</h4>
+          <p>Perform the setup in a <strong>desktop browser</strong>. The Streamlabs desktop app doesn't support the custom field configuration steps.</p>
+        </div>
+
+        <footer class="card-footer">
+          <p>Support: <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p>
+          <p>Response time: Within 24 hours</p>
+        </footer>
       </section>
     </main>
     ${renderFooter()}
@@ -381,4 +392,5 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+
 });
