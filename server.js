@@ -312,35 +312,36 @@ app.get("/check-email", (req, res) => {
 app.get("/confirmed", (req, res) => {
   const token = req.query.token;
   const email = req.query.email;
-  const subId = req.query.subscriber_id;
+  const subId = req.query.ck_subscriber_id || req.query.subscriber_id; 
+  
   let claim = null;
 
-  // 1. First priority: Try to find by Kit Subscriber ID (The "Pro" Way)
+  // 1. Try to find by Kit Subscriber ID (The most reliable way)
   if (subId) {
     claim = db
       .prepare("SELECT * FROM widget_claims WHERE kit_subscriber_id = ? ORDER BY created_at DESC LIMIT 1")
-      .get(subId);
+      .get(subId.toString());
   }
 
-  // 2. Second priority: Try to find by Token (if ID lookup failed or wasn't provided)
+  // 2. Fallback: Try to find by Token
   if (!claim && token) {
     claim = db.prepare("SELECT * FROM widget_claims WHERE claim_token = ?").get(token);
   }
 
-  // 3. Third priority: Try to find by Email (as a last resort fallback)
+  // 3. Fallback: Try to find by Email
   if (!claim && email) {
     claim = db
       .prepare("SELECT * FROM widget_claims WHERE email = ? ORDER BY created_at DESC LIMIT 1")
       .get(email);
   }
 
-  // If after all three checks we still have nothing, show the error
   if (!claim) {
-    res.status(404).send(renderErrorPage("We could not find your claim. Please resubmit your request."));
+    // If you see this error, it means the ID wasn't saved in the DB during the /claim step
+    res.status(404).send(renderErrorPage("We could not find your claim. Please try a fresh request from the home page."));
     return;
   }
 
-  // Update status to 'confirmed' if it hasn't been done yet
+  // Rest of the status update logic...
   if (claim.status !== "confirmed" && claim.status !== "delivered") {
     const confirmedAt = new Date().toISOString();
     db.prepare("UPDATE widget_claims SET status = ?, confirmed_at = ? WHERE id = ?").run(
@@ -352,12 +353,11 @@ app.get("/confirmed", (req, res) => {
     claim.confirmed_at = confirmedAt;
   }
 
-  // Load the specific widget details for the UI
   const widgets = loadWidgets();
   const widget = widgets.find((item) => item.id === claim.widget_id);
 
   if (!widget) {
-    res.status(404).send(renderErrorPage("We could not locate the widget for your claim."));
+    res.status(404).send(renderErrorPage("We could not locate the widget details."));
     return;
   }
 
@@ -409,4 +409,5 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 
 });
+
 
