@@ -171,7 +171,7 @@ const renderConfirmedPage = (claim, widget) =>
         <div class="button-group">
           <a class="primary-button" href="/download/${claim.claim_token}">Download ZIP File</a>
           <!-- ADDED YOUR ETSY LINK HERE -->
-          <a class="secondary-button" href="https://www.etsy.com/shop/SenergyGroup" target="_blank">Browse Our Other Themes on Etsy</a>
+          <a class="secondary-button" href="https://www.etsy.com/shop/SenergyGroup?ref=dashboard-header" target="_blank">Browse Our Other Themes on Etsy</a>
         </div>
 
         <div class="install-notes-callout">
