@@ -4,35 +4,35 @@
     "name": "Windows 95",
     "description": "Classic 8-bit gray UI with the iconic retro desktop feel.",
     "thumbnail": "/public/images/windows-95.png",
-    "zip": "windows-95.zip"
+    "zip": "windows-95.pdf"
   },
   {
     "id": "windows-xp",
     "name": "Windows XP",
     "description": "The nostalgic Bliss-inspired blue taskbar and green start button.",
     "thumbnail": "/public/images/windows-xp.png",
-    "zip": "windows-xp.zip"
+    "zip": "windows-xp.pdf"
   },
   {
     "id": "windows-vista",
     "name": "Windows Vista",
     "description": "Glossy Aero glass effects and high-shine gradients.",
     "thumbnail": "/public/images/windows-vista.png",
-    "zip": "windows-vista.zip"
+    "zip": "windows-vista.pdf"
   },
   {
     "id": "windows-7",
     "name": "Windows 7",
     "description": "Refined transparency and the peak of the Aero design era.",
     "thumbnail": "/public/images/windows-7.png",
-    "zip": "windows-7.zip"
+    "zip": "windows-7.pdf"
   },
   {
     "id": "windows-10",
     "name": "Windows 10",
     "description": "Modern flat design with clean lines and semi-transparent tiles.",
     "thumbnail": "/public/images/windows-10.png",
-    "zip": "windows-10.zip"
+    "zip": "windows-10.pdf"
   },
   {
     "id": "notepad",
