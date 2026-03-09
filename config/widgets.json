@@ -54,5 +54,12 @@
     "description": "Neon-drenched style inspired by the bustling nightlife of Kabuki.",
     "thumbnail": "/public/images/cyberpunk-kabuki.png",
     "zip": "cyberpunk-kabuki.zip"
+  },
+  {
+    "id": "retro-os",
+    "name": "Retro OS",
+    "description": "A nostalgic retro operating system aesthetic.",
+    "thumbnail": "/public/images/retro-os.png",
+    "zip": "retro-os.pdf"
   }
 ]
