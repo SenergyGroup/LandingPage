@@ -61,5 +61,12 @@
     "description": "A nostalgic retro operating system aesthetic.",
     "thumbnail": "/public/images/retro-os.png",
     "zip": "retro-os.pdf"
+  },
+  {
+    "id": "retro-mp3",
+    "name": "Retro MP3",
+    "description": "A nostalgic retro MP3 player aesthetic.",
+    "thumbnail": "/public/images/retro-mp3.png",
+    "zip": "retro-mp3.pdf"
   }
 ]
