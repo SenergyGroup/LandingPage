@@ -115,7 +115,7 @@ const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "") => {
       (widget) => `
       <label class="widget-card">
         <input type="radio" name="widget_id" value="${widget.id}" required />
-        <div class="widget-thumbnail" style="background-image: url(‘${widget.thumbnail}’)"></div>
+        <div class="widget-thumbnail" style="background-image: url('${widget.thumbnail}')"></div>
         <div class="widget-name">${widget.name}</div>
         <div class="widget-desc">${widget.description}</div>
       </label>
@@ -143,7 +143,7 @@ const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "") => {
         </div>
         <button type="submit" class="primary-button">Send me my widget</button>
         <p class="microcopy">By claiming your widget, you agree to join the SenergyGroup newsletter.
-          We’ll send you monthly widget drops and community votes.
+          We'll send you monthly widget drops and community votes.
           No spam. Unsubscribe with one click at any time.</p>
       </form>
     </main>
@@ -161,7 +161,7 @@ const renderCheckEmailPage = (email) =>
       <section class="message-card">
         <h1>Check your inbox to confirm your email</h1>
         <p>We sent a confirmation email to <strong>${email}</strong>.</p>
-        <p>Once confirmed, you’ll unlock your download instantly.</p>
+        <p>Once confirmed, you'll unlock your download instantly.</p>
         <a class="secondary-button" href="/claim">Go back</a>
       </section>
     </main>
@@ -177,7 +177,9 @@ const renderConfirmedPage = (claim, widget) =>
     <main class="container narrow">
       <section class="message-card">
         <div class="success-icon">✓</div>
-        <h1>Success! Your widget is ready</h1>
+        <h1>Success!</h1>
+        <br />
+        <h2>Your widget is ready to download</h2>
         <p class="subhead">The <strong>${widget.name}</strong> theme has been unlocked.</p>
         
         <div class="widget-preview">
@@ -195,8 +197,8 @@ const renderConfirmedPage = (claim, widget) =>
         </div>
 
         <div class="install-notes-callout">
-          <h4>Installation Note</h4>
-          <p>Perform the setup in a <strong>desktop browser</strong>. The Streamlabs desktop app doesn't support the custom field configuration steps.</p>
+          <h4>StreamLabs Installation Note</h4>
+          <p>Perform the setup in the<strong>browser</strong>. The Streamlabs desktop app doesn't support the custom field configuration steps. Clicking the link in the PDF will open the widget in the browser.</p>
         </div>
 
         <footer class="card-footer">
