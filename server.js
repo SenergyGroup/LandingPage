@@ -90,13 +90,32 @@ const renderFooter = () => `
   </footer>
 `;
 
-const renderClaimPage = (widgets, errorMessage = "") => {
-  const widgetCards = widgets
+const aestheticLabel = (a) => {
+  const labels = { windows: "Windows", retro: "Retro", cyberpunk: "Cyberpunk", cozy: "Cozy", y2k: "Y2K", irc: "IRC" };
+  return labels[a] || (a.charAt(0).toUpperCase() + a.slice(1));
+};
+
+const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "") => {
+  const filtered = activeAesthetic
+    ? allWidgets.filter((w) => w.aesthetic === activeAesthetic)
+    : allWidgets;
+
+  const aesthetics = [...new Set(allWidgets.map((w) => w.aesthetic).filter(Boolean))].sort();
+
+  const filterBar = `
+    <nav class="filter-bar" aria-label="Filter by aesthetic">
+      <a href="/claim" class="filter-btn${!activeAesthetic ? " filter-active" : ""}">All</a>
+      ${aesthetics.map((a) => `<a href="/claim?aesthetic=${a}" class="filter-btn${activeAesthetic === a ? " filter-active" : ""}">${aestheticLabel(a)}</a>`).join("\n      ")}
+    </nav>
+    <p class="filter-count">Showing ${filtered.length} of ${allWidgets.length} widgets</p>
+  `;
+
+  const widgetCards = filtered
     .map(
       (widget) => `
       <label class="widget-card">
         <input type="radio" name="widget_id" value="${widget.id}" required />
-        <div class="widget-thumbnail" style="background-image: url('${widget.thumbnail}')"></div>
+        <div class="widget-thumbnail" style="background-image: url(‘${widget.thumbnail}’)"></div>
         <div class="widget-name">${widget.name}</div>
         <div class="widget-desc">${widget.description}</div>
       </label>
@@ -116,14 +135,15 @@ const renderClaimPage = (widgets, errorMessage = "") => {
         ${errorMessage ? `<p class="error">${errorMessage}</p>` : ""}
       </section>
       <form class="claim-form" action="/claim" method="POST">
+        ${filterBar}
         <div class="widget-grid">${widgetCards}</div>
         <div class="form-row">
           <label for="email">Email address</label>
           <input id="email" name="email" type="email" placeholder="you@example.com" required />
         </div>
         <button type="submit" class="primary-button">Send me my widget</button>
-        <p class="microcopy">By claiming your widget, you agree to join the SenergyGroup newsletter. 
-          We’ll send you monthly widget drops and community votes. 
+        <p class="microcopy">By claiming your widget, you agree to join the SenergyGroup newsletter.
+          We’ll send you monthly widget drops and community votes.
           No spam. Unsubscribe with one click at any time.</p>
       </form>
     </main>
@@ -262,7 +282,8 @@ const createOrUpdateSubscriber = async ({ email, token, widgetId }) => {
 
 app.get(["/", "/claim"], (req, res) => {
   const widgets = loadWidgets();
-  res.send(renderClaimPage(widgets));
+  const aesthetic = req.query.aesthetic || null;
+  res.send(renderClaimPage(widgets, aesthetic));
 });
 
 app.post("/claim", async (req, res) => {
@@ -271,7 +292,7 @@ app.post("/claim", async (req, res) => {
   const widget = widgets.find((item) => item.id === widgetId);
 
   if (!email || !widget) {
-    res.status(400).send(renderClaimPage(widgets, "Please choose a widget and enter an email."));
+    res.status(400).send(renderClaimPage(widgets, null, "Please choose a widget and enter an email."));
     return;
   }
 

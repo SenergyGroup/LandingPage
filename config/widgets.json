@@ -4,69 +4,89 @@
     "name": "Windows 95",
     "description": "Classic 8-bit gray UI with the iconic retro desktop feel.",
     "thumbnail": "/public/images/windows-95.png",
-    "zip": "windows-95.pdf"
+    "zip": "windows-95.pdf",
+    "category": "chat",
+    "aesthetic": "windows"
   },
   {
     "id": "windows-xp",
     "name": "Windows XP",
     "description": "The nostalgic Bliss-inspired blue taskbar and green start button.",
     "thumbnail": "/public/images/windows-xp.png",
-    "zip": "windows-xp.pdf"
+    "zip": "windows-xp.pdf",
+    "category": "chat",
+    "aesthetic": "windows"
   },
   {
     "id": "windows-vista",
     "name": "Windows Vista",
     "description": "Glossy Aero glass effects and high-shine gradients.",
     "thumbnail": "/public/images/windows-vista.png",
-    "zip": "windows-vista.pdf"
+    "zip": "windows-vista.pdf",
+    "category": "chat",
+    "aesthetic": "windows"
   },
   {
     "id": "windows-7",
     "name": "Windows 7",
     "description": "Refined transparency and the peak of the Aero design era.",
     "thumbnail": "/public/images/windows-7.png",
-    "zip": "windows-7.pdf"
+    "zip": "windows-7.pdf",
+    "category": "chat",
+    "aesthetic": "windows"
   },
   {
     "id": "windows-10",
     "name": "Windows 10",
     "description": "Modern flat design with clean lines and semi-transparent tiles.",
     "thumbnail": "/public/images/windows-10.png",
-    "zip": "windows-10.pdf"
+    "zip": "windows-10.pdf",
+    "category": "chat",
+    "aesthetic": "windows"
   },
   {
     "id": "notepad",
     "name": "Notepad",
     "description": "A cozy yellow notepad with hand-drawn doodle message vibes.",
     "thumbnail": "/public/images/notepad.png",
-    "zip": "notepad.zip"
+    "zip": "notepad.zip",
+    "category": "chat",
+    "aesthetic": "cozy"
   },
   {
     "id": "cyberpunk-red",
     "name": "Cyberpunk Red",
     "description": "Vibrant neon accents and high-contrast typography.",
     "thumbnail": "/public/images/cyberpunk-red.png",
-    "zip": "cyberpunk-red.zip"
+    "zip": "cyberpunk-red.zip",
+    "category": "chat",
+    "aesthetic": "cyberpunk"
   },
   {
     "id": "cyberpunk-kabuki",
     "name": "Cyberpunk Kabuki",
     "description": "Neon-drenched style inspired by the bustling nightlife of Kabuki.",
     "thumbnail": "/public/images/cyberpunk-kabuki.png",
-    "zip": "cyberpunk-kabuki.zip"
+    "zip": "cyberpunk-kabuki.zip",
+    "category": "chat",
+    "aesthetic": "cyberpunk"
   },
   {
     "id": "retro-os",
     "name": "Retro OS",
     "description": "A nostalgic retro operating system aesthetic.",
     "thumbnail": "/public/images/retro-os.png",
-    "zip": "retro-os.pdf"
+    "zip": "retro-os.pdf",
+    "category": "chat",
+    "aesthetic": "retro"
   },
   {
     "id": "retro-mp3",
     "name": "Retro MP3",
     "description": "A nostalgic retro MP3 player aesthetic.",
     "thumbnail": "/public/images/retro-mp3.png",
-    "zip": "retro-mp3.pdf"
+    "zip": "retro-mp3.pdf",
+    "category": "chat",
+    "aesthetic": "retro"
   }
 ]
