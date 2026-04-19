@@ -69,6 +69,15 @@ const formatHtml = (title, body) => `<!doctype html>
     <title>${title}</title>
     <link rel="stylesheet" href="/public/styles.css" />
   </head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-EMZ8TTYWJ3"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-EMZ8TTYWJ3');
+  </script>
   <body>
     ${body}
   </body>
