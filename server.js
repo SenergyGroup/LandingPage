@@ -104,6 +104,25 @@ const aestheticLabel = (a) => {
   return labels[a] || (a.charAt(0).toUpperCase() + a.slice(1));
 };
 
+// Append GA4 UTM params to an outbound Etsy URL without clobbering existing
+// query args. Kept parallel to tools/generate_guide.py's with_utm() so the
+// guide PDFs and the landing page share a coherent attribution scheme:
+// guides → utm_source=guide/utm_medium=pdf, landing → utm_source=senergy-landing/utm_medium=web.
+const addLandingUtm = (rawUrl, { slug, content }) => {
+  if (!rawUrl || rawUrl.trim() === "" || rawUrl.trim() === "#") return rawUrl || "";
+  try {
+    const parsed = new URL(rawUrl);
+    const params = parsed.searchParams;
+    if (!params.has("utm_source")) params.set("utm_source", "senergy-landing");
+    if (!params.has("utm_medium")) params.set("utm_medium", "web");
+    if (!params.has("utm_campaign")) params.set("utm_campaign", slug || "landing");
+    if (!params.has("utm_content")) params.set("utm_content", content || "card-cta");
+    return parsed.toString();
+  } catch (_err) {
+    return rawUrl;
+  }
+};
+
 const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "") => {
   const filtered = activeAesthetic
     ? allWidgets.filter((w) => w.aesthetic === activeAesthetic)
@@ -120,16 +139,23 @@ const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "") => {
   `;
 
   const widgetCards = filtered
-    .map(
-      (widget) => `
+    .map((widget) => {
+      const etsyLink = widget.etsyUrl
+        ? `
+        <a class="widget-etsy-link"
+           href="${addLandingUtm(widget.etsyUrl, { slug: widget.id, content: "card-cta" })}"
+           target="_blank"
+           rel="noopener noreferrer">View on Etsy &rarr;</a>`
+        : "";
+      return `
       <label class="widget-card">
         <input type="radio" name="widget_id" value="${widget.id}" required />
         <div class="widget-thumbnail" style="background-image: url('${widget.thumbnail}')"></div>
         <div class="widget-name">${widget.name}</div>
-        <div class="widget-desc">${widget.description}</div>
+        <div class="widget-desc">${widget.description}</div>${etsyLink}
       </label>
-    `
-    )
+    `;
+    })
     .join("\n");
 
   return formatHtml(
@@ -448,6 +474,3 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 
 });
-
-
-
