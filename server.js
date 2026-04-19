@@ -68,6 +68,7 @@ const formatHtml = (title, body) => `<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${title}</title>
     <link rel="stylesheet" href="/public/styles.css" />
+    <meta name="p:domain_verify" content="1a8f352d71cf6353492c5dc37d5c87b5"/>
   </head>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-EMZ8TTYWJ3"></script>
