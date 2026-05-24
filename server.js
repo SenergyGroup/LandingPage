@@ -17,6 +17,9 @@ const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, "data.sqlite");
 const WIDGETS_PATH = path.join(__dirname, "config", "widgets.json");
 const ASSETS_DIR = path.join(__dirname, "public");
+const ZIPS_ROOT = path.join(__dirname, "assets", "zips");
+const IMAGES_ROOT = path.join(__dirname, "public", "images");
+const PLACEHOLDER_THUMB = "/public/images/_placeholder.svg";
 
 const KIT_API_KEY = process.env.KIT_API_KEY;
 const KIT_FORM_ID = process.env.KIT_FORM_ID;
@@ -51,9 +54,86 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use("/public", express.static(ASSETS_DIR));
 
+// Scan `folderAbs` for the first file with one of the given extensions.
+// Case-insensitive. Returns the absolute path, or null if the folder is
+// missing/empty/no match. Used to resolve the slug-folder layout where
+// `LandingPage/assets/zips/{slug}/` and `LandingPage/public/images/{slug}/`
+// each hold a single PDF or PNG drop-in — filename doesn't matter.
+const pickFileByExt = (folderAbs, exts) => {
+  if (!folderAbs) return null;
+  let entries;
+  try {
+    if (!fs.existsSync(folderAbs)) return null;
+    entries = fs.readdirSync(folderAbs);
+  } catch (_err) {
+    return null;
+  }
+  const want = new Set(exts.map((e) => e.toLowerCase()));
+  const matches = entries
+    .filter((name) => !name.startsWith("."))
+    .filter((name) => want.has(path.extname(name).toLowerCase()))
+    .sort();
+  if (matches.length === 0) return null;
+  if (matches.length > 1) {
+    console.warn(
+      `[widgets] multiple ${[...want].join("/")} files in ${folderAbs}; using ${matches[0]}`
+    );
+  }
+  return path.join(folderAbs, matches[0]);
+};
+
+// Given a widgets.json entry, enrich it with resolved asset paths.
+// Looks first at slug-folders (`assets/zips/{id}/` + `public/images/{id}/`),
+// falls back to any explicit `zip` / `thumbnail` field for legacy entries.
+// Returns a new object — does not mutate the input.
+const resolveWidgetAssets = (entry) => {
+  const slug = entry.id;
+  const out = { ...entry };
+
+  // Thumbnail resolution: folder first, then explicit field, then placeholder.
+  const imgFolder = path.join(IMAGES_ROOT, slug);
+  const imgAbs = pickFileByExt(imgFolder, [".png", ".jpg", ".jpeg", ".webp", ".svg"]);
+  if (imgAbs) {
+    out.thumbnail = `/public/images/${slug}/${path.basename(imgAbs)}`;
+  } else if (entry.thumbnail) {
+    // Legacy explicit path — leave as-is
+  } else {
+    out.thumbnail = PLACEHOLDER_THUMB;
+  }
+
+  // Zip/PDF resolution: folder first, then explicit field.
+  const zipFolder = path.join(ZIPS_ROOT, slug);
+  const zipAbs = pickFileByExt(zipFolder, [".pdf", ".zip"]);
+  if (zipAbs) {
+    // Stored as "{slug}/{filename}" so /download can reconstruct the full path.
+    out.zip = `${slug}/${path.basename(zipAbs)}`;
+    out.downloadAvailable = true;
+  } else if (entry.zip) {
+    out.downloadAvailable = true; // legacy flat path
+  } else {
+    out.downloadAvailable = false;
+  }
+
+  return out;
+};
+
 const loadWidgets = () => {
   const raw = fs.readFileSync(WIDGETS_PATH, "utf8");
-  return JSON.parse(raw);
+  const entries = JSON.parse(raw);
+  return entries.map(resolveWidgetAssets);
+};
+
+// Given a widget_id that could be either the canonical `id` or a legacy
+// short form stored in `legacyId`, return the matching widget (resolved).
+// Keeps old Kit confirmation emails (`widget_id=windows-95`) working after
+// the slug rename.
+const findWidget = (widgets, claimId) => {
+  if (!claimId) return null;
+  return (
+    widgets.find((w) => w.id === claimId) ||
+    widgets.find((w) => w.legacyId === claimId) ||
+    null
+  );
 };
 
 const hashIp = (ip) => {
@@ -327,7 +407,7 @@ app.get(["/", "/claim"], (req, res) => {
 app.post("/claim", async (req, res) => {
   const { email, widget_id: widgetId } = req.body;
   const widgets = loadWidgets();
-  const widget = widgets.find((item) => item.id === widgetId);
+  const widget = findWidget(widgets, widgetId);
 
   if (!email || !widget) {
     res.status(400).send(renderClaimPage(widgets, null, "Please choose a widget and enter an email."));
@@ -420,7 +500,7 @@ app.get("/confirmed", (req, res) => {
   }
 
   const widgets = loadWidgets();
-  const widget = widgets.find((item) => item.id === claim.widget_id);
+  const widget = findWidget(widgets, claim.widget_id);
 
   if (!widget) {
     res.status(404).send(renderErrorPage("We could not locate the widget details."));
@@ -440,10 +520,15 @@ app.get("/download/:token", (req, res) => {
   }
 
   const widgets = loadWidgets();
-  const widget = widgets.find((item) => item.id === claim.widget_id);
+  const widget = findWidget(widgets, claim.widget_id);
 
   if (!widget) {
     res.status(404).send(renderErrorPage("Widget download is unavailable."));
+    return;
+  }
+
+  if (!widget.downloadAvailable || !widget.zip) {
+    res.status(404).send(renderErrorPage("This widget is not yet downloadable. Please contact support."));
     return;
   }
 
@@ -452,8 +537,9 @@ app.get("/download/:token", (req, res) => {
     return;
   }
 
-  const zipPath = path.join(__dirname, "assets", "zips", widget.zip);
-  res.download(zipPath, widget.zip, (err) => {
+  const zipPath = path.join(ZIPS_ROOT, widget.zip);
+  const downloadName = path.basename(widget.zip);
+  res.download(zipPath, downloadName, (err) => {
     if (err) {
       res.status(500).send(renderErrorPage("Download failed. Please contact support."));
       return;
@@ -473,5 +559,4 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-
 });

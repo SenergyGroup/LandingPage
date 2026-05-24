@@ -1,92 +1,323 @@
 [
   {
-    "id": "windows-95",
+    "id": "sku-legacy-01-windows95",
+    "legacyId": "windows-95",
     "name": "Windows 95",
     "description": "Classic 8-bit gray UI with the iconic retro desktop feel.",
-    "thumbnail": "/public/images/windows-95.png",
-    "zip": "windows-95.pdf",
     "category": "chat",
-    "aesthetic": "windows"
+    "aesthetic": "windows",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
   },
   {
-    "id": "windows-xp",
+    "id": "sku-legacy-02-windowsxp",
+    "legacyId": "windows-xp",
     "name": "Windows XP",
     "description": "The nostalgic Bliss-inspired blue taskbar and green start button.",
-    "thumbnail": "/public/images/windows-xp.png",
-    "zip": "windows-xp.pdf",
     "category": "chat",
-    "aesthetic": "windows"
+    "aesthetic": "windows",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
   },
   {
-    "id": "windows-vista",
+    "id": "sku-legacy-03-windowsvista",
+    "legacyId": "windows-vista",
     "name": "Windows Vista",
     "description": "Glossy Aero glass effects and high-shine gradients.",
-    "thumbnail": "/public/images/windows-vista.png",
-    "zip": "windows-vista.pdf",
     "category": "chat",
-    "aesthetic": "windows"
+    "aesthetic": "windows",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
   },
   {
-    "id": "windows-7",
+    "id": "sku-legacy-04-windows7",
+    "legacyId": "windows-7",
     "name": "Windows 7",
     "description": "Refined transparency and the peak of the Aero design era.",
-    "thumbnail": "/public/images/windows-7.png",
-    "zip": "windows-7.pdf",
     "category": "chat",
-    "aesthetic": "windows"
+    "aesthetic": "windows",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
   },
   {
-    "id": "windows-10",
+    "id": "sku-legacy-05-windows10",
+    "legacyId": "windows-10",
     "name": "Windows 10",
     "description": "Modern flat design with clean lines and semi-transparent tiles.",
-    "thumbnail": "/public/images/windows-10.png",
-    "zip": "windows-10.pdf",
     "category": "chat",
-    "aesthetic": "windows"
+    "aesthetic": "windows",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
   },
   {
-    "id": "notepad",
+    "id": "sku-legacy-07-notepad",
+    "legacyId": "notepad",
     "name": "Notepad",
     "description": "A cozy yellow notepad with hand-drawn doodle message vibes.",
-    "thumbnail": "/public/images/notepad.png",
-    "zip": "notepad.zip",
     "category": "chat",
-    "aesthetic": "cozy"
+    "aesthetic": "cozy",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
   },
   {
-    "id": "cyberpunk-red",
+    "id": "sku-legacy-08-rainy-day",
+    "name": "Rainy Day",
+    "description": "A calm, cozy chat box styled like a window streaked with rain.",
+    "category": "chat",
+    "aesthetic": "cozy",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
+  },
+  {
+    "id": "sku-legacy-09-cyberpunk-red",
+    "legacyId": "cyberpunk-red",
     "name": "Cyberpunk Red",
     "description": "Vibrant neon accents and high-contrast typography.",
-    "thumbnail": "/public/images/cyberpunk-red.png",
-    "zip": "cyberpunk-red.zip",
     "category": "chat",
-    "aesthetic": "cyberpunk"
+    "aesthetic": "cyberpunk",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
   },
   {
-    "id": "cyberpunk-kabuki",
+    "id": "sku-legacy-10-cyberpunk-kabuki",
+    "legacyId": "cyberpunk-kabuki",
     "name": "Cyberpunk Kabuki",
     "description": "Neon-drenched style inspired by the bustling nightlife of Kabuki.",
-    "thumbnail": "/public/images/cyberpunk-kabuki.png",
-    "zip": "cyberpunk-kabuki.zip",
     "category": "chat",
-    "aesthetic": "cyberpunk"
+    "aesthetic": "cyberpunk",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
   },
   {
-    "id": "retro-os",
+    "id": "sku-legacy-11-trauma-team",
+    "name": "Trauma Team",
+    "description": "Cyberpunk medical-HUD overlay \u2014 red cross accents and tactical type.",
+    "category": "chat",
+    "aesthetic": "cyberpunk",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
+  },
+  {
+    "id": "sku-legacy-12-ncpd",
+    "name": "NCPD",
+    "description": "Tactical police-HUD cyberpunk chat with hard blue police stripes.",
+    "category": "chat",
+    "aesthetic": "cyberpunk",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
+  },
+  {
+    "id": "sku-legacy-13-maelstrom",
+    "name": "Maelstrom",
+    "description": "Industrial-red cyberpunk gang aesthetic \u2014 raw metal and warning paint.",
+    "category": "chat",
+    "aesthetic": "cyberpunk",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
+  },
+  {
+    "id": "sku-legacy-cyberpunk-mox",
+    "legacyId": "cyberpunk-mox",
+    "name": "Cyberpunk Mox",
+    "description": "Pink-neon cyberpunk club styling \u2014 softest of the Night City overlays.",
+    "category": "chat",
+    "aesthetic": "cyberpunk",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
+  },
+  {
+    "id": "sku-legacy-14-sunset-valley",
+    "name": "Sunset Valley",
+    "description": "Cozy pixel-art chat styled like a Stardew-inspired farming afternoon.",
+    "category": "chat",
+    "aesthetic": "cozy",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
+  },
+  {
+    "id": "sku-legacy-15-stardew-fishing",
+    "name": "Stardew Fishing",
+    "description": "Pixel-art fishing mini-game UI adapted into a cozy chat overlay.",
+    "category": "chat",
+    "aesthetic": "cozy",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
+  },
+  {
+    "id": "sku-legacy-retro-os-mac",
+    "legacyId": "retro-os",
     "name": "Retro OS",
-    "description": "A nostalgic retro operating system aesthetic.",
-    "thumbnail": "/public/images/retro-os.png",
-    "zip": "retro-os.pdf",
+    "description": "Classic Mac OS chrome \u2014 platinum window frame and pixel system type.",
     "category": "chat",
-    "aesthetic": "retro"
+    "aesthetic": "retro",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
   },
   {
-    "id": "retro-mp3",
+    "id": "sku-legacy-16-retro-mp3",
+    "legacyId": "retro-mp3",
     "name": "Retro MP3",
     "description": "A nostalgic retro MP3 player aesthetic.",
-    "thumbnail": "/public/images/retro-mp3.png",
-    "zip": "retro-mp3.pdf",
     "category": "chat",
-    "aesthetic": "retro"
+    "aesthetic": "retro",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
+  },
+  {
+    "id": "sku-legacy-17-retro-messenger",
+    "name": "Retro Messenger",
+    "description": "AOL-era buddy list UI turned into an always-online chat overlay.",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": true
+  },
+  {
+    "id": "sku-01-crt-terminal",
+    "name": "CRT Terminal",
+    "description": "Green-on-black monospace terminal with authentic CRT glow and scanlines.",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4472519860/retro-crt-terminal-chat-widget-green",
+    "publishedAt": "2026-04-19",
+    "freebie": true
+  },
+  {
+    "id": "sku-02-dialup-log",
+    "name": "Dial-Up Connection Log Chat Widget",
+    "description": "Dial-Up Log Chat",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4478967138/dial-up-log-chat-widget-for-streamlabs",
+    "publishedAt": "2026-04-13",
+    "freebie": true
+  },
+  {
+    "id": "sku-04-popup-stack",
+    "name": "Pop-Up Stack Chat Widget",
+    "description": "Pop-Up Stack Chat",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4487982773/retro-pop-up-stack-chat-widget-for",
+    "publishedAt": "2026-04-19",
+    "freebie": true
+  },
+  {
+    "id": "sku-05-forum-thread",
+    "name": "Forum Thread Chat Widget",
+    "description": "Forum Thread Chat",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4472605740/forum-thread-streamlabs-chat-widget",
+    "publishedAt": "2026-04-19",
+    "freebie": true
+  },
+  {
+    "id": "sku-06-irc-minimal",
+    "name": "IRC Minimal Lines Chat Widget",
+    "description": "IRC Minimal Chat",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4473131682/irc-minimal-chat-widget-for-streamlabs",
+    "publishedAt": "2026-03-21",
+    "freebie": true
+  },
+  {
+    "id": "sku-07-retro-email",
+    "name": "Retro Email Inbox Chat Widget",
+    "description": "Retro Email Chat",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4473110841/early-internet-inbox-chat-widget-for",
+    "publishedAt": "2026-04-19",
+    "freebie": true
+  },
+  {
+    "id": "sku-10-bios-setup-panel",
+    "name": "BIOS Setup Panel Chat Widget",
+    "description": "BIOS Panel Chat",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4477569006/retro-dos-terminal-chat-widget",
+    "publishedAt": "2026-04-13",
+    "freebie": true
+  },
+  {
+    "id": "sku-13-classic-file-list",
+    "name": "Classic File List Chat Widget",
+    "description": "File List Chat",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4477567833/retro-windows-95-file-list-chat-widget",
+    "publishedAt": "2026-04-13",
+    "freebie": true
+  },
+  {
+    "id": "sku-14-desktop-sticky-notes",
+    "name": "Desktop Sticky Notes Chat Widget",
+    "description": "Sticky Notes Chat",
+    "category": "chat",
+    "aesthetic": "cozy",
+    "etsyUrl": "https://www.etsy.com/listing/4478873037/sticky-notes-chat-widget-for-streamlabs",
+    "publishedAt": "2026-04-19",
+    "freebie": true
+  },
+  {
+    "id": "sku-19-disk-defrag-map",
+    "name": "Disk Defrag Map Chat Widget",
+    "description": "Defrag Map Chat",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4478883370/disk-defrag-map-chat-widget-for",
+    "publishedAt": "2026-04-19",
+    "freebie": true
+  },
+  {
+    "id": "sku-21-cd-burning-session",
+    "name": "CD Burning Session Chat Widget",
+    "description": "CD Burn Chat",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4478883175/cd-burn-chat-widget-for-streamlabs",
+    "publishedAt": "2026-04-13",
+    "freebie": true
+  },
+  {
+    "id": "sku-22-antivirus-scan",
+    "name": "Antivirus Scan Chat Widget",
+    "description": "Antivirus Chat",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4478893742/antivirus-chat-widget-for-streamlabs",
+    "publishedAt": "2026-04-13",
+    "freebie": true
+  },
+  {
+    "id": "sku-23-firewall-rules-monitor",
+    "name": "Firewall Rules Monitor Chat Widget",
+    "description": "Firewall Chat",
+    "category": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4478897822/firewall-monitor-chat-widget-for",
+    "publishedAt": "2026-04-19",
+    "freebie": true
   }
 ]
