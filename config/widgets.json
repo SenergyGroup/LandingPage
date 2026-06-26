@@ -66,16 +66,6 @@
     "freebie": true
   },
   {
-    "id": "sku-legacy-08-rainy-day",
-    "name": "Rainy Day",
-    "description": "A calm, cozy chat box styled like a window streaked with rain.",
-    "category": "chat",
-    "aesthetic": "cozy",
-    "etsyUrl": null,
-    "publishedAt": null,
-    "freebie": true
-  },
-  {
     "id": "sku-legacy-09-cyberpunk-red",
     "legacyId": "cyberpunk-red",
     "name": "Cyberpunk Red",
@@ -93,67 +83,6 @@
     "description": "Neon-drenched style inspired by the bustling nightlife of Kabuki.",
     "category": "chat",
     "aesthetic": "cyberpunk",
-    "etsyUrl": null,
-    "publishedAt": null,
-    "freebie": true
-  },
-  {
-    "id": "sku-legacy-11-trauma-team",
-    "name": "Trauma Team",
-    "description": "Cyberpunk medical-HUD overlay \u2014 red cross accents and tactical type.",
-    "category": "chat",
-    "aesthetic": "cyberpunk",
-    "etsyUrl": null,
-    "publishedAt": null,
-    "freebie": true
-  },
-  {
-    "id": "sku-legacy-12-ncpd",
-    "name": "NCPD",
-    "description": "Tactical police-HUD cyberpunk chat with hard blue police stripes.",
-    "category": "chat",
-    "aesthetic": "cyberpunk",
-    "etsyUrl": null,
-    "publishedAt": null,
-    "freebie": true
-  },
-  {
-    "id": "sku-legacy-13-maelstrom",
-    "name": "Maelstrom",
-    "description": "Industrial-red cyberpunk gang aesthetic \u2014 raw metal and warning paint.",
-    "category": "chat",
-    "aesthetic": "cyberpunk",
-    "etsyUrl": null,
-    "publishedAt": null,
-    "freebie": true
-  },
-  {
-    "id": "sku-legacy-cyberpunk-mox",
-    "legacyId": "cyberpunk-mox",
-    "name": "Cyberpunk Mox",
-    "description": "Pink-neon cyberpunk club styling \u2014 softest of the Night City overlays.",
-    "category": "chat",
-    "aesthetic": "cyberpunk",
-    "etsyUrl": null,
-    "publishedAt": null,
-    "freebie": true
-  },
-  {
-    "id": "sku-legacy-14-sunset-valley",
-    "name": "Sunset Valley",
-    "description": "Cozy pixel-art chat styled like a Stardew-inspired farming afternoon.",
-    "category": "chat",
-    "aesthetic": "cozy",
-    "etsyUrl": null,
-    "publishedAt": null,
-    "freebie": true
-  },
-  {
-    "id": "sku-legacy-15-stardew-fishing",
-    "name": "Stardew Fishing",
-    "description": "Pixel-art fishing mini-game UI adapted into a cozy chat overlay.",
-    "category": "chat",
-    "aesthetic": "cozy",
     "etsyUrl": null,
     "publishedAt": null,
     "freebie": true
