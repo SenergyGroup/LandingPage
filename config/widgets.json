@@ -319,5 +319,16 @@
     "etsyUrl": "https://www.etsy.com/listing/4478897822/firewall-monitor-chat-widget-for",
     "publishedAt": "2026-04-19",
     "freebie": true
+  },
+  {
+    "id": "sku-31-search-results",
+    "name": "Search Results Chat Widget",
+    "description": "Retro Search Chat",
+    "category": "chat",
+    "aesthetic": "y2k",
+    "etsyUrl": "https://www.etsy.com/listing/4526509394/search-results-chat-widget-for",
+    "publishedAt": "2026-06-26",
+    "freebie": true
   }
+]
 ]
