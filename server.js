@@ -553,6 +553,19 @@ app.get("/download/:token", (req, res) => {
   });
 });
 
+// Panel Makers — self-serve Twitch panel generators for kit buyers.
+// Static pages live in public/panel-makers/{family}.html; the whitelist keeps
+// the URL space tight and prevents path tricks. Add new kit families here.
+const PANEL_MAKER_FAMILIES = new Set(["retro-messenger"]);
+app.get("/panel-maker/:family", (req, res) => {
+  const family = String(req.params.family || "").toLowerCase();
+  if (!PANEL_MAKER_FAMILIES.has(family)) {
+    res.status(404).send(renderErrorPage("Page not found."));
+    return;
+  }
+  res.sendFile(path.join(ASSETS_DIR, "panel-makers", `${family}.html`));
+});
+
 app.use((req, res) => {
   res.status(404).send(renderErrorPage("Page not found."));
 });
