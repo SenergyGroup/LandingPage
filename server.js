@@ -556,7 +556,7 @@ app.get("/download/:token", (req, res) => {
 // Panel Makers — self-serve Twitch panel generators for kit buyers.
 // Static pages live in public/panel-makers/{family}.html; the whitelist keeps
 // the URL space tight and prevents path tricks. Add new kit families here.
-const PANEL_MAKER_FAMILIES = new Set(["retro-messenger"]);
+const PANEL_MAKER_FAMILIES = new Set(["retro-messenger", "irc-minimal", "windows-xp"]);
 app.get("/panel-maker/:family", (req, res) => {
   const family = String(req.params.family || "").toLowerCase();
   if (!PANEL_MAKER_FAMILIES.has(family)) {
