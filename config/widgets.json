@@ -5,9 +5,12 @@
     "name": "Windows 95",
     "description": "Classic 8-bit gray UI with the iconic retro desktop feel.",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "windows",
-    "etsyUrl": null,
-    "publishedAt": null,
+    "price": 9.99,
+    "etsyUrl": "https://www.etsy.com/listing/4428923358/windows-95-twitch-chat-widget-overlay",
+    "publishedAt": "2026-04-20",
+    "image": "https://i.etsystatic.com/46135568/r/il/9a7fca/7579321087/il_fullxfull.7579321087_sf24.jpg",
     "freebie": true
   },
   {
@@ -16,9 +19,12 @@
     "name": "Windows XP",
     "description": "The nostalgic Bliss-inspired blue taskbar and green start button.",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "windows",
-    "etsyUrl": null,
-    "publishedAt": null,
+    "price": 9.99,
+    "etsyUrl": "https://www.etsy.com/listing/4429737565/windows-xp-twitch-chat-widget-overlay",
+    "publishedAt": "2026-04-20",
+    "image": "https://i.etsystatic.com/46135568/r/il/abbcf1/7583717049/il_fullxfull.7583717049_o1x6.jpg",
     "freebie": true
   },
   {
@@ -27,9 +33,12 @@
     "name": "Windows Vista",
     "description": "Glossy Aero glass effects and high-shine gradients.",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "windows",
-    "etsyUrl": null,
-    "publishedAt": null,
+    "price": 9.99,
+    "etsyUrl": "https://www.etsy.com/listing/4429739383/windows-vista-twitch-chat-widget-overlay",
+    "publishedAt": "2026-04-20",
+    "image": "https://i.etsystatic.com/46135568/r/il/9e5d1d/7583724355/il_fullxfull.7583724355_ftcz.jpg",
     "freebie": true
   },
   {
@@ -38,9 +47,12 @@
     "name": "Windows 7",
     "description": "Refined transparency and the peak of the Aero design era.",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "windows",
-    "etsyUrl": null,
-    "publishedAt": null,
+    "price": 9.99,
+    "etsyUrl": "https://www.etsy.com/listing/4429747082/windows-7-twitch-chat-widget-overlay",
+    "publishedAt": "2026-04-20",
+    "image": "https://i.etsystatic.com/46135568/r/il/2ae44b/7535794356/il_fullxfull.7535794356_aoe2.jpg",
     "freebie": true
   },
   {
@@ -49,9 +61,12 @@
     "name": "Windows 10",
     "description": "Modern flat design with clean lines and semi-transparent tiles.",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "windows",
-    "etsyUrl": null,
-    "publishedAt": null,
+    "price": 9.99,
+    "etsyUrl": "https://www.etsy.com/listing/4429748726/windows-10-twitch-chat-widget-overlay",
+    "publishedAt": "2026-04-20",
+    "image": "https://i.etsystatic.com/46135568/r/il/cbfb6d/7535799500/il_fullxfull.7535799500_injl.jpg",
     "freebie": true
   },
   {
@@ -60,9 +75,12 @@
     "name": "Notepad",
     "description": "A cozy yellow notepad with hand-drawn doodle message vibes.",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "cozy",
-    "etsyUrl": null,
-    "publishedAt": null,
+    "price": 9.99,
+    "etsyUrl": "https://www.etsy.com/listing/1638565288/notepad-scribbles-chat-widget-streamlabs",
+    "publishedAt": "2026-04-20",
+    "image": "https://i.etsystatic.com/46135568/r/il/f2a7cf/5652219132/il_fullxfull.5652219132_b5lt.jpg",
     "freebie": true
   },
   {
@@ -71,7 +89,9 @@
     "name": "Cyberpunk Red",
     "description": "Vibrant neon accents and high-contrast typography.",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "cyberpunk",
+    "price": 9.99,
     "etsyUrl": null,
     "publishedAt": null,
     "freebie": true
@@ -82,18 +102,82 @@
     "name": "Cyberpunk Kabuki",
     "description": "Neon-drenched style inspired by the bustling nightlife of Kabuki.",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "cyberpunk",
+    "price": 9.99,
     "etsyUrl": null,
     "publishedAt": null,
     "freebie": true
   },
   {
+    "id": "sku-legacy-11-trauma-team",
+    "name": "Trauma Team",
+    "description": "Medical-grade cyberpunk HUD in clinical white and emergency orange.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "cyberpunk",
+    "price": 9.99,
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": false
+  },
+  {
+    "id": "sku-legacy-12-ncpd",
+    "name": "NCPD",
+    "description": "Tactical police HUD with badge-and-dispatch cyberpunk energy.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "cyberpunk",
+    "price": 9.99,
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": false
+  },
+  {
+    "id": "sku-legacy-13-maelstrom",
+    "name": "Maelstrom",
+    "description": "Red industrial cyberpunk chrome with underground gang grit.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "cyberpunk",
+    "price": 9.99,
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": false
+  },
+  {
+    "id": "sku-legacy-14-sunset-valley",
+    "name": "Sunset Valley",
+    "description": "Cozy pixel-art valley skies for farmcore and chill streams.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "cozy",
+    "price": 9.99,
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": false
+  },
+  {
+    "id": "sku-legacy-15-stardew-fishing",
+    "name": "Stardew Fishing",
+    "description": "Pixel fishing UI inspired by everyone's favorite farm sim.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "cozy",
+    "price": 9.99,
+    "etsyUrl": null,
+    "publishedAt": null,
+    "freebie": false
+  },
+  {
     "id": "sku-legacy-retro-os-mac",
     "legacyId": "retro-os",
     "name": "Retro OS",
-    "description": "Classic Mac OS chrome \u2014 platinum window frame and pixel system type.",
+    "description": "Classic Mac OS chrome. Platinum window frame and pixel system type.",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 9.99,
     "etsyUrl": null,
     "publishedAt": null,
     "freebie": true
@@ -104,9 +188,12 @@
     "name": "Retro MP3",
     "description": "A nostalgic retro MP3 player aesthetic.",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
-    "etsyUrl": null,
-    "publishedAt": null,
+    "price": 9.99,
+    "etsyUrl": "https://www.etsy.com/listing/4469407947/retro-mp3-twitch-chat-widget-animated-ui",
+    "publishedAt": "2026-04-20",
+    "image": "https://i.etsystatic.com/46135568/r/il/04833b/7816273122/il_fullxfull.7816273122_ls16.jpg",
     "freebie": true
   },
   {
@@ -114,9 +201,12 @@
     "name": "Retro Messenger",
     "description": "AOL-era buddy list UI turned into an always-online chat overlay.",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
-    "etsyUrl": null,
-    "publishedAt": null,
+    "price": 9.99,
+    "etsyUrl": "https://www.etsy.com/listing/4469875012/retro-messenger-twitch-chat-widget",
+    "publishedAt": "2026-04-20",
+    "image": "https://i.etsystatic.com/46135568/r/il/9a0a2e/7791437364/il_fullxfull.7791437364_g60e.jpg",
     "freebie": true
   },
   {
@@ -124,9 +214,12 @@
     "name": "CRT Terminal",
     "description": "Green-on-black monospace terminal with authentic CRT glow and scanlines.",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 12.99,
     "etsyUrl": "https://www.etsy.com/listing/4472519860/retro-crt-terminal-chat-widget-green",
     "publishedAt": "2026-04-19",
+    "image": "https://i.etsystatic.com/46135568/r/il/e2307c/7808958022/il_fullxfull.7808958022_gf6b.jpg",
     "freebie": true
   },
   {
@@ -134,9 +227,12 @@
     "name": "Dial-Up Connection Log Chat Widget",
     "description": "Dial-Up Log Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 11.99,
     "etsyUrl": "https://www.etsy.com/listing/4478967138/dial-up-log-chat-widget-for-streamlabs",
     "publishedAt": "2026-04-13",
+    "image": "https://i.etsystatic.com/46135568/r/il/2cad37/7851262826/il_fullxfull.7851262826_3yav.jpg",
     "freebie": true
   },
   {
@@ -144,9 +240,12 @@
     "name": "Pop-Up Stack Chat Widget",
     "description": "Pop-Up Stack Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 14.99,
     "etsyUrl": "https://www.etsy.com/listing/4487982773/retro-pop-up-stack-chat-widget-for",
     "publishedAt": "2026-04-19",
+    "image": "https://i.etsystatic.com/46135568/r/il/f97a69/7975812711/il_fullxfull.7975812711_3gfz.jpg",
     "freebie": true
   },
   {
@@ -154,9 +253,12 @@
     "name": "Forum Thread Chat Widget",
     "description": "Forum Thread Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 12.99,
     "etsyUrl": "https://www.etsy.com/listing/4472605740/forum-thread-streamlabs-chat-widget",
     "publishedAt": "2026-04-19",
+    "image": "https://i.etsystatic.com/46135568/r/il/5a587b/7857494809/il_fullxfull.7857494809_nqrj.jpg",
     "freebie": true
   },
   {
@@ -164,9 +266,12 @@
     "name": "IRC Minimal Lines Chat Widget",
     "description": "IRC Minimal Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 12.99,
     "etsyUrl": "https://www.etsy.com/listing/4473131682/irc-minimal-chat-widget-for-streamlabs",
     "publishedAt": "2026-03-21",
+    "image": "https://i.etsystatic.com/46135568/r/il/6b8542/7861025247/il_fullxfull.7861025247_c9on.jpg",
     "freebie": true
   },
   {
@@ -174,9 +279,12 @@
     "name": "Retro Email Inbox Chat Widget",
     "description": "Retro Email Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 12.99,
     "etsyUrl": "https://www.etsy.com/listing/4473110841/early-internet-inbox-chat-widget-for",
     "publishedAt": "2026-04-19",
+    "image": "https://i.etsystatic.com/46135568/r/il/8c478e/7812985052/il_fullxfull.7812985052_p1p5.jpg",
     "freebie": true
   },
   {
@@ -184,9 +292,12 @@
     "name": "BIOS Setup Panel Chat Widget",
     "description": "BIOS Panel Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 14.99,
     "etsyUrl": "https://www.etsy.com/listing/4477569006/retro-dos-terminal-chat-widget",
     "publishedAt": "2026-04-13",
+    "image": "https://i.etsystatic.com/46135568/r/il/9966b5/7890002471/il_fullxfull.7890002471_gtlv.jpg",
     "freebie": true
   },
   {
@@ -194,9 +305,12 @@
     "name": "Classic File List Chat Widget",
     "description": "File List Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 11.99,
     "etsyUrl": "https://www.etsy.com/listing/4477567833/retro-windows-95-file-list-chat-widget",
     "publishedAt": "2026-04-13",
+    "image": "https://i.etsystatic.com/46135568/r/il/4b1325/7890046867/il_fullxfull.7890046867_mplp.jpg",
     "freebie": true
   },
   {
@@ -204,9 +318,12 @@
     "name": "Desktop Sticky Notes Chat Widget",
     "description": "Sticky Notes Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "cozy",
+    "price": 11.99,
     "etsyUrl": "https://www.etsy.com/listing/4478873037/sticky-notes-chat-widget-for-streamlabs",
     "publishedAt": "2026-04-19",
+    "image": "https://i.etsystatic.com/46135568/r/il/488c97/7898768165/il_fullxfull.7898768165_79iv.jpg",
     "freebie": true
   },
   {
@@ -214,9 +331,12 @@
     "name": "Disk Defrag Map Chat Widget",
     "description": "Defrag Map Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 11.99,
     "etsyUrl": "https://www.etsy.com/listing/4478883370/disk-defrag-map-chat-widget-for",
     "publishedAt": "2026-04-19",
+    "image": "https://i.etsystatic.com/46135568/r/il/844146/7850757662/il_fullxfull.7850757662_s8d0.jpg",
     "freebie": true
   },
   {
@@ -224,9 +344,12 @@
     "name": "CD Burning Session Chat Widget",
     "description": "CD Burn Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 11.99,
     "etsyUrl": "https://www.etsy.com/listing/4478883175/cd-burn-chat-widget-for-streamlabs",
     "publishedAt": "2026-04-13",
+    "image": "https://i.etsystatic.com/46135568/r/il/19a0b7/7850801818/il_fullxfull.7850801818_gakx.jpg",
     "freebie": true
   },
   {
@@ -234,9 +357,12 @@
     "name": "Antivirus Scan Chat Widget",
     "description": "Antivirus Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 11.99,
     "etsyUrl": "https://www.etsy.com/listing/4478893742/antivirus-chat-widget-for-streamlabs",
     "publishedAt": "2026-04-13",
+    "image": "https://i.etsystatic.com/46135568/r/il/234ccb/7898784045/il_fullxfull.7898784045_cped.jpg",
     "freebie": true
   },
   {
@@ -244,9 +370,12 @@
     "name": "Firewall Rules Monitor Chat Widget",
     "description": "Firewall Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "retro",
+    "price": 11.99,
     "etsyUrl": "https://www.etsy.com/listing/4478897822/firewall-monitor-chat-widget-for",
     "publishedAt": "2026-04-19",
+    "image": "https://i.etsystatic.com/46135568/r/il/73147d/7851229352/il_fullxfull.7851229352_5c6f.jpg",
     "freebie": true
   },
   {
@@ -254,9 +383,12 @@
     "name": "Search Results Chat Widget",
     "description": "Retro Search Chat",
     "category": "chat",
+    "productType": "chat",
     "aesthetic": "y2k",
+    "price": 14.99,
     "etsyUrl": "https://www.etsy.com/listing/4526509394/search-results-chat-widget-for",
     "publishedAt": "2026-06-26",
+    "image": "https://i.etsystatic.com/46135568/r/il/3f2b7a/8182577414/il_fullxfull.8182577414_3so6.jpg",
     "freebie": true
   }
 ]
