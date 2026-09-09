@@ -1,189 +1,1335 @@
 <!DOCTYPE html>
-<!-- RETRO MESSENGER PANEL MAKER - self-serve Twitch panel generator.
-     Buyers type their own info, toggle social keys, and download PNGs.
-     Everything renders in a <canvas> (no libraries, works offline).
-     Ship this file with the kit and/or host it on the landing page. -->
-<html>
+<!-- RETRO MESSENGER PANEL MAKER v2 — self-serve Twitch panel generator.
+     Each panel is a Win98-era instant-messenger window rendered in <canvas>:
+     gradient title bar + app icon + min/max/close, File/Edit/People menu bar
+     with a status gag, and a sunken field whose layout changes per panel
+     (buddy info, sign-on days, social buttons, file transfer, chat-room invite,
+     list). Buyers type their screen name + text, pick colors, upload an avatar,
+     and download PNGs — one at a time or the whole set as a .zip.
+
+     Text is TRUE BITMAP: three classic Windows UI faces were pre-rendered through
+     FreeType's 1-bit rasteriser (Liberation Sans Bold 16/14 for titles and emphasis,
+     W95FA 13 for body/menus — SIL OFL) and packed into a glyph atlas inside this
+     file. Every string is drawn from that atlas at 1x and blitted at exactly 2x, so
+     Twitch's 2:1 downscale lands each text pixel on one screen pixel, identically on
+     every OS — no web fonts, no anti-aliasing, nothing to load.
+     No libraries, works offline. -->
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Retro Messenger Panel Maker — Senergy Group</title>
 <style>
-  body { background: #008080; font-family: Tahoma, Arial, sans-serif; margin: 0; padding: 28px;
-         display: flex; flex-direction: column; align-items: center; gap: 20px; }
-  .win { background: #c0c0c0; border-top: 2px solid #dfdfdf; border-left: 2px solid #dfdfdf;
-         border-right: 2px solid #000; border-bottom: 2px solid #000;
-         box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080, 4px 4px 0 rgba(0,0,0,.3);
-         padding: 3px; width: 700px; max-width: 96vw; }
-  .tb { background: #000080; color: #fff; font-weight: bold; font-size: 13px; padding: 5px 8px; }
-  .body { padding: 14px; }
-  label { display: block; font-size: 12px; font-weight: bold; margin: 10px 0 3px; }
-  input[type=text] { width: 100%; box-sizing: border-box; padding: 5px 7px; font-family: Tahoma; font-size: 13px;
-         border-top: 1px solid #808080; border-left: 1px solid #808080;
-         border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: #fff; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-  .preset, .dl { font-family: Tahoma; font-size: 12px; font-weight: bold; padding: 6px 12px; cursor: pointer;
-         background: #c0c0c0; border-top: 2px solid #fff; border-left: 2px solid #fff;
-         border-right: 2px solid #000; border-bottom: 2px solid #000; }
-  .preset:active, .dl:active { border-top: 2px solid #000; border-left: 2px solid #000;
-         border-right: 2px solid #fff; border-bottom: 2px solid #fff; }
-  .checks { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin-top: 6px; }
-  .checks label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-weight: normal; }
-  canvas { display: block; width: 100%; image-rendering: pixelated; margin-top: 4px;
-           border: 1px solid #000; }
-  .hint { font-size: 11px; color: #333; margin-top: 8px; line-height: 1.5; }
-  .colors { display: flex; gap: 16px; align-items: center; font-size: 12px; margin-top: 6px; }
+  /* No web fonts: the panel text comes from the 1-bit glyph atlas in the script below.
+     Faces: Liberation Sans Bold (SIL OFL 1.1) and W95FA (SIL OFL 1.1, via @fontsource/win95fa). */
+
+  :root {
+    --desk: #008080;
+    --win: #c0c0c0;
+    --navy: #000080;
+    --navy2: #1084d0;
+    --ui: Tahoma, Verdana, "DejaVu Sans", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--desk);
+    background-image:
+      linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 8px 8px;
+    font-family: var(--ui);
+    font-size: 12px;
+    color: #000;
+    min-height: 100vh;
+    padding: 24px 16px 84px;
+  }
+  .desk {
+    display: grid;
+    grid-template-columns: minmax(300px, 440px) minmax(320px, 700px);
+    gap: 18px;
+    justify-content: center;
+    align-items: start;
+  }
+  @media (max-width: 860px) {
+    .desk { grid-template-columns: minmax(280px, 700px); }
+    .pv-wrap { order: -1; position: sticky; top: 0; z-index: 4; }
+    .pv-wrap .actual, .pv-wrap .status, .pv-wrap .note { display: none; }
+    .pv-wrap .hint { margin-top: 6px; font-size: 10px; }
+    .pv-wrap .dl-row button { white-space: nowrap; font-size: 11px; padding: 5px 4px; }
+    #setBox { margin: 0 0 12px; }
+    .pv-wrap .body { padding: 6px; }
+    .pv-wrap .pvbox { padding: 6px; }
+    .pv-wrap .dl-row { margin-top: 6px; }
+    .pv-wrap .dl-row button { flex: 1 1 0; justify-content: center; }
+  }
+  @media (max-width: 600px) { #presetRow .pickwrap { flex: 1 1 45%; } }
+  @media (max-width: 480px) {
+    .pv-wrap #cv { display: none; }
+    .pv-wrap .actual { display: flex; margin-top: 0; }
+    .pv-wrap .actual .lab { display: none; }
+    .taskbar { position: static; margin-top: 16px; }
+    body { padding-bottom: 16px; }
+  }
+
+  /* ── Win98 window chrome ─────────────────────────────── */
+  .win {
+    background: var(--win);
+    border-top: 1px solid #dfdfdf; border-left: 1px solid #dfdfdf;
+    border-right: 1px solid #000;   border-bottom: 1px solid #000;
+    box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080, 6px 6px 0 rgba(0,0,0,.28);
+    padding: 3px;
+  }
+  .tb {
+    display: flex; align-items: center; gap: 6px;
+    height: 20px; padding: 0 3px 0 4px;
+    background: linear-gradient(90deg, var(--navy), var(--navy2));
+    color: #fff; font-weight: bold; font-size: 12px; letter-spacing: .2px;
+  }
+  .tb .ico { width: 16px; height: 16px; image-rendering: pixelated; flex: 0 0 auto; }
+  .tb .ttl { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tb .btns { display: flex; gap: 0; }
+  .tb .btns .wb:last-child { margin-left: 2px; }
+  .tb .wb {
+    width: 16px; height: 14px; background: var(--win);
+    border-top: 1px solid #fff; border-left: 1px solid #fff;
+    border-right: 1px solid #000; border-bottom: 1px solid #000;
+    box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #dfdfdf;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .wb svg { width: 8px; height: 8px; }
+  .menubar { display: flex; gap: 12px; padding: 3px 6px 2px; font-size: 12px; }
+  .menubar .sp { flex: 1; }
+  .menubar .menu, .menubar .menu:active { background: none; border: none; box-shadow: none; padding: 0 2px; font-weight: normal; }
+  .menubar .menu:hover { text-decoration: underline; }
+  .menubar .st { color: #404040; }
+  .body { padding: 10px 12px 12px; }
+
+  /* ── Controls ─────────────────────────────────────────── */
+  fieldset { border: none; margin: 0 0 10px; padding: 0; min-width: 0; }
+  .grp {
+    margin: 0 0 10px; padding: 8px 10px 10px;
+    border-top: 1px solid #808080; border-left: 1px solid #808080;
+    border-right: 1px solid #fff;   border-bottom: 1px solid #fff;
+    box-shadow: inset 1px 1px 0 #000, inset -1px -1px 0 #dfdfdf;
+    background: #cfcfcf;
+  }
+  .grp .lg { font-weight: bold; font-size: 12px; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px solid #a8a8a8; box-shadow: 0 1px 0 #fff; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .grp .lg small { font-weight: normal; color: #404040; }
+  label { display: block; font-size: 12px; margin: 8px 0 3px; }
+  label .cnt { float: right; color: #606060; font-weight: normal; }
+  input[type=text], input[type=number] {
+    width: 100%; padding: 5px 7px; font: 13px var(--ui); background: #fff; color: #000;
+    border-top: 1px solid #808080; border-left: 1px solid #808080;
+    border-right: 1px solid #fff;   border-bottom: 1px solid #fff;
+    box-shadow: inset 1px 1px 0 #000, inset -1px -1px 0 #dfdfdf;
+    outline: none;
+  }
+  input[type=text]:focus, input[type=number]:focus { box-shadow: inset 1px 1px 0 #000, inset -1px -1px 0 #dfdfdf, 0 0 0 1px var(--navy); }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row.tight { gap: 4px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .list3 { display: grid; gap: 4px; }
+  button, .btn {
+    font: bold 12px var(--ui); color: #000; cursor: pointer; padding: 5px 10px; background: var(--win);
+    border-top: 1px solid #fff; border-left: 1px solid #fff;
+    border-right: 1px solid #000; border-bottom: 1px solid #000;
+    box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #dfdfdf;
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none; line-height: 1.2;
+  }
+  button:active, .btn:active, button.on {
+    border-top: 1px solid #000; border-left: 1px solid #000;
+    border-right: 1px solid #fff; border-bottom: 1px solid #fff;
+    box-shadow: inset 1px 1px 0 #808080, inset -1px -1px 0 #dfdfdf;
+    background: #d8d8d8;
+  }
+  button.on { background: #e6e6e6; }
+  button:disabled { color: #808080; text-shadow: 1px 1px 0 #fff; cursor: default; }
+  button .ico { width: 16px; height: 16px; image-rendering: pixelated; }
+  button:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+  .pickwrap { display: inline-flex; align-items: center; gap: 4px; }
+  .pickwrap .pick { flex: 1 1 auto; }
+  .pickwrap .inc { width: 15px; height: 15px; margin: 0; }
+  #iconRow { display: grid; grid-template-columns: repeat(5, 1fr); }
+  .icons button { padding: 4px 5px; justify-content: center; }
+  .icons button .ico { width: 24px; height: 24px; }
+  .checks { display: flex; gap: 4px 12px; flex-wrap: wrap; }
+  .checks label { display: inline-flex; align-items: center; gap: 5px; margin: 4px 0 0; }
+  #handles { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; margin-top: 6px; }
+  #handles label { margin: 0; font-size: 11px; }
+  #handles input { padding: 3px 6px; font-size: 12px; }
+  .days { display: flex; gap: 4px; flex-wrap: wrap; }
+  .days button { min-width: 36px; justify-content: center; padding: 5px 0; }
+  .colors { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; }
+  .colors label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+  input[type=color] { width: 30px; height: 22px; padding: 0; border: 1px solid #000; background: #fff; cursor: pointer; }
+  input[type=file] { font: 12px var(--ui); max-width: 100%; }
+  .themes { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+  .themes button { padding: 4px 8px; font-weight: normal; }
+  .sw { width: 12px; height: 12px; border: 1px solid #000; display: inline-block; }
+  .hint { font-size: 11px; color: #303030; line-height: 1.55; margin-top: 8px; }
+  .hint b { color: #000; }
+  .avatarRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .avatarRow label { margin: 0; display: inline-flex; align-items: center; gap: 5px; }
+  .linkish, .linkish:active { background: none; border: none; box-shadow: none; padding: 0; font: 11px var(--ui); color: #000080; text-decoration: underline; cursor: pointer; }
+
+  /* ── Preview ──────────────────────────────────────────── */
+  .pv-wrap { position: sticky; top: 16px; }
+  .pvbox {
+    padding: 14px;
+    background: #18181b;   /* Twitch's panel-area ground */
+    border-top: 1px solid #808080; border-left: 1px solid #808080;
+    border-right: 1px solid #fff;   border-bottom: 1px solid #fff;
+    box-shadow: inset 1px 1px 0 #000, inset -1px -1px 0 #dfdfdf;
+  }
+  canvas { display: block; }
+  #cv { width: 100%; height: auto; image-rendering: auto; }
+  .actual { margin-top: 14px; display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .actual .lab { font-size: 11px; color: #c8c8cc; line-height: 1.5; max-width: 250px; }
+  .actual .lab b { color: #fff; }
+  .twitchcol { width: 320px; flex: 0 0 auto; }
+  #cv1 { width: 320px; height: 100px; image-rendering: auto; }
+  .fakedesc { font: 13px/1.4 Inter, "Helvetica Neue", Arial, sans-serif; color: #adadb8; padding: 6px 0 0; }
+  .fakedesc a { color: #bf94ff; text-decoration: none; }
+  #setBox { display: none; margin-top: 10px; padding: 12px; background: #18181b;
+    border-top: 1px solid #808080; border-left: 1px solid #808080; border-right: 1px solid #fff; border-bottom: 1px solid #fff; }
+  #setBox.on { display: block; }
+  #setBox .lab { font-size: 11px; color: #c8c8cc; margin-bottom: 8px; }
+  #setBox .lab b { color: #fff; }
+  #setCol { display: grid; grid-template-columns: repeat(auto-fill, 320px); gap: 10px; }
+  #setCol canvas { width: 320px; height: 100px; }
+  .sugg { margin-top: 8px; }
+  .sugg label { margin: 0 0 3px; }
+  .sugg textarea { width: 100%; font: 12px var(--ui); padding: 5px 7px; background: #fff; resize: vertical;
+    border-top: 1px solid #808080; border-left: 1px solid #808080; border-right: 1px solid #fff; border-bottom: 1px solid #fff;
+    box-shadow: inset 1px 1px 0 #000, inset -1px -1px 0 #dfdfdf; }
+  .status { display: flex; gap: 4px; margin: 8px 0 0; }
+  .status span {
+    flex: 1; padding: 3px 6px; font-size: 11px; color: #202020;
+    border-top: 1px solid #808080; border-left: 1px solid #808080;
+    border-right: 1px solid #fff;   border-bottom: 1px solid #fff;
+  }
+  .dl-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+  .dl-row .primary { background: #e0e0e0; }
+  .dl-row .note { font-size: 11px; color: #303030; }
+
+  /* ── Taskbar CTA ──────────────────────────────────────── */
+  .taskbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+    background: var(--win); border-top: 1px solid #fff; box-shadow: 0 -1px 0 #dfdfdf;
+    padding: 4px 6px; display: flex; align-items: center; gap: 8px; font-size: 12px;
+  }
+  .taskbar .start { font-weight: bold; padding: 4px 8px; }
+  .taskbar .start .ico { width: 16px; height: 16px; image-rendering: pixelated; }
+  .taskbar .sep { width: 2px; height: 22px; background: #808080; border-right: 1px solid #fff; }
+  .taskbar .task {
+    flex: 1 1 auto; min-width: 0; padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border-top: 1px solid #808080; border-left: 1px solid #808080;
+    border-right: 1px solid #fff;   border-bottom: 1px solid #fff;
+    background: #d4d4d4;
+  }
+  .taskbar .tray {
+    padding: 4px 8px; font-size: 11px; white-space: nowrap;
+    border-top: 1px solid #808080; border-left: 1px solid #808080;
+    border-right: 1px solid #fff;   border-bottom: 1px solid #fff;
+  }
+  @media (max-width: 600px) { .taskbar .task { display: none; } }
 </style>
 </head>
 <body>
-  <div class="win">
-    <div class="tb">Retro Messenger Panel Maker — make YOUR panels</div>
-    <div class="body">
-      <label>Quick presets</label>
-      <div class="row">
-        <button class="preset" onclick="preset('About Me','Get to know the streamer',[])">About Me</button>
-        <button class="preset" onclick="preset('Schedule','Live Tue / Thu / Sat, 7 PM',[])">Schedule</button>
-        <button class="preset" onclick="preset('Chat Rules','Keep the chatroom friendly',[])">Chat Rules</button>
-        <button class="preset" onclick="preset('Socials','Find me everywhere else',['YT','IG','X','TT','DC'])">Socials</button>
-        <button class="preset" onclick="preset('Support the Stream','File transfers gratefully accepted',[])">Support</button>
-      </div>
+<div class="desk">
 
-      <label for="title">Panel title</label>
-      <input type="text" id="title" value="About Me" maxlength="26" oninput="draw()">
-
-      <label for="subtitle">Small line (optional)</label>
-      <input type="text" id="subtitle" value="Get to know the streamer" maxlength="44" oninput="draw()">
-
-      <label>Social keys (shown as classic keyboard keys)</label>
-      <div class="checks">
-        <label><input type="checkbox" value="YT" onchange="draw()"> YouTube</label>
-        <label><input type="checkbox" value="IG" onchange="draw()"> Instagram</label>
-        <label><input type="checkbox" value="X"  onchange="draw()"> X</label>
-        <label><input type="checkbox" value="TT" onchange="draw()"> TikTok</label>
-        <label><input type="checkbox" value="DC" onchange="draw()"> Discord</label>
-        <label><input type="checkbox" value="TW" onchange="draw()"> Twitch</label>
-      </div>
-
-      <div class="colors">
-        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Titlebar
-          <input type="color" id="accent" value="#000080" oninput="draw()"></label>
-        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Window
-          <input type="color" id="winbg" value="#c0c0c0" oninput="draw()"></label>
-      </div>
+  <!-- ── Window 1: controls ───────────────────────────────────────── -->
+  <div class="win" id="controls">
+    <div class="tb">
+      <canvas class="ico" data-icon="buddy" width="16" height="16" aria-hidden="true"></canvas>
+      <span class="ttl">Retro Messenger Panel Maker</span>
+      <span class="btns" aria-hidden="true">
+        <span class="wb"><svg viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="6" width="6" height="2" fill="#000"/></svg></span>
+        <span class="wb"><svg viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="0.5" y="0.5" width="7" height="7" fill="none" stroke="#000"/><rect x="0" y="0" width="8" height="2" fill="#000"/></svg></span>
+        <span class="wb"><svg viewBox="0 0 8 8" shape-rendering="crispEdges"><path d="M0,0 L2,0 L4,2 L6,0 L8,0 L8,1 L5,4 L8,7 L8,8 L6,8 L4,6 L2,8 L0,8 L0,7 L3,4 L0,1 Z" fill="#000"/></svg></span>
+      </span>
     </div>
-  </div>
-
-  <div class="win">
-    <div class="tb">Preview (640 x 200 — Twitch shows it at 320 wide)</div>
+    <div class="menubar"><button type="button" class="menu" data-go="presetRow">Panels</button><button type="button" class="menu" data-go="controls">This panel</button><button type="button" class="menu" data-go="help">Help</button><span class="sp"></span><span class="st">Make YOUR panels</span></div>
     <div class="body">
-      <canvas id="cv" width="640" height="200"></canvas>
-      <div class="row" style="margin-top:12px;">
-        <button class="dl" onclick="download()">&#11015; Download PNG</button>
-      </div>
+
+      <fieldset class="grp">
+        <div class="lg"><span>1. Pick a panel</span><small>&#9745; = in the .zip / preview-all</small></div>
+        <div class="row tight" id="presetRow" role="group" aria-label="Panel presets"></div>
+      </fieldset>
+
+      <fieldset class="grp">
+        <div class="lg"><span>2. About you</span><small>About Me, Socials, Discord &amp; Support</small></div>
+        <label for="sn">Screen name <span class="cnt" id="snCnt"></span></label>
+        <input type="text" id="sn" value="RetroStreamer" maxlength="25" autocomplete="off" spellcheck="false">
+        <label>Avatar (shown on About Me)</label>
+        <div class="avatarRow">
+          <input type="file" id="avatar" accept="image/png,image/jpeg,image/gif,image/webp">
+          <label><input type="checkbox" id="pixelate" checked> Pixelate</label>
+          <button type="button" id="avatarClear" style="display:none">Use smiley</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="grp">
+        <div class="lg"><span>3. This panel <small id="thisName"></small></span><button type="button" class="linkish" id="resetOne">Reset this panel</button></div>
+        <label for="title">Panel title <span class="cnt" id="titleCnt"></span></label>
+        <input type="text" id="title" value="" maxlength="22" autocomplete="off">
+
+        <label>Title icon</label>
+        <div class="row tight icons" id="iconRow" role="group" aria-label="Title icon"></div>
+
+        <div id="tagBlock">
+          <label for="tag" id="tagLabel">Small line <span class="cnt" id="tagCnt"></span></label>
+          <input type="text" id="tag" value="" maxlength="34" autocomplete="off">
+        </div>
+
+        <div id="tag2Block">
+          <label for="tag2">Second line <span class="cnt" id="tag2Cnt"></span></label>
+          <input type="text" id="tag2" value="" maxlength="34" autocomplete="off">
+        </div>
+
+        <div id="listBlock">
+          <label>Up to 3 lines <span class="cnt">34 each · &quot;key - detail&quot; colours the key</span></label>
+          <div class="list3">
+            <input type="text" id="li1" maxlength="34" autocomplete="off" placeholder="Line 1">
+            <input type="text" id="li2" maxlength="34" autocomplete="off" placeholder="Line 2">
+            <input type="text" id="li3" maxlength="34" autocomplete="off" placeholder="Line 3">
+          </div>
+        </div>
+
+        <div id="daysBlock">
+          <label>Sign-on days</label>
+          <div class="days" id="days" role="group" aria-label="Days of the week"></div>
+          <label for="time">Time <span class="cnt" id="timeCnt"></span></label>
+          <input type="text" id="time" value="7:00 PM CT" maxlength="14" autocomplete="off">
+        </div>
+
+        <div id="socBlock">
+          <label>Platforms (up to 6 — one row each)</label>
+          <div class="checks" id="socials"></div>
+          <div id="handles"></div>
+        </div>
+
+        <div id="goalBlock">
+          <label style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="showGoal"> Show a numeric goal instead (numbers go stale — re-export when they change)</label>
+          <div id="xferField"><label for="xfer">File name (the gag) <span class="cnt" id="xferCnt"></span></label><input type="text" id="xfer" value="thank_you.wav" maxlength="18" autocomplete="off"></div>
+          <div class="two" id="goalFields">
+            <div><label for="goalLabel">Goal label <span class="cnt" id="goalLabelCnt"></span></label><input type="text" id="goalLabel" value="Sub goal" maxlength="14" autocomplete="off"></div>
+            <div><label for="goal">Progress <span class="cnt">e.g. 31 / 50</span></label><input type="text" id="goal" value="31 / 50" maxlength="11" autocomplete="off"></div>
+          </div>
+        </div>
+
+        <div id="inviteBlock"><label for="invite">Discord invite link (for the description text) <span class="cnt" id="inviteCnt"></span></label><input type="text" id="invite" value="" maxlength="32" placeholder="discord.gg/…" autocomplete="off"></div>
+        <div id="tipBlock"><label for="tip">Tip link (for the description text) <span class="cnt" id="tipCnt"></span></label><input type="text" id="tip" value="" maxlength="40" placeholder="streamelements.com/you/tip" autocomplete="off"></div>
+
+        <label for="st">Status (top-right corner) <span class="cnt" id="stCnt"></span></label>
+        <input type="text" id="st" value="" maxlength="20" autocomplete="off">
+      </fieldset>
+
+      <fieldset class="grp">
+        <div class="lg"><span>4. Colors</span><small>used on every panel</small></div>
+        <div class="themes" id="themes" role="group" aria-label="Color themes"></div>
+        <div class="colors">
+          <label>Title bar <input type="color" id="c1" value="#000080"></label>
+          <label>Title bar fade <input type="color" id="c2" value="#1084d0"></label>
+          <label>Window gray <input type="color" id="c3" value="#c0c0c0"></label>
+          <label><input type="checkbox" id="grad" checked> Gradient title bar (off = Win95)</label>
+        </div>
+      </fieldset>
+
       <div class="hint">
-        Make as many as you like: set the text, click Download, repeat.
-        Upload on Twitch under <b>About &rarr; Edit Panels &rarr; Add a Text or Image Panel &rarr; Add Image</b>.
-        Put your links in the panel's "Image Links To" / description fields on Twitch.
+        Presets are starting points — change any text. Your edits are kept in this browser until you
+        <button type="button" class="linkish" id="resetAll">start over</button>.
       </div>
     </div>
   </div>
 
-  <div class="win" style="width:700px;">
-    <div class="body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-      <span style="font-size:12px;">Part of the <b>Retro Messenger Stream Kit</b> — chat, alerts, scenes, goal bar &amp; game frame.</span>
-      <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
-      <a class="dl" style="text-decoration:none;color:#000;"
-         href="https://www.etsy.com/listing/4469875012/retro-messenger-twitch-chat-widget?utm_source=panel-maker&utm_medium=web&utm_campaign=retro-messenger">View on Etsy &#8594;</a>
+  <!-- ── Window 2: preview + download ─────────────────────────────── -->
+  <div class="pv-wrap">
+    <div class="win">
+      <div class="tb">
+        <canvas class="ico" data-icon="computer" width="16" height="16" aria-hidden="true"></canvas>
+        <span class="ttl">Preview — <span id="pvName">About Me</span></span>
+        <span class="btns" aria-hidden="true">
+          <span class="wb"><svg viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="1" y="6" width="6" height="2" fill="#000"/></svg></span>
+          <span class="wb"><svg viewBox="0 0 8 8" shape-rendering="crispEdges"><rect x="0.5" y="0.5" width="7" height="7" fill="none" stroke="#000"/><rect x="0" y="0" width="8" height="2" fill="#000"/></svg></span>
+          <span class="wb"><svg viewBox="0 0 8 8" shape-rendering="crispEdges"><path d="M0,0 L2,0 L4,2 L6,0 L8,0 L8,1 L5,4 L8,7 L8,8 L6,8 L4,6 L2,8 L0,8 L0,7 L3,4 L0,1 Z" fill="#000"/></svg></span>
+        </span>
+      </div>
+      <div class="body">
+        <div class="pvbox">
+          <canvas id="cv" width="640" height="200" aria-label="Panel preview at 2x"></canvas>
+          <div class="actual">
+            <div class="twitchcol">
+              <canvas id="cv1" width="320" height="100" aria-label="Panel preview at actual Twitch size"></canvas>
+              <div class="fakedesc">Your links &amp; details go here — <a href="#" onclick="return false">Twitch's text field</a></div>
+            </div>
+            <div class="lab"><b>Actual size on Twitch</b> (320 px wide, dark theme). The banner carries the title; the gray text is where your own links live. Downloads are 2× so they stay crisp on high-DPI screens.</div>
+          </div>
+        </div>
+        <div class="status"><span id="stDims">640 × 200 PNG</span><span id="stFile">01_about_me.png</span></div>
+        <div class="sugg">
+          <label for="suggText">Suggested text for this panel's Twitch description <button type="button" class="linkish" id="copySugg">copy</button></label>
+          <textarea id="suggText" rows="2" readonly></textarea>
+          <div class="hint" style="margin-top:4px">Twitch gives each image <b>one</b> link ("Image Links To") — put the rest in the description.</div>
+        </div>
+        <div class="dl-row" id="dlRow">
+          <button class="primary" id="dlOne">Download this panel</button>
+          <button id="dlAll">Download all (.zip)</button>
+          <button id="showSet" aria-pressed="false">Preview all</button>
+          <span class="note" id="dlNote"></span>
+        </div>
+        <div id="setBox">
+          <div class="lab"><b>The whole set</b> at Twitch size — exactly what the .zip contains, in upload order.</div>
+          <div id="setCol"></div>
+        </div>
+        <div class="hint" id="help">
+          <b>On Twitch:</b> About &rarr; Edit Panels &rarr; Add a Text or Image Panel &rarr; Add Image. Put your links and
+          details in the panel's <b>Image Links To</b> and description fields underneath the banner.
+        </div>
+      </div>
     </div>
   </div>
+</div>
+
+<!-- ── Taskbar: kit CTA ─────────────────────────────────────────────── -->
+<div class="taskbar">
+  <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
+  <a class="btn start" href="https://www.etsy.com/listing/4469875012/retro-messenger-twitch-chat-widget?utm_source=panel-maker&utm_medium=web&utm_campaign=retro-messenger" target="_blank" rel="noopener noreferrer">
+    <canvas class="ico" data-icon="buddy" width="16" height="16" aria-hidden="true"></canvas> View on Etsy &#8594;
+  </a>
+  <span class="sep"></span>
+  <span class="task">Part of the <b>Retro Messenger Stream Kit</b> — chat, alerts, scenes, goal bar &amp; game frame</span>
+  <span class="tray">Senergy Group</span>
+</div>
 
 <script>
-var cv = document.getElementById('cv');
-var ctx = cv.getContext('2d');
+(function () {
+  'use strict';
 
-function bevelRect(x, y, w, h, raised, bg) {
-  if (bg) { ctx.fillStyle = bg; ctx.fillRect(x, y, w, h); }
-  ctx.fillStyle = raised ? '#dfdfdf' : '#808080';
-  ctx.fillRect(x, y, w, 3); ctx.fillRect(x, y, 3, h);
-  ctx.fillStyle = raised ? '#000000' : '#ffffff';
-  ctx.fillRect(x, y + h - 3, w, 3); ctx.fillRect(x + w - 3, y, 3, h);
-  ctx.fillStyle = raised ? '#ffffff' : '#000000';
-  ctx.fillRect(x + 3, y + 3, w - 6, 2); ctx.fillRect(x + 3, y + 3, 2, h - 6);
-}
+  /* ───────────────────────── pixel art ───────────────────────── */
+  var PAL = {
+    k: '#000000', w: '#ffffff', g: '#c0c0c0', G: '#808080', d: '#dfdfdf',
+    y: '#ffff00', Y: '#e0b000', n: '#000080', b: '#1084d0', B: '#a6caf0',
+    r: '#c51d1d', R: '#ff6a6a', e: '#008000', E: '#40c040', o: '#ff8000', t: '#008080',
+    p: '#ffcc99'
+  };
+  var ICONS = {
+    buddy: [
+      '................',
+      '.....kkkkkk.....',
+      '...kkyyyyyykk...',
+      '..kyyyyyyyyyyk..',
+      '.kyyyyyyyyyyyyk.',
+      '.kyyykkyyyykkyk.',
+      'kyyyykkyyyykkyyk',
+      'kyyyyyyyyyyyyyyk',
+      'kyyyyyyyyyyyyyyk',
+      'kyykyyyyyyyykyyk',
+      '.kyyykyyyyyykyk.',
+      '.kyyyykkkkkkyyk.',
+      '..kyyyyyyyyyyk..',
+      '...kkyyyyyykk...',
+      '.....kkkkkk.....',
+      '................'
+    ],
+    calendar: [
+      '................',
+      '....kk....kk....',
+      '....kGk...kGk...',
+      '.kkkkkkkkkkkkkk.',
+      '.knnnnnnnnnnnnk.',
+      '.knnnnnnnnnnnnk.',
+      '.kwwwwwwwwwwwwk.',
+      '.kwkkwkkwkkwwwk.',
+      '.kwwwwwwwwwwwwk.',
+      '.kwkkwkkwrrwwwk.',
+      '.kwwwwwwwwwwwwk.',
+      '.kwkkwwwwwwwwwk.',
+      '.kwwwwwwwwwwwwk.',
+      '.kkkkkkkkkkkkkk.',
+      '................',
+      '................'
+    ],
+    lock: [
+      '................',
+      '.....GGGGGG.....',
+      '....GkkkkkkG....',
+      '....Gk....kG....',
+      '....Gk....kG....',
+      '....Gk....kG....',
+      '..kkkkkkkkkkkk..',
+      '..kyyyyyyyyyyk..',
+      '..kyyyyyyyyyyk..',
+      '..kyyyykkyyyyk..',
+      '..kyyyykkyyyyk..',
+      '..kyyyyykyyyyk..',
+      '..kYYYYYYYYYYk..',
+      '..kkkkkkkkkkkk..',
+      '................',
+      '................'
+    ],
+    globe: [
+      '................',
+      '.....kkkkkk.....',
+      '...kkbbbbbbkk...',
+      '..kbbbeebbbbbk..',
+      '.kbbeeeebbbbeek.',
+      '.kbeeeeebbbbeek.',
+      'kbbeeeebbbbbbbbk',
+      'kbbbeebbbeeebbbk',
+      'kbbbbbbbeeeeebbk',
+      'kbbbbbbbeeeeebbk',
+      '.kbbbbbbbeeebbk.',
+      '.kbbeebbbbbbbbk.',
+      '..kbeeebbbbbbk..',
+      '...kkbbbbbbkk...',
+      '.....kkkkkk.....',
+      '................'
+    ],
+    heart: [
+      '................',
+      '..kkk.....kkk...',
+      '.krrrk...krrrk..',
+      'krRrrrk.krrrrrk.',
+      'kRrrrrrkrrrrrrk.',
+      'krrrrrrrrrrrrrk.',
+      'krrrrrrrrrrrrrk.',
+      '.krrrrrrrrrrrk..',
+      '..krrrrrrrrrk...',
+      '...krrrrrrrk....',
+      '....krrrrrk.....',
+      '.....krrrk......',
+      '......krk.......',
+      '.......k........',
+      '................',
+      '................'
+    ],
+    rooms: [
+      '................',
+      '.kkkkkkkkkk.....',
+      'knnnnnnnnnnk....',
+      'knnnnnnnnnnk....',
+      'knnwnnwnnwnk....',
+      'knnnnnnnnnnk....',
+      'kkkkkknnnnnk....',
+      '....kknnkkkkkkk.',
+      '...kkkkkkyyyyyyk',
+      '........kyyyyyyk',
+      '........kyykykyk',
+      '........kyyyyyyk',
+      '........kyyyykkk',
+      '........kkkkkkk.',
+      '..........kk....',
+      '................'
+    ],
+    computer: [
+      '................',
+      '.kkkkkkkkkkkkkk.',
+      '.kggggggggggggk.',
+      '.kgkkkkkkkkkkgk.',
+      '.kgknnnnnnnnkgk.',
+      '.kgknwwnnnnnkgk.',
+      '.kgknnnnnnnnkgk.',
+      '.kgknnnnnnnnkgk.',
+      '.kgkkkkkkkkkkgk.',
+      '.kggggggggggggk.',
+      '.kkkkkkkkkkkkkk.',
+      '......kkkk......',
+      '....kkkggkkk....',
+      '...kggggggggk...',
+      '...kkkkkkkkkk...',
+      '................'
+    ],
+    star: [
+      '................',
+      '.......kk.......',
+      '......kyyk......',
+      '......kyyk......',
+      '.....kyyyyk.....',
+      'kkkkkkyyyykkkkkk',
+      'kyyyyyyyyyyyyyyk',
+      '.kyyyyyyyyyyyyk.',
+      '..kyyyyyyyyyyk..',
+      '...kyyyyyyyyk...',
+      '...kyyyyyyyyk...',
+      '..kyyyykkyyyyk..',
+      '..kyykk..kkyyk..',
+      '.kykk......kkyk.',
+      '.kk..........kk.',
+      '................'
+    ],
+    terminal: [
+      '................',
+      'kkkkkkkkkkkkkkkk',
+      'knnnnnnnnnnnnnnk',
+      'kkkkkkkkkkkkkkkk',
+      'kkkkkkkkkkkkkkkk',
+      'kkEkkkkkkkkkkkkk',
+      'kkkEkkkkkkkkkkkk',
+      'kkkkEkkkkkkkkkkk',
+      'kkkEkkEEEEkkkkkk',
+      'kkEkkkkkkkkkkkkk',
+      'kkkkkkkkkkkkkkkk',
+      'kkkkkkkkkkkkkkkk',
+      'kkkkkkkkkkwwkkkk',
+      'kkkkkkkkkkkkkkkk',
+      'kkkkkkkkkkkkkkkk',
+      '................'
+    ],
+    door: [
+      '................',
+      '...kkkkkkkkk....',
+      '...kYYYYYYYYk...',
+      '...kYyyyyyyYk...',
+      '...kYyyyyyyYk...',
+      '...kYyyyyyyYk...',
+      '...kYyyyyykYk...',
+      '...kYyyyyykYk...',
+      '...kYyyyyyyYk...',
+      '...kYyyyyyyYk...',
+      '...kYyyyyyyYk...',
+      '...kYyyyyyyYk...',
+      '...kYYYYYYYYk...',
+      '...kkkkkkkkkk...',
+      '................',
+      '................'
+    ]
+  };
+  var ICON_KEYS = ['buddy', 'calendar', 'lock', 'globe', 'rooms', 'heart', 'star', 'computer', 'terminal', 'door'];
 
-function key(x, y, label) {
-  bevelRect(x, y, 52, 40, true, document.getElementById('winbg').value);
-  ctx.fillStyle = '#000';
-  ctx.font = 'bold 17px Tahoma, Arial';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(label, x + 26, y + 21);
-}
+  // 8x8 glyphs for the social chips — plain shapes, deliberately not brand logos
+  var GLYPH = {
+    TW: ['wwwwwwww', 'w......w', 'w......w', 'w......w', 'wwwwwwww', '...ww...', '..wwww..', '........'],   // screen
+    YT: ['........', '..w.....', '..ww....', '..www...', '..wwww..', '..www...', '..ww....', '..w.....'],   // play
+    DC: ['........', '.wwwwww.', 'wwwwwwww', 'ww.ww.ww', 'wwwwwwww', 'wwwwwwww', 'ww....ww', '........'],   // controller
+    TT: ['.....ww.', '....w.w.', '....w...', '....w...', '....w...', '..www...', '.wwww...', '..ww....'],   // note
+    IG: ['wwwwwwww', 'w......w', 'w..ww..w', 'w.w..w.w', 'w.w..w.w', 'w..ww..w', 'w......w', 'wwwwwwww'],   // camera
+    X:  ['w......w', '.w....w.', '..w..w..', '...ww...', '...ww...', '..w..w..', '.w....w.', 'w......w'],   // x
+    BS: ['w......w', 'ww....ww', 'www..www', '.wwwwww.', '.wwwwww.', '..wwww..', '..w..w..', '.w....w.']    // butterfly
+  };
 
-function draw() {
-  var title = document.getElementById('title').value || ' ';
-  var subtitle = document.getElementById('subtitle').value;
-  var accent = document.getElementById('accent').value;
-  var winbg = document.getElementById('winbg').value;
-  var socials = Array.prototype.slice.call(document.querySelectorAll('.checks input:checked')).map(function(c) { return c.value; });
+  function drawPixels(ctx, key, x, y, s, rows) {
+    rows = rows || ICONS[key];
+    if (!rows) return;
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      for (var c = 0; c < row.length; c++) {
+        var ch = row[c];
+        if (ch === '.') continue;
+        ctx.fillStyle = PAL[ch] || '#f0f';
+        ctx.fillRect(x + c * s, y + r * s, s, s);
+      }
+    }
+  }
 
-  ctx.clearRect(0, 0, 640, 200);
-  // window
-  bevelRect(0, 0, 640, 200, true, winbg);
-  // titlebar
-  ctx.fillStyle = accent;
-  ctx.fillRect(10, 10, 620, 52);
-  // window buttons
-  var bx = 640 - 10 - 36;
-  [0, 1].forEach(function(i) {
-    bevelRect(bx - i * 42, 18, 36, 32, true, winbg);
+  /* ───────────────────────── presets ─────────────────────────── */
+  var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var SOCIALS = [
+    { key: 'TW', name: 'Twitch',    sw: '#9146ff' },
+    { key: 'YT', name: 'YouTube',   sw: '#e02020' },
+    { key: 'DC', name: 'Discord',   sw: '#5865f2' },
+    { key: 'TT', name: 'TikTok',    sw: '#00c8c8' },
+    { key: 'IG', name: 'Instagram', sw: '#e0407a' },
+    { key: 'X',  name: 'X',         sw: '#000000' },
+    { key: 'BS', name: 'Bluesky',   sw: '#1185fe' }
+  ];
+  var PRESETS = [
+    { key: 'about',     label: 'About Me',  icon: 'buddy',    layout: 'info',
+      title: 'About Me', tag: 'Retro games, cozy vibes.', tag2: 'Live Tue / Thu / Sat since 2019', st: 'Online',
+      readme: 'Who you are, what you stream, when you started. Keep it to 3 lines.' },
+    { key: 'schedule',  label: 'Schedule',  icon: 'calendar', layout: 'days',
+      title: 'Schedule', tag: 'Follow to get notified', st: 'Buddy Alert: ON',
+      readme: 'Tue / Thu / Sat - 7:00 PM CT (your time zone). Mention if it changes.' },
+    { key: 'rules',     label: 'Rules',     icon: 'lock',     layout: 'list',
+      title: 'Chat Rules', lines: ['Be cool', 'No spoilers', 'Mods are final'], st: 'Warning Level: 0%',
+      readme: 'Your full rules list. Short numbered lines read best.' },
+    { key: 'socials',   label: 'Socials',   icon: 'globe',    layout: 'buttons',
+      title: 'Socials', tag: '', st: 'See links below',
+      readme: 'One link per line: YouTube, Discord, TikTok... Set "Image Links To" to the one that matters most.' },
+    { key: 'discord',   label: 'Discord',   icon: 'rooms',    layout: 'invite',
+      title: 'Discord', tag: 'Hang out between streams', st: '3 buddies online',
+      readme: 'Paste your permanent invite link in "Image Links To" so the whole banner is clickable.' },
+    { key: 'subscribe', label: 'Subscribe', icon: 'star',     layout: 'list',
+      title: 'Subscribe', lines: ['Ad-free viewing', 'Custom emotes', 'Sub badge in chat'], st: 'Sub Alert: ON',
+      readme: 'What subs get. Link "Image Links To" to your subscribe page.' },
+    { key: 'support',   label: 'Support',   icon: 'heart',    layout: 'transfer',
+      title: 'Support the Stream', tag: 'Bits, tips & subs keep the lights on', st: 'Transfer complete',
+      readme: 'Your tip / Ko-fi / StreamElements link. Update the goal numbers in the maker as you go.' },
+    { key: 'commands',  label: 'Commands',  icon: 'terminal', layout: 'list',
+      title: 'Commands', lines: ['!discord - join the server', '!specs - my PC build', '!schedule - when I am live'], st: 'Idle: 0 min',
+      readme: 'List every chat command and what it does.' },
+    { key: 'specs',     label: 'Specs',     icon: 'computer', layout: 'list',
+      title: 'PC Specs', lines: ['CPU - Ryzen 7 7800X3D', 'GPU - RTX 4070', 'RAM - 32 GB'], st: 'Ping: 12 ms',
+      readme: 'Full build: CPU, GPU, RAM, mic, camera, capture card.' },
+    { key: 'custom',    label: 'Custom',    icon: 'door',     layout: 'list',
+      title: 'Giveaways', lines: ['Every 100 followers', 'Winners picked live', 'Must be in chat'], st: 'Online',
+      readme: 'Anything else: giveaways, merch, sponsors, emotes. Retitle it and change the three lines.' }
+  ];
+  var THEMES = [
+    { name: 'Classic',   c1: '#000080', c2: '#1084d0', c3: '#c0c0c0', grad: true },
+    { name: 'Win2000',   c1: '#0a246a', c2: '#a6caf0', c3: '#d4d0c8', grad: true },
+    { name: 'Hot Pink',  c1: '#a0106a', c2: '#ff6ac0', c3: '#e8d8e4', grad: true },
+    { name: 'Midnight',  c1: '#1a1040', c2: '#5a3cc8', c3: '#3a3a3a', grad: true },
+    { name: 'Teal',      c1: '#006060', c2: '#20b0a0', c3: '#c0c0c0', grad: true }
+  ];
+
+  /* ───────────────────────── state ───────────────────────────── */
+  var $ = function (id) { return document.getElementById(id); };
+  var state = {
+    preset: 'about',
+    days: { Mon: false, Tue: true, Wed: false, Thu: true, Fri: false, Sat: true, Sun: false },
+    socials: { TW: true, YT: true, DC: true, TT: false, IG: false, X: false, BS: false },
+    handles: {},
+    avatar: null,        // 32x32 / 64x64 canvas when the buyer uploads a picture
+    avatarSrc: null      // original Image (re-pixelated when the checkbox toggles)
+  };
+  var edits = {};   // per-preset edits: {title, tag, tag2, st, lines, icon}
+  var include = {};  // preset key → in the zip / preview-all (default true)
+  function included() { return PRESETS.filter(function (p) { return include[p.key] !== false; }); }
+
+  function presetDef(key) {
+    for (var i = 0; i < PRESETS.length; i++) if (PRESETS[i].key === key) return PRESETS[i];
+    return PRESETS[0];
+  }
+  function shared() {
+    return {
+      screen: $('sn').value.trim() || 'RetroStreamer',
+      time: $('time').value.trim(), days: state.days, socials: state.socials, handles: state.handles,
+      goalLabel: $('goalLabel').value.trim(), goal: $('goal').value.trim(), showGoal: $('showGoal').checked, xfer: $('xfer').value.trim(),
+      avatar: state.avatar,
+      c1: $('c1').value, c2: $('c2').value, c3: $('c3').value, grad: $('grad').checked
+    };
+  }
+  function panelFor(p) {   // preset defaults + saved edits + shared personalization
+    var e = edits[p.key] || {}, s = shared();
+    s.preset = p;
+    s.title = e.title != null ? e.title : p.title;
+    s.tag = e.tag != null ? e.tag : (p.tag || '');
+    s.tag2 = e.tag2 != null ? e.tag2 : (p.tag2 || '');
+    s.st = e.st != null ? e.st : p.st;
+    s.lines = e.lines || p.lines || [];
+    s.icon = e.icon || p.icon;
+    return s;
+  }
+  function currentPanel() { return panelFor(presetDef(state.preset)); }
+
+  /* ───────────────────────── colour helpers ──────────────────── */
+  function hexToRgb(h) {
+    h = h.replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    var n = parseInt(h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function lum(h) { var c = hexToRgb(h); return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255; }
+  function shade(h, f) {
+    var c = hexToRgb(h).map(function (v) { return Math.max(0, Math.min(255, Math.round(f >= 1 ? v + (255 - v) * (f - 1) : v * f))); });
+    return 'rgb(' + c.join(',') + ')';
+  }
+  function inkFor(bg) { return lum(bg) > 0.55 ? '#000000' : '#ffffff'; }
+  function contrast(a, b) { var la = lum(a), lb = lum(b); return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05); }
+  function lighten(hex, steps) {   // lift a colour towards white until it reads on a dark field
+    var c = hexToRgb(hex).map(function (v) { return Math.round(v + (255 - v) * steps); });
+    return '#' + c.map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('');
+  }
+  function readable(hex, field, min) { var t = 0, out = hex; while (contrast(out, field) < min && t < 1) { t += 0.1; out = lighten(hex, t); } return out; }
+  function palette(P) {   // field colours follow the chrome: dark chrome → dark field
+    var dark = lum(P.c3) < 0.4, field = dark ? '#16131f' : '#ffffff';
+    return {
+      dark: dark,
+      field: field,
+      ink: dark ? '#f0ecff' : '#000000',
+      sub: dark ? '#d8d4e8' : '#303030',
+      acc: dark ? readable(P.c2, field, 5) : P.c1,   // accent used for text — guaranteed ≥ 5:1 on a dark field
+      chip: dark ? P.c2 : P.c1                        // accent used for fills
+    };
+  }
+
+  /* ───────────────────────── bitmap text engine ──────────────── */
+  // Glyph atlas: three faces pre-rendered at 1x through FreeType's mono rasteriser
+  // (see make_atlas.py). Each glyph = [advance, left, top(rel. baseline), w, h, hexRows].
+  var ATLAS = {"T":{"size":16,"cap":12,"xh":9,"asc":14,"desc":4,"g":{" ":[4,0,0,0,0,[]],"!":[5,1,-12,2,12,["3","3","3","3","3","3","3","3","3","0","3","3"]],"\"":[8,1,-12,6,4,["33","33","33","33"]],"#":[9,0,-12,9,12,["22","22","26","ff","44","44","44","1fe","c8","88","88","88"]],"$":[9,0,-14,9,14,["10","7c","fe","d6","d0","f0","fc","3e","17","13","1d7","fe","7c","10"]],"%":[14,0,-12,16,12,["3818","4430","4620","c660","46c0","64bc","3926","362","663","462","c26","181c"]],"&":[12,1,-12,10,12,["78","fc","cc","cc","f8","1e2","3e2","336","31e","31c","3ff","1f3"]],"'":[4,1,-12,2,4,["3","3","3","3"]],"(":[5,1,-12,4,15,["7","6","6","c","c","c","c","c","c","c","c","c","6","6","7"]],")":[5,0,-12,4,15,["e","6","6","3","3","3","3","3","3","3","3","3","6","6","e"]],"*":[6,0,-12,6,6,["c","d","3f","c","1e","12"]],"+":[9,1,-10,8,8,["10","10","10","ff","ff","10","10","10"]],",":[4,1,-2,2,4,["3","3","1","3"]],"-":[5,1,-5,3,2,["7","7"]],".":[4,1,-2,2,2,["3","3"]],"/":[4,0,-12,4,12,["3","3","2","2","6","6","6","6","4","4","c","c"]],"0":[9,1,-12,7,12,["1c","3e","63","63","63","63","63","63","63","63","3e","1c"]],"1":[9,1,-12,8,12,["38","78","d8","98","18","18","18","18","18","18","ff","ff"]],"2":[9,1,-12,7,12,["3e","7f","63","3","3","6","e","18","30","60","7f","7f"]],"3":[9,0,-12,8,12,["3e","7f","63","3","3","1e","1e","7","3","e3","7f","3e"]],"4":[9,0,-12,9,12,["c","1c","3c","3c","6c","4c","cc","8c","1ff","1ff","c","c"]],"5":[9,1,-12,8,12,["fe","fe","c0","c0","fc","fe","6","7","7","c6","fe","7c"]],"6":[9,1,-12,7,12,["1e","3f","63","60","7e","7f","63","63","63","63","3f","1e"]],"7":[9,1,-12,7,12,["7f","7f","3","6","6","c","c","18","18","18","38","38"]],"8":[9,1,-12,7,12,["3e","7f","63","63","63","3e","3e","63","63","63","7f","3e"]],"9":[9,1,-12,7,12,["3c","7e","63","63","63","63","7f","3f","3","67","7e","3c"]],":":[5,2,-9,2,9,["3","3","0","0","0","0","0","3","3"]],";":[5,2,-9,2,11,["3","3","0","0","0","0","0","3","3","1","3"]],"<":[9,1,-10,7,9,["1","7","3e","70","40","70","3e","7","1"]],"=":[9,1,-7,7,5,["7f","7f","0","7f","7f"]],">":[9,1,-10,7,9,["40","70","3e","7","1","7","3e","70","40"]],"?":[10,1,-12,8,12,["3c","fe","c7","3","3","7","e","18","18","0","38","38"]],"@":[16,1,-12,14,15,["1f8","60c","c02","18eb","1339","3211","2611","2611","2631","2632","2272","139c","1800","c08","3f0"]],"A":[12,1,-12,9,12,["38","38","6c","6c","6c","c6","c6","fe","1ff","183","183","183"]],"B":[12,1,-12,10,12,["3fc","3fe","307","307","306","3fc","3fe","303","303","303","3ff","3fc"]],"C":[12,1,-12,10,12,["7c","1fe","387","383","300","300","300","300","383","1c7","1fe","7c"]],"D":[12,1,-12,10,12,["3f8","3fe","30e","307","303","303","303","303","307","30e","3fe","3f8"]],"E":[11,1,-12,9,12,["1ff","1ff","180","180","180","1ff","1ff","180","180","180","1ff","1ff"]],"F":[10,1,-12,8,12,["ff","ff","c0","c0","c0","ff","ff","c0","c0","c0","c0","c0"]],"G":[12,1,-12,10,12,["fc","1fe","387","300","300","300","31f","31f","303","383","1ff","fc"]],"H":[12,1,-12,10,12,["303","303","303","303","303","3ff","3ff","303","303","303","303","303"]],"I":[4,1,-12,2,12,["3","3","3","3","3","3","3","3","3","3","3","3"]],"J":[9,0,-12,8,12,["1f","1f","3","3","3","3","3","3","3","e7","7e","3c"]],"K":[12,1,-12,10,12,["307","30e","31c","338","370","3f0","3f8","398","31c","30e","307","303"]],"L":[10,1,-12,9,12,["180","180","180","180","180","180","180","180","180","180","1ff","1ff"]],"M":[13,1,-12,11,12,["707","78f","78f","78f","68b","6db","6db","6db","653","673","673","623"]],"N":[12,1,-12,10,12,["383","3c3","3c3","3e3","363","333","333","31b","31f","30f","30f","307"]],"O":[12,1,-12,10,12,["f8","1fe","387","307","303","303","303","303","387","387","1fe","78"]],"P":[11,1,-12,9,12,["1fe","1ff","183","183","183","183","1ff","1fc","180","180","180","180"]],"Q":[12,1,-12,10,15,["78","1fe","387","307","303","303","303","303","307","387","1fe","fc","38","1e","e"]],"R":[12,1,-12,10,12,["3fc","3ff","307","303","307","3fe","3fc","30c","30e","306","307","303"]],"S":[11,1,-12,9,12,["7c","1ff","187","180","1e0","fc","3f","7","3","183","1ff","fc"]],"T":[10,0,-12,10,12,["3ff","3ff","30","30","30","30","30","30","30","30","30","30"]],"U":[12,1,-12,10,12,["303","303","303","303","303","303","303","303","387","387","1fe","fc"]],"V":[11,0,-12,11,12,["707","306","306","38e","18c","18c","1cc","d8","d8","d8","70","70"]],"W":[15,0,-12,15,12,["61c3","71c7","3146","3166","3366","3366","1b6c","1a6c","1a3c","1e3c","1e3c","e38"]],"X":[11,0,-12,11,12,["306","38e","18c","d8","f8","70","78","d8","1dc","18c","306","707"]],"Y":[11,1,-12,9,12,["187","186","ce","cc","78","78","30","30","30","30","30","30"]],"Z":[10,0,-12,9,12,["fe","fe","e","c","1c","38","30","70","60","c0","1ff","1ff"]],"[":[5,1,-12,4,15,["f","c","c","c","c","c","c","c","c","c","c","c","c","c","f"]],"\\":[4,0,-12,4,12,["c","c","4","4","6","6","6","6","2","2","3","3"]],"]":[5,0,-12,4,15,["f","3","3","3","3","3","3","3","3","3","3","3","3","3","f"]],"^":[9,1,-12,7,7,["1c","14","36","26","63","63","41"]],"_":[9,0,1,9,1,["1ff"]],"`":[5,1,-13,3,3,["6","6","3"]],"a":[9,0,-9,9,9,["7c","fe","ce","6","7e","fe","1c6","ff","f7"]],"b":[10,1,-12,8,12,["c0","c0","c0","de","ff","e3","c3","c3","c3","e7","ff","de"]],"c":[9,1,-9,7,9,["1e","7f","63","60","60","60","63","7f","1e"]],"d":[10,1,-12,8,12,["3","3","3","7b","ff","e7","c3","c3","c3","e7","ff","7b"]],"e":[9,1,-9,7,9,["1e","7f","63","7f","7f","60","63","7f","3e"]],"f":[5,0,-12,5,12,["7","f","e","1f","1f","e","e","e","e","e","e","e"]],"g":[10,1,-9,8,12,["7b","ff","e7","c3","c3","c3","e7","ff","7b","7","fe","7c"]],"h":[10,1,-12,8,12,["c0","c0","c0","de","ff","e7","c3","c3","c3","c3","c3","c3"]],"i":[4,1,-12,2,12,["3","3","0","3","3","3","3","3","3","3","3","3"]],"j":[4,0,-12,3,15,["3","3","0","3","3","3","3","3","3","3","3","3","3","7","7"]],"k":[9,1,-12,8,12,["c0","c0","c0","c6","ce","dc","f8","f8","cc","ce","c6","c7"]],"l":[4,1,-12,2,12,["3","3","3","3","3","3","3","3","3","3","3","3"]],"m":[14,1,-9,12,9,["dce","fff","e73","c63","c63","c63","c63","c63","c63"]],"n":[10,1,-9,8,9,["de","ff","e7","c3","c3","c3","c3","c3","c3"]],"o":[10,1,-9,8,9,["3c","7f","e7","c3","c3","c3","e7","7e","3c"]],"p":[10,1,-9,8,12,["de","ff","e7","c3","c3","c3","e7","ff","de","c0","c0","c0"]],"q":[10,1,-9,8,12,["7b","ff","e7","c3","c3","c3","e7","ff","7b","3","3","3"]],"r":[6,1,-9,5,9,["1b","1f","1c","18","18","18","18","18","18"]],"s":[9,1,-9,7,9,["3e","7f","63","78","3f","7","63","7f","3e"]],"t":[5,0,-11,5,11,["4","c","1f","1f","c","c","c","c","c","f","7"]],"u":[10,1,-9,8,9,["c3","c3","c3","c3","c3","c3","e7","ff","7b"]],"v":[9,0,-9,9,9,["1c7","c6","c6","c6","6c","6c","6c","38","38"]],"w":[12,0,-9,13,9,["18e3","18e3","ca6","db6","db6","db6","514","71c","71c"]],"x":[9,0,-9,9,9,["c6","ee","6c","38","38","7c","6c","c6","1c7"]],"y":[9,0,-9,9,12,["1c7","c6","c6","e6","6c","6c","2c","38","38","38","f0","e0"]],"z":[8,1,-9,7,9,["7f","7f","6","c","1c","38","70","7f","7f"]],"{":[6,0,-12,6,15,["7","c","c","c","c","c","c","30","c","c","c","c","c","c","7"]],"|":[4,1,-12,2,16,["3","3","3","3","3","3","3","3","3","3","3","3","3","3","3","3"]],"}":[6,0,-12,6,15,["38","c","c","c","c","c","c","3","c","c","c","c","c","c","38"]],"~":[9,1,-8,7,4,["70","79","4f","7"]],"\u2026":[16,2,-2,12,2,["c63","c63"]],"\u00e9":[9,1,-13,7,13,["7","6","8","0","1e","7f","63","7f","7f","60","63","7f","3e"]],"\u2019":[4,1,-12,2,4,["3","3","1","3"]],"\u00b7":[5,1,-6,2,2,["3","3"]],"\u2013":[9,0,-5,9,2,["1ff","1ff"]],"\u2014":[16,0,-5,16,2,["ffff","ffff"]]}},"E":{"size":14,"cap":10,"xh":7,"asc":12,"desc":3,"g":{" ":[4,0,0,0,0,[]],"!":[5,1,-10,2,10,["3","3","3","3","3","3","3","0","3","3"]],"\"":[7,1,-10,5,4,["1b","1b","1b","1b"]],"#":[8,0,-10,8,10,["12","12","22","7f","24","24","fe","44","48","48"]],"$":[8,0,-10,8,11,["3c","7e","4a","68","7c","1e","b","cb","7e","3c","8"]],"%":[12,0,-10,10,10,["18c","348","358","350","35e","1ab","2b","6b","4b","c6"]],"&":[10,1,-10,9,10,["78","c8","c8","70","e6","1a6","134","19c","1ff","f7"]],"'":[3,1,-10,2,4,["3","2","2","2"]],"(":[5,1,-10,4,13,["3","6","c","c","c","c","c","c","c","c","c","6","3"]],")":[5,0,-10,4,13,["c","6","2","3","3","3","3","3","3","3","2","6","c"]],"*":[5,0,-10,5,5,["4","15","1f","a","a"]],"+":[8,1,-9,7,8,["18","18","18","7f","7f","18","18","18"]],",":[4,1,-2,2,4,["3","3","1","3"]],"-":[5,1,-4,3,2,["7","7"]],".":[4,1,-2,2,2,["3","3"]],"/":[4,0,-10,4,10,["3","3","2","6","6","6","6","4","c","c"]],"0":[8,1,-10,6,10,["1e","3f","33","33","23","23","33","33","3f","1e"]],"1":[8,1,-10,6,10,["c","3c","2c","c","c","c","c","c","3f","3f"]],"2":[8,0,-10,7,10,["1e","3f","33","3","7","e","18","30","3f","7f"]],"3":[8,0,-10,7,10,["1e","3f","33","3","e","f","3","73","3f","1e"]],"4":[8,0,-10,8,10,["e","1e","16","36","66","46","ff","ff","6","6"]],"5":[8,0,-10,8,10,["7e","7e","60","7c","7e","7","3","e6","7e","3c"]],"6":[8,1,-10,6,10,["1e","3f","33","30","2e","3f","33","33","3f","1e"]],"7":[8,1,-10,6,10,["3f","3f","3","2","6","c","c","18","18","18"]],"8":[8,0,-10,8,10,["3c","7e","66","66","7e","7e","66","e7","7e","3c"]],"9":[8,1,-10,6,10,["1e","3f","33","33","3f","1d","3","33","3f","1e"]],":":[5,1,-8,2,8,["3","3","0","0","0","0","3","3"]],";":[5,1,-8,2,10,["3","3","0","0","0","0","3","3","1","1"]],"<":[8,1,-9,6,8,["1","7","1c","30","30","1c","7","1"]],"=":[8,1,-7,6,5,["3f","3f","0","3f","3f"]],">":[8,1,-9,6,8,["20","38","f","3","3","e","38","20"]],"?":[9,1,-10,7,10,["3e","7f","63","3","6","c","18","0","18","18"]],"@":[14,1,-10,12,12,["f8","306","603","4f9","999","909","919","932","9ec","400","60c","1f0"]],"A":[10,0,-10,9,10,["38","38","28","6c","6c","6c","fe","fe","c6","1c3"]],"B":[10,1,-10,8,10,["fe","ff","c3","c3","fe","ff","c3","c3","ff","fe"]],"C":[10,1,-10,8,10,["3e","7f","e3","c0","c0","c0","c0","e3","7f","3e"]],"D":[10,1,-10,8,10,["fc","fe","c7","c3","c3","c3","c3","c7","fe","fc"]],"E":[9,1,-10,7,10,["7f","7f","60","60","7f","7f","60","60","7f","7f"]],"F":[9,1,-10,7,10,["7f","7f","60","60","7f","7f","60","60","60","60"]],"G":[11,1,-10,9,10,["7c","fe","1c3","180","180","18f","18f","1c3","ff","7c"]],"H":[10,1,-10,8,10,["c3","c3","c3","c3","ff","ff","c3","c3","c3","c3"]],"I":[4,1,-10,2,10,["3","3","3","3","3","3","3","3","3","3"]],"J":[8,0,-10,7,10,["f","f","3","3","3","3","3","63","3f","1e"]],"K":[10,1,-10,8,10,["c3","c6","cc","d8","f8","f8","cc","c6","c7","c3"]],"L":[9,1,-10,7,10,["60","60","60","60","60","60","60","60","7f","7f"]],"M":[12,1,-10,11,10,["707","707","78f","78f","68b","6db","6db","673","673","673"]],"N":[10,1,-10,8,10,["c3","e3","f3","f3","db","db","cf","cf","c7","c7"]],"O":[11,1,-10,9,10,["7c","fe","1c7","183","183","183","183","1c7","fe","7c"]],"P":[9,1,-10,8,10,["fc","fe","c7","c6","fe","fc","c0","c0","c0","c0"]],"Q":[11,1,-10,9,13,["7c","fe","1c7","183","183","183","183","1c7","fe","7c","18","1e","e"]],"R":[10,1,-10,8,10,["fe","ff","c3","c3","ff","fc","c6","c6","c3","c3"]],"S":[9,0,-10,8,10,["3e","7f","63","60","7e","f","3","e3","7f","3e"]],"T":[9,0,-10,8,10,["ff","ff","18","18","18","18","18","18","18","18"]],"U":[10,1,-10,8,10,["c3","c3","c3","c3","c3","c3","c3","c7","fe","3c"]],"V":[9,0,-10,9,10,["183","c6","c6","c6","44","6c","6c","28","38","38"]],"W":[13,0,-10,13,10,["18e3","18e3","ca6","ca6","db6","db6","5b4","71c","71c","71c"]],"X":[9,0,-10,9,10,["c6","c6","6c","2c","38","38","6c","6c","c6","1c7"]],"Y":[9,1,-10,8,10,["c3","c3","66","7e","3c","18","18","18","18","18"]],"Z":[9,0,-10,8,10,["7e","7e","6","c","18","38","30","60","ff","ff"]],"[":[5,1,-10,4,13,["f","c","c","c","c","c","c","c","c","c","c","c","f"]],"\\":[4,0,-10,4,10,["c","c","4","6","6","6","6","2","3","3"]],"]":[5,0,-10,4,13,["f","3","3","3","3","3","3","3","3","3","3","3","f"]],"^":[8,1,-10,6,6,["c","1e","12","33","21","21"]],"_":[8,0,1,8,1,["ff"]],"`":[5,1,-12,3,3,["6","2","1"]],"a":[8,0,-7,8,7,["3c","7e","6","7e","c6","ff","73"]],"b":[9,1,-10,7,10,["60","60","60","6e","7f","63","63","63","7f","6e"]],"c":[8,1,-7,7,7,["3c","7e","66","60","67","7e","3c"]],"d":[9,1,-10,7,10,["3","3","3","3b","7f","63","63","63","7f","3b"]],"e":[8,1,-7,7,7,["3e","63","61","7f","60","7f","3e"]],"f":[5,0,-10,5,10,["7","f","c","1f","1f","c","c","c","c","c"]],"g":[9,1,-7,7,10,["3b","7f","63","63","63","7f","3b","3","7f","3e"]],"h":[9,1,-10,7,10,["60","60","60","6e","7f","63","63","63","63","63"]],"i":[4,1,-10,2,10,["3","3","0","3","3","3","3","3","3","3"]],"j":[4,0,-10,3,13,["3","3","0","3","3","3","3","3","3","3","3","7","6"]],"k":[8,1,-10,7,10,["60","60","60","66","6c","78","7c","6c","66","63"]],"l":[4,1,-10,2,10,["3","3","3","3","3","3","3","3","3","3"]],"m":[12,1,-7,10,7,["366","3ff","333","333","333","333","333"]],"n":[9,1,-7,7,7,["6e","7f","63","63","63","63","63"]],"o":[9,1,-7,7,7,["3e","7f","63","63","63","7f","3e"]],"p":[9,1,-7,7,10,["6e","7f","63","63","63","7f","6e","60","60","60"]],"q":[9,1,-7,7,10,["3b","7f","63","63","63","7f","3b","3","3","3"]],"r":[5,1,-7,5,7,["1b","1f","18","18","18","18","18"]],"s":[8,1,-7,6,7,["1e","3f","30","1f","3","3f","3e"]],"t":[5,0,-9,5,9,["4","c","1e","1e","c","c","c","f","7"]],"u":[9,1,-7,7,7,["63","63","63","63","63","7f","3b"]],"v":[8,0,-7,9,7,["183","c6","c6","6c","6c","38","38"]],"w":[11,0,-7,11,7,["673","653","252","3de","3de","38c","18c"]],"x":[8,0,-7,8,7,["66","66","3c","18","3c","66","e7"]],"y":[8,0,-7,7,10,["63","32","36","36","14","1c","1c","18","38","30"]],"z":[7,1,-7,6,7,["3e","3e","e","18","30","3f","3f"]],"{":[5,0,-10,5,13,["7","6","4","4","4","c","18","c","4","4","4","6","7"]],"|":[4,1,-10,2,13,["3","3","3","3","3","3","3","3","3","3","3","3","3"]],"}":[5,0,-10,5,13,["1c","c","4","4","4","6","3","6","4","4","4","c","1c"]],"~":[8,1,-7,6,3,["38","3f","7"]],"\u2026":[14,2,-2,10,2,["333","333"]],"\u00e9":[8,1,-11,7,11,["6","c","8","0","3e","63","61","7f","60","7f","3e"]],"\u2019":[4,1,-10,2,4,["3","3","1","3"]],"\u00b7":[5,1,-6,2,2,["3","3"]],"\u2013":[8,0,-4,8,1,["ff"]],"\u2014":[14,0,-4,14,1,["3fff"]]}},"B":{"size":13,"cap":10,"xh":7,"asc":11,"desc":2,"g":{" ":[3,0,0,0,0,[]],"!":[2,1,-10,1,9,["1","1","1","1","1","1","1","0","1"]],"\"":[5,1,-10,3,3,["5","5","5"]],"#":[8,1,-10,6,9,["12","12","3f","12","12","12","3f","12","12"]],"$":[7,1,-11,5,10,["4","e","15","14","c","6","5","15","e","4"]],"%":[9,1,-10,7,9,["30","49","32","4","8","10","26","49","6"]],"&":[7,1,-10,5,9,["8","14","14","8","8","15","12","12","d"]],"'":[2,1,-10,1,3,["1","1","1"]],"(":[3,1,-11,2,11,["1","2","2","2","2","2","2","2","2","2","1"]],")":[3,1,-11,2,11,["2","1","1","1","1","1","1","1","1","1","2"]],"*":[4,1,-10,3,3,["5","2","5"]],"+":[7,1,-6,5,5,["4","4","1f","4","4"]],",":[3,1,-1,2,2,["1","2"]],"-":[6,1,-4,5,1,["1f"]],".":[2,1,-2,1,1,["1"]],"/":[5,1,-10,4,9,["1","1","1","2","2","4","4","8","8"]],"0":[7,1,-10,5,9,["e","11","11","11","11","11","11","11","e"]],"1":[4,1,-10,3,9,["1","7","1","1","1","1","1","1","1"]],"2":[7,1,-10,5,9,["e","11","1","1","2","4","8","10","1f"]],"3":[7,1,-10,5,9,["e","11","1","1","6","1","1","11","e"]],"4":[7,1,-10,5,9,["2","6","6","a","a","12","1f","2","2"]],"5":[7,1,-10,5,9,["1f","10","10","1e","11","1","1","11","e"]],"6":[7,1,-10,5,9,["e","11","10","10","1e","11","11","11","e"]],"7":[7,1,-10,5,9,["1f","1","2","2","4","4","8","8","8"]],"8":[7,1,-10,5,9,["e","11","11","11","e","11","11","11","e"]],"9":[7,1,-10,5,9,["e","11","11","11","f","1","1","11","e"]],":":[2,1,-7,1,6,["1","0","0","0","0","1"]],";":[3,1,-4,2,5,["1","0","0","1","2"]],"<":[7,1,-9,5,9,["1","2","4","8","10","8","4","2","1"]],"=":[7,1,-5,5,4,["1f","0","1f","1f"]],">":[7,1,-9,5,9,["10","8","4","2","1","2","4","8","10"]],"?":[7,1,-10,5,9,["e","11","1","1","2","4","4","0","4"]],"@":[12,1,-11,10,10,["78","186","102","239","249","249","237","100","180","7c"]],"A":[9,1,-10,7,9,["8","8","14","14","22","22","3e","41","41"]],"B":[7,1,-10,5,9,["1e","11","11","11","1e","11","11","11","1e"]],"C":[8,1,-10,6,9,["1e","21","20","20","20","20","20","21","1e"]],"D":[8,1,-10,6,9,["3c","22","21","21","21","21","21","22","3c"]],"E":[7,1,-10,5,9,["1f","10","10","10","1e","10","10","10","1f"]],"F":[7,1,-10,5,9,["1f","10","10","10","1e","10","10","10","10"]],"G":[8,1,-10,6,9,["1e","21","20","20","27","21","21","23","1d"]],"H":[8,1,-10,6,9,["21","21","21","21","3f","21","21","21","21"]],"I":[2,1,-10,1,9,["1","1","1","1","1","1","1","1","1"]],"J":[5,1,-10,4,9,["1","1","1","1","1","1","9","9","6"]],"K":[8,1,-10,6,9,["22","24","28","30","30","28","24","22","21"]],"L":[7,1,-10,5,9,["10","10","10","10","10","10","10","10","1f"]],"M":[9,1,-10,7,9,["41","41","63","63","55","55","49","49","41"]],"N":[8,1,-10,6,9,["21","31","31","29","29","25","23","23","21"]],"O":[8,1,-10,6,9,["1e","21","21","21","21","21","21","21","1e"]],"P":[8,1,-10,6,9,["3e","21","21","21","3e","20","20","20","20"]],"Q":[8,1,-10,6,10,["1e","21","21","21","21","21","25","23","1e","1"]],"R":[8,1,-10,6,9,["3e","21","21","21","3e","21","21","21","21"]],"S":[7,1,-10,5,9,["e","11","10","10","e","1","1","11","e"]],"T":[7,1,-10,5,9,["1f","4","4","4","4","4","4","4","4"]],"U":[8,1,-10,6,9,["21","21","21","21","21","21","21","21","1e"]],"V":[9,1,-10,7,9,["41","41","22","22","22","14","14","8","8"]],"W":[13,1,-10,11,9,["401","401","222","222","222","154","154","88","88"]],"X":[9,1,-10,7,9,["41","41","22","14","8","14","22","41","41"]],"Y":[9,1,-10,7,9,["41","41","22","14","8","8","8","8","8"]],"Z":[9,1,-10,7,9,["7f","1","2","4","8","10","20","40","7f"]],"[":[3,1,-10,2,12,["3","2","2","2","2","2","2","2","2","2","2","3"]],"\\":[5,1,-10,4,9,["8","8","8","4","4","2","2","1","1"]],"]":[3,1,-10,2,12,["3","1","1","1","1","1","1","1","1","1","1","3"]],"^":[7,1,-10,5,3,["4","a","11"]],"_":[8,1,-2,6,1,["3f"]],"`":[7,1,-10,5,9,["1f","13","13","1d","15","1d","13","13","1f"]],"a":[7,1,-7,5,6,["e","1","f","11","11","f"]],"b":[7,1,-10,5,9,["10","10","10","1e","11","11","11","11","1e"]],"c":[7,1,-7,5,6,["e","11","10","10","11","e"]],"d":[7,1,-10,5,9,["1","1","1","f","11","11","11","11","f"]],"e":[7,1,-7,5,6,["e","11","1f","10","11","e"]],"f":[3,1,-10,2,9,["1","2","2","3","2","2","2","2","2"]],"g":[7,1,-7,5,8,["f","11","11","11","11","f","1","1e"]],"h":[7,1,-10,5,9,["10","10","10","16","19","11","11","11","11"]],"i":[2,1,-10,1,9,["1","0","0","1","1","1","1","1","1"]],"j":[2,1,-10,1,11,["1","0","0","1","1","1","1","1","1","1","1"]],"k":[7,1,-10,5,9,["10","10","10","12","14","18","14","12","11"]],"l":[2,1,-10,1,9,["1","1","1","1","1","1","1","1","1"]],"m":[9,1,-7,7,6,["76","49","49","49","49","49"]],"n":[7,1,-7,5,6,["16","19","11","11","11","11"]],"o":[7,1,-7,5,6,["e","11","11","11","11","e"]],"p":[7,1,-7,5,8,["1e","11","11","11","11","1e","10","10"]],"q":[7,1,-7,5,8,["f","11","11","11","11","f","1","1"]],"r":[3,1,-7,2,6,["3","2","2","2","2","2"]],"s":[5,1,-7,4,6,["6","9","4","2","9","6"]],"t":[3,1,-9,2,8,["2","2","3","2","2","2","2","1"]],"u":[7,1,-7,5,6,["11","11","11","11","13","d"]],"v":[7,1,-7,5,6,["11","11","a","a","4","4"]],"w":[9,1,-7,7,6,["49","49","55","55","22","22"]],"x":[5,1,-7,4,6,["9","9","6","6","9","9"]],"y":[6,0,-7,5,8,["9","9","9","9","6","4","4","18"]],"z":[5,1,-7,4,6,["f","1","2","4","8","f"]],"{":[4,1,-10,3,12,["1","2","2","2","2","2","4","2","2","2","2","1"]],"|":[2,1,-10,1,9,["1","1","1","1","1","1","1","1","1"]],"}":[4,1,-10,3,12,["4","2","2","2","2","2","1","2","2","2","2","4"]],"~":[8,1,-10,6,2,["19","26"]],"\u2026":[7,1,-10,5,9,["1f","13","13","1d","15","1d","13","13","1f"]],"\u00e9":[7,1,-9,5,9,["4","8","0","e","11","1f","10","11","e"]],"\u2019":[2,1,-10,1,3,["1","1","1"]],"\u00b7":[7,1,-10,5,9,["1f","13","13","1d","15","1d","13","13","1f"]],"\u2013":[7,1,-10,5,9,["1f","13","13","1d","15","1d","13","13","1f"]],"\u2014":[7,1,-10,5,9,["1f","13","13","1d","15","1d","13","13","1f"]]}}};
+  function mkFont(key) {
+    var a = ATLAS[key], H = a.g['H'];
+    return { key: key, g: a.g, cap: H[4], asc: a.asc, desc: a.desc, size: a.size };
+  }
+  var FONT_T = mkFont('T');   // titles: bold caption face
+  var FONT_E = mkFont('E');   // emphasis: names, keys, values
+  var FONT_B = mkFont('B');   // body + menu bar: the Win95 UI face
+  var glyphCache = {};
+  function glyphOf(font, ch) { return font.g[ch] || font.g['?']; }
+  function measure1x(s, font) { var w = 0; for (var i = 0; i < s.length; i++) w += glyphOf(font, s[i])[0]; return w; }
+  function rasterise(s, font, color, bold) {
+    var key = font.key + '|' + color + '|' + (bold ? 1 : 0) + '|' + s;
+    if (glyphCache[key]) return glyphCache[key];
+    var bo = bold ? 1 : 0;
+    var w = measure1x(s, font) + bo + 2, h = font.asc + font.desc + 2, base = font.asc + 1;
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var x = c.getContext('2d'); x.fillStyle = color;
+    var pen = 1;
+    for (var i = 0; i < s.length; i++) {
+      var g = glyphOf(font, s[i]), rows = g[5];
+      for (var r = 0; r < rows.length; r++) {
+        var bits = parseInt(rows[r], 16), gw = g[3];
+        for (var q = 0; q < gw; q++) if (bits & (1 << (gw - 1 - q))) {
+          x.fillRect(pen + g[1] + q, base + g[2] + r, 1 + bo, 1);
+        }
+      }
+      pen += g[0];
+    }
+    var out = { c: c, w: w - 2, base: base, cap: font.cap };
+    if (Object.keys(glyphCache).length > 600) glyphCache = {};
+    glyphCache[key] = out;
+    return out;
+  }
+  // truncate with an ellipsis to fit maxW (1x units)
+  function fit(s, font, maxW, bold) {
+    var extra = bold ? 1 : 0;
+    if (!maxW || measure1x(s, font) + extra <= maxW) return s;
+    while (s.length > 1 && measure1x(s + '...', font) + extra > maxW) s = s.slice(0, -1);
+    return s + '...';
+  }
+  // draw text on the 2x canvas: (x, cy) in 2x px — cy is the vertical centre of the cap height
+  function text(ctx, s, x, cy, font, color, align, maxW, bold) {
+    if (!s) return 0;
+    s = fit(s, font, maxW ? maxW / 2 : 0, bold);
+    var g = rasterise(s, font, color, bold), sc = 2;
+    var w2 = g.w * sc;
+    var px = align === 'right' ? x - w2 : align === 'center' ? x - w2 / 2 : x;
+    px = Math.round(px / 2) * 2 - sc;                      // the bitmap has 1px (1x) left padding
+    var top = Math.round((cy - g.cap * sc / 2) / 2) * 2;    // cap box centred on cy
+    var py = top - (g.base - g.cap) * sc;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(g.c, 0, 0, g.c.width, g.c.height, px, py, g.c.width * sc, g.c.height * sc);
+    return w2;
+  }
+  function width2x(s, font, bold) { return (measure1x(s, font) + (bold ? 1 : 0)) * 2; }
+
+  /* ───────────────────────── chrome helpers ──────────────────── */
+  // Win98 raised bevel at 2x: outer light/dark, inner white/#808080
+  function raised(ctx, x, y, w, h, bg) {
+    var light = lum(bg) > 0.55;
+    var hiO = light ? shade(bg, 1.49) : shade(bg, 1.5), hiI = light ? '#ffffff' : shade(bg, 1.9);   // #c0c0c0 → #dfdfdf
+    var loI = shade(bg, 0.6667), loO = light ? '#000000' : shade(bg, 0.25);                        // #c0c0c0 → #808080
+    ctx.fillStyle = bg;  ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = hiO; ctx.fillRect(x, y, w - 2, 2); ctx.fillRect(x, y, 2, h - 2);
+    ctx.fillStyle = hiI; ctx.fillRect(x + 2, y + 2, w - 6, 2); ctx.fillRect(x + 2, y + 2, 2, h - 6);
+    ctx.fillStyle = loO; ctx.fillRect(x, y + h - 2, w, 2); ctx.fillRect(x + w - 2, y, 2, h);
+    ctx.fillStyle = loI; ctx.fillRect(x + 2, y + h - 4, w - 4, 2); ctx.fillRect(x + w - 4, y + 2, 2, h - 4);
+  }
+  // sunken field; `edge` = the outer bottom/right line (white on chrome, #c0c0c0 when drawn on a white field)
+  function sunken(ctx, x, y, w, h, bg, edge) {
+    ctx.fillStyle = bg; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#808080'; ctx.fillRect(x, y, w, 2); ctx.fillRect(x, y, 2, h);
+    ctx.fillStyle = '#000000'; ctx.fillRect(x + 2, y + 2, w - 4, 2); ctx.fillRect(x + 2, y + 2, 2, h - 4);
+    ctx.fillStyle = edge || '#ffffff'; ctx.fillRect(x, y + h - 2, w, 2); ctx.fillRect(x + w - 2, y, 2, h);
+    ctx.fillStyle = '#dfdfdf'; ctx.fillRect(x + 2, y + h - 4, w - 4, 2); ctx.fillRect(x + w - 4, y + 2, 2, h - 4);
+  }
+  function glyph(ctx, kind, x, y) {   // caption buttons: 32x28 at 2x
     ctx.fillStyle = '#000';
-    ctx.font = 'bold 20px Tahoma';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(i === 0 ? '×' : '–', bx - i * 42 + 18, 34);
-  });
-  // title text
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 30px Tahoma, Arial';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.fillText(title, 26, 37, 480);
-  // body: sunken white strip
-  bevelRect(10, 70, 620, 120, false, '#ffffff');
-  var textY = socials.length ? 102 : 130;
-  if (subtitle) {
-    ctx.fillStyle = '#404040';
-    ctx.font = 'italic 22px Tahoma, Arial';
-    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(subtitle, 30, textY, 580);
+    if (kind === 'min') { ctx.fillRect(x + 8, y + 18, 12, 4); }
+    if (kind === 'max') { ctx.fillRect(x + 7, y + 6, 18, 16); ctx.fillStyle = '#c0c0c0'; ctx.fillRect(x + 9, y + 12, 14, 8); }
+    if (kind === 'close') {
+      for (var i = 0; i < 7; i++) { ctx.fillRect(x + 8 + i * 2, y + 6 + i * 2, 4, 2); ctx.fillRect(x + 20 - i * 2, y + 6 + i * 2, 4, 2); }
+    }
   }
-  if (socials.length) {
-    var total = socials.length * 52 + (socials.length - 1) * 10;
-    var x = 30;
-    socials.forEach(function(s, i) { key(x + i * 62, 132, s); });
+  function drawIcon(ctx, P, x, y, s) {   // preset icon, or the uploaded avatar on About Me
+    if (P.preset.layout === 'info' && P.avatar) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(P.avatar, x, y, 16 * s, 16 * s);
+    } else drawPixels(ctx, P.icon, x, y, s);
   }
-}
 
-function preset(t, s, socials) {
-  document.getElementById('title').value = t;
-  document.getElementById('subtitle').value = s;
-  document.querySelectorAll('.checks input').forEach(function(c) {
-    c.checked = socials.indexOf(c.value) !== -1;
+  /* ───────────────────────── the panel ───────────────────────── */
+  var W = 640, H = 200;
+  function renderPanel(P, canvas) {
+    var cv = canvas || document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    var ctx = cv.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, W, H);
+
+    var win = P.c3, ink = inkFor(win), pal = palette(P);
+    raised(ctx, 0, 0, W, H, win);
+
+    // title bar (Win98 horizontal gradient)
+    var tx = 8, ty = 8, tw = W - 16, th = 40;
+    if (P.grad) {
+      var g = ctx.createLinearGradient(tx, 0, tx + tw, 0); g.addColorStop(0, P.c1); g.addColorStop(1, P.c2);
+      ctx.fillStyle = g;
+    } else ctx.fillStyle = P.c1;
+    ctx.fillRect(tx, ty, tw, th);
+
+    drawIcon(ctx, P, tx + 6, ty + 4, 2);
+    // caption buttons: min+max touching, 4px (2x) gap before close — as Win98 draws them
+    var bw = 32, bh = 28, by = ty + 6;
+    var xClose = tx + tw - 6 - bw, xMax = xClose - 4 - bw, xMin = xMax - bw;
+    raised(ctx, xMin, by, bw, bh, win); glyph(ctx, 'min', xMin, by);
+    raised(ctx, xMax, by, bw, bh, win); glyph(ctx, 'max', xMax, by);
+    raised(ctx, xClose, by, bw, bh, win); glyph(ctx, 'close', xClose, by);
+    var titleX = tx + 46, titleMax = xMin - titleX - 10;
+    text(ctx, P.title || ' ', titleX, ty + th / 2, FONT_T, inkFor(P.c1), 'left', titleMax);
+
+    // menu bar
+    var my = ty + th + 2, mh = 28, mid = my + mh / 2;
+    var mx = tx + 8;
+    ['File', 'Edit', 'People'].forEach(function (m) {
+      var w = text(ctx, m, mx, mid, FONT_B, ink, 'left');
+      ctx.fillStyle = ink; ctx.fillRect(mx, mid + 12, width2x(m[0], FONT_B) - 2, 2);   // mnemonic underline
+      mx += w + 20;
+    });
+    if (P.st) {
+      var right = tx + tw - 6, avail = right - mx, i = P.st.indexOf(':');
+      if (i > 0 && i < P.st.length - 1 && width2x(P.st, FONT_E) <= avail) {
+        var lab = P.st.slice(0, i + 1), val = P.st.slice(i + 1);
+        var vw = text(ctx, val, right, mid, FONT_B, ink, 'right');
+        text(ctx, lab, right - vw, mid, FONT_E, lum(win) > 0.55 ? '#a00000' : '#ff8a8a', 'right');
+      } else text(ctx, P.st, right, mid, FONT_B, ink, 'right', avail);
+    }
+
+    // sunken field + content
+    var fx = 8, fy = my + mh + 2, fw = W - 16, fh = H - fy - 8;
+    sunken(ctx, fx, fy, fw, fh, pal.field);
+    var box = { x: fx + 4, y: fy + 4, w: fw - 8, h: fh - 8 };   // 624 x 104
+    LAYOUTS[P.preset.layout](ctx, P, box, win, ink, pal);
+    return cv;
+  }
+
+  var LAYOUTS = {
+    // buddy-info card: avatar well, screen name, two lines
+    info: function (ctx, P, b, win, ink, pal) {
+      var s = 4, L = b.x + 12, ix = L + 6, iy = b.y + 20;
+      sunken(ctx, L, iy - 6, 16 * s + 12, 16 * s + 12, pal.dark ? '#26213a' : '#ffffff', pal.dark ? '#3a3352' : '#c0c0c0');
+      drawIcon(ctx, P, ix, iy, s);
+      var lx = L + 16 * s + 12 + 20, maxW = b.x + b.w - 12 - lx;
+      text(ctx, P.screen, lx, b.y + 24, FONT_E, pal.acc, 'left', maxW);
+      text(ctx, P.tag, lx, b.y + 54, FONT_B, pal.sub, 'left', maxW);
+      text(ctx, P.tag2, lx, b.y + 82, FONT_B, pal.sub, 'left', maxW);
+    },
+
+    // sign-on days: chip row on the shared left edge + time + note
+    days: function (ctx, P, b, win, ink, pal) {
+      var chipW = 76, chipH = 36, gap = 6, L = b.x + 12, y0 = b.y + 8;
+      for (var i = 0; i < 7; i++) {
+        var d = DAYS[i].toUpperCase(), on = !!P.days[DAYS[i]], x = L + i * (chipW + gap);
+        if (on) {   // pressed toggle: sunken bevel around the accent fill
+          sunken(ctx, x, y0, chipW, chipH, pal.chip);
+          text(ctx, d, x + chipW / 2, y0 + chipH / 2, FONT_B, inkFor(pal.chip), 'center');
+        } else {    // raised, with Win98 disabled (embossed) text
+          raised(ctx, x, y0, chipW, chipH, win);
+          text(ctx, d, x + chipW / 2, y0 + chipH / 2, FONT_B, ink, 'center');
+        }
+      }
+      var ly = y0 + chipH + 30;
+      var tw = P.time ? text(ctx, P.time, L, ly, FONT_E, pal.acc, 'left', 300) : 0;
+      if (P.tag) text(ctx, P.tag, L + (tw ? tw + 20 : 0), ly, FONT_B, pal.sub, 'left', b.w - 24 - (tw ? tw + 20 : 0));
+    },
+
+    // socials: one row per platform — glyph chip, platform name, that platform's handle
+    buttons: function (ctx, P, b, win, ink, pal) {
+      var list = SOCIALS.filter(function (s) { return P.socials[s.key]; }).slice(0, 6);
+      if (!list.length) list = SOCIALS.slice(0, 3);
+      var L = b.x + 12, cols = list.length > 3 ? 2 : 1, rows = Math.ceil(list.length / cols);
+      var colW = Math.floor((b.w - 24 - (cols - 1) * 16) / cols / 2) * 2, lh = 30;
+      var y0 = b.y + Math.floor((b.h - lh * rows) / 4) * 2 + lh / 2;
+      var nameW = 0; list.forEach(function (s) { nameW = Math.max(nameW, width2x(s.name, FONT_E)); });
+      list.forEach(function (s, i) {
+        var col = Math.floor(i / rows), x = L + col * (colW + 16), y = y0 + (i % rows) * lh;
+        ctx.fillStyle = s.sw; ctx.fillRect(x, y - 10, 20, 20);
+        ctx.fillStyle = '#000'; ctx.fillRect(x, y - 10, 20, 2); ctx.fillRect(x, y - 10, 2, 20);
+        ctx.fillStyle = '#fff'; ctx.fillRect(x, y + 8, 20, 2); ctx.fillRect(x + 18, y - 10, 2, 20);
+        drawPixels(ctx, null, x + 2, y - 8, 2, GLYPH[s.key]);
+        text(ctx, s.name, x + 30, y, FONT_E, pal.acc, 'left', 200);
+        var h = (P.handles && P.handles[s.key]) || P.screen;
+        text(ctx, (h[0] === '@' ? '' : '@') + h, x + 30 + nameW + 14, y, FONT_B, pal.sub, 'left', colW - 30 - nameW - 14);
+      });
+    },
+
+    // file-transfer dialog: goal line (or the transfer gag), segmented progress bar, note
+    transfer: function (ctx, P, b, win, ink, pal) {
+      var L = b.x + 12, y1 = b.y + 16, pct, lw;
+      if (P.showGoal) {
+        var m = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(P.goal || '');
+        pct = m && +m[2] > 0 ? Math.min(100, Math.round(100 * +m[1] / +m[2])) : 100;
+        lw = text(ctx, (P.goalLabel || 'Goal') + ':', L, y1, FONT_B, pal.sub, 'left', 240);
+        text(ctx, P.goal || 'complete', L + lw + 12, y1, FONT_E, pal.acc, 'left', 260);
+      } else {   // the file-transfer gag the status line promises
+        pct = 100;
+        lw = text(ctx, 'Sending:', L, y1, FONT_B, pal.sub, 'left', 240);
+        text(ctx, P.xfer || 'thank_you.wav', L + lw + 12, y1, FONT_E, pal.acc, 'left', 320);
+      }
+      if (P.showGoal) text(ctx, pct + '%', b.x + b.w - 12, y1, FONT_E, pal.acc, 'right');
+      else text(ctx, 'Done', b.x + b.w - 12, y1, FONT_E, pal.acc, 'right');
+      var px = L, py = y1 + 18, pw = b.w - 24, ph = 20;
+      sunken(ctx, px, py, pw, ph, pal.dark ? '#0e0c14' : '#ffffff', pal.dark ? '#3a3352' : '#c0c0c0');
+      var seg = 16, sg = 4, inner = pw - 12, nSeg = Math.floor((inner + sg) / (seg + sg)), fill = Math.round(nSeg * pct / 100);
+      for (var i = 0; i < fill; i++) { ctx.fillStyle = pal.chip; ctx.fillRect(px + 6 + i * (seg + sg), py + 6, seg, ph - 12); }
+      if (P.tag) text(ctx, P.tag, L, py + ph + 26, FONT_B, pal.sub, 'left', b.w - 24);
+    },
+
+    // chat-room invite: lines on one left edge + Join button; long names get their own line
+    invite: function (ctx, P, b, win, ink, pal) {
+      var s = 4, L = b.x + 12, iy = b.y + 20;
+      drawPixels(ctx, 'rooms', L, iy, s);
+      var jw = 88, jh = 36, jx = b.x + b.w - jw - 12, jy = b.y + Math.floor((b.h - jh) / 4) * 2;
+      var lx = L + 16 * s + 16, maxW = jx - lx - 14;
+      var line2 = P.screen + "'s chat room";
+      if (width2x(line2, FONT_E) <= maxW) {
+        text(ctx, "You're invited to", lx, b.y + 18, FONT_B, pal.sub, 'left', maxW);
+        text(ctx, line2, lx, b.y + 48, FONT_E, pal.acc, 'left', maxW);
+      } else {
+        text(ctx, 'Chat room invite from', lx, b.y + 18, FONT_B, pal.sub, 'left', maxW);
+        text(ctx, P.screen, lx, b.y + 48, FONT_E, pal.acc, 'left', maxW);
+      }
+      if (P.tag) text(ctx, P.tag, lx, b.y + 78, FONT_B, pal.sub, 'left', maxW);
+      ctx.fillStyle = '#000'; ctx.fillRect(jx - 2, jy - 2, jw + 4, jh + 4);   // default-button ring
+      raised(ctx, jx, jy, jw, jh, win);
+      text(ctx, 'Join', jx + jw / 2, jy + jh / 2, FONT_B, ink, 'center');
+    },
+
+    // bullet list: up to 3 lines, "key - detail" colours the key
+    list: function (ctx, P, b, win, ink, pal) {
+      var items = (P.lines || []).map(function (t) { return (t || '').trim(); }).filter(Boolean).slice(0, 3);
+      if (!items.length) items = ['...'];
+      var L = b.x + 12, lh = 32, y0 = b.y + Math.floor((b.h - lh * items.length) / 4) * 2 + lh / 2;
+      items.forEach(function (it, i) {
+        var y = y0 + i * lh;
+        ctx.fillStyle = pal.chip; ctx.fillRect(L + 4, y - 6, 12, 12);
+        ctx.fillStyle = '#000'; ctx.fillRect(L + 4, y - 6, 12, 2); ctx.fillRect(L + 4, y - 6, 2, 12);
+        var tx0 = L + 30, cut = it.indexOf(' - ');
+        if (cut > 0) {
+          var left = it.slice(0, cut), rgt = it.slice(cut + 3), lw = text(ctx, left, tx0, y, FONT_E, pal.acc, 'left', b.w - 60);
+          text(ctx, rgt, tx0 + lw + 14, y, FONT_B, pal.sub, 'left', b.w - 60 - lw - 14);
+        } else text(ctx, it, tx0, y, FONT_B, pal.ink, 'left', b.w - 60);
+      });
+    }
+  };
+
+  /* ───────────────────────── UI wiring ───────────────────────── */
+  var cv = $('cv'), cv1 = $('cv1');
+  function slug(s) { return (s || 'panel').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'panel'; }
+  function fileName(i, P) { return (i < 9 ? '0' : '') + (i + 1) + '_' + slug(P.title) + '.png'; }
+  function downscale(src, dst) {
+    var c = dst.getContext('2d');
+    c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+    c.clearRect(0, 0, dst.width, dst.height); c.drawImage(src, 0, 0, dst.width, dst.height);
+  }
+
+  function draw() {
+    var P = currentPanel();
+    renderPanel(P, cv);
+    downscale(cv, cv1);
+    $('pvName').textContent = P.preset.label;
+    $('suggText').value = suggested(P);
+    $('stFile').textContent = fileName(Math.max(0, included().indexOf(P.preset)), P);
+    updateCounts();
+    if ($('setBox').classList.contains('on')) drawSet();
+    save();
+  }
+  function sentence(t) { t = (t || '').trim(); return t && !/[.!?]$/.test(t) ? t + '.' : t; }
+  function suggested(P) {
+    var n = P.screen, t = P.time || '7:00 PM', inv = $('invite').value.trim() || 'discord.gg/your-invite', tip = $('tip').value.trim() || ('streamelements.com/' + n.toLowerCase() + '/tip');
+    switch (P.preset.key) {
+      case 'about': return ['Hey, I am ' + n + '.', sentence(P.tag), sentence(P.tag2), 'Say hi in chat!'].filter(Boolean).join(' ');
+      case 'schedule': return 'Live ' + DAYS.filter(function (d) { return P.days[d]; }).join(' / ') + ' at ' + t + '. Follow to get notified when I go live.';
+      case 'rules': return (P.lines || []).filter(Boolean).map(function (l, i) { return (i + 1) + '. ' + l; }).join('  ') + '  Mods have the final say.';
+      case 'socials': return SOCIALS.filter(function (s) { return P.socials[s.key]; }).map(function (s) { var h = (P.handles && P.handles[s.key]) || n; return s.name + ': ' + h; }).join('  -  ') + '. One link per image, so the rest are here.';
+      case 'discord': return 'Join the Discord: ' + inv + ' - ' + sentence(P.tag || 'hang out between streams');
+      case 'subscribe': return 'Subscribe for ' + (P.lines || []).filter(Boolean).join(', ').toLowerCase() + '. twitch.tv/' + n.toLowerCase() + '/subscribe';
+      case 'support': return 'Tips: ' + tip + ' - bits and subs in chat. Every bit helps, never required.';
+      case 'commands': return (P.lines || []).filter(Boolean).join('  ');
+      case 'specs': return (P.lines || []).filter(Boolean).join(' - ');
+      default: return (P.lines || []).filter(Boolean).join(' - ');
+    }
+  }
+  function drawSet() {
+    var col = $('setCol'); col.innerHTML = '';
+    included().forEach(function (p) {
+      var c = document.createElement('canvas'); c.width = 320; c.height = 100;
+      downscale(renderPanel(panelFor(p)), c); col.appendChild(c);
+    });
+  }
+  function updateCounts() {
+    [['sn', 'snCnt'], ['title', 'titleCnt'], ['tag', 'tagCnt'], ['tag2', 'tag2Cnt'], ['st', 'stCnt'], ['time', 'timeCnt'], ['goalLabel', 'goalLabelCnt'], ['xfer', 'xferCnt'], ['invite', 'inviteCnt'], ['tip', 'tipCnt']].forEach(function (p) {
+      var el = $(p[0]); $(p[1]).textContent = el.value.length + '/' + el.maxLength;
+    });
+  }
+  function remember() {
+    var e = edits[state.preset] || (edits[state.preset] = {});
+    e.title = $('title').value; e.tag = $('tag').value; e.tag2 = $('tag2').value; e.st = $('st').value;
+    e.lines = [$('li1').value, $('li2').value, $('li3').value];
+  }
+  function loadPreset(key) {
+    state.preset = key;
+    var p = presetDef(key), P = panelFor(p);
+    $('thisName').textContent = '— ' + p.label;
+    $('title').value = P.title; $('tag').value = P.tag; $('tag2').value = P.tag2; $('st').value = P.st;
+    $('li1').value = P.lines[0] || ''; $('li2').value = P.lines[1] || ''; $('li3').value = P.lines[2] || '';
+    var L = p.layout;
+    $('tagBlock').style.display  = L === 'list' ? 'none' : '';
+    $('tag2Block').style.display = L === 'info' ? '' : 'none';
+    $('listBlock').style.display = L === 'list' ? '' : 'none';
+    $('daysBlock').style.display = L === 'days' ? '' : 'none';
+    $('socBlock').style.display  = L === 'buttons' ? '' : 'none';
+    $('goalBlock').style.display = L === 'transfer' ? '' : 'none';
+    $('inviteBlock').style.display = L === 'invite' ? '' : 'none';
+    $('tipBlock').style.display = L === 'transfer' ? '' : 'none';
+    Array.prototype.forEach.call(document.querySelectorAll('#presetRow .pick'), function (b) {
+      var on = b.dataset.key === key; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('#iconRow button'), function (b) {
+      var on = b.dataset.icon === P.icon; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+    });
+    draw();
+  }
+
+  // presets
+  PRESETS.forEach(function (p) {
+    var b = document.createElement('button'); b.type = 'button'; b.dataset.key = p.key;
+    var ic = document.createElement('canvas'); ic.width = 16; ic.height = 16; ic.className = 'ico';
+    drawPixels(ic.getContext('2d'), p.icon, 0, 0, 1);
+    b.appendChild(ic); b.appendChild(document.createTextNode(p.label));
+    b.className = 'pick';
+    var wrap = document.createElement('span'); wrap.className = 'pickwrap';
+    var inc = document.createElement('input'); inc.type = 'checkbox'; inc.checked = true; inc.className = 'inc';
+    inc.title = 'Include in the .zip'; inc.setAttribute('aria-label', 'Include ' + p.label + ' in the download');
+    inc.addEventListener('change', function () { include[p.key] = inc.checked; refreshCounts(); draw(); });
+    b.addEventListener('click', function () { loadPreset(p.key); });
+    wrap.appendChild(b); wrap.appendChild(inc);
+    $('presetRow').appendChild(wrap);
   });
-  draw();
-}
+  function refreshCounts() {
+    var n = included().length;
+    $('dlAll').textContent = 'Download ' + (n === PRESETS.length ? 'all ' : '') + n + ' (.zip)';
+    $('showSet').textContent = 'Preview ' + (n === PRESETS.length ? 'all ' : '') + n;
+    $('dlAll').disabled = n === 0;
+  }
+  refreshCounts();
+  // icon picker
+  ICON_KEYS.forEach(function (k) {
+    var b = document.createElement('button'); b.type = 'button'; b.dataset.icon = k; b.title = k;
+    b.setAttribute('aria-label', k + ' icon');
+    var ic = document.createElement('canvas'); ic.width = 16; ic.height = 16; ic.className = 'ico';
+    drawPixels(ic.getContext('2d'), k, 0, 0, 1);
+    b.appendChild(ic);
+    b.addEventListener('click', function () {
+      (edits[state.preset] || (edits[state.preset] = {})).icon = k;
+      Array.prototype.forEach.call(document.querySelectorAll('#iconRow button'), function (x) {
+        var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on);
+      });
+      draw();
+    });
+    $('iconRow').appendChild(b);
+  });
+  // days
+  var dayButtons = {};
+  DAYS.forEach(function (d) {
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = d; dayButtons[d] = b;
+    b.addEventListener('click', function () { state.days[d] = !state.days[d]; syncDays(); draw(); });
+    $('days').appendChild(b);
+  });
+  function syncDays() { DAYS.forEach(function (d) { dayButtons[d].classList.toggle('on', !!state.days[d]); dayButtons[d].setAttribute('aria-pressed', !!state.days[d]); }); }
+  // socials
+  var socBoxes = {}, handleInputs = {};
+  SOCIALS.forEach(function (s) {
+    var l = document.createElement('label'), c = document.createElement('input');
+    c.type = 'checkbox'; socBoxes[s.key] = c;
+    c.addEventListener('change', function () { state.socials[s.key] = c.checked; syncSocials(); draw(); });
+    l.appendChild(c); l.appendChild(document.createTextNode(s.name));
+    $('socials').appendChild(l);
+    var hl = document.createElement('label'), hi = document.createElement('input');
+    hi.type = 'text'; hi.maxLength = 25; hi.autocomplete = 'off'; hi.placeholder = 'same as screen name'; handleInputs[s.key] = hi;
+    hi.addEventListener('input', function () { state.handles[s.key] = hi.value.trim(); draw(); });
+    hl.appendChild(document.createTextNode(s.name + ' handle')); hl.appendChild(hi); $('handles').appendChild(hl);
+  });
+  function syncSocials() {
+    SOCIALS.forEach(function (s) {
+      socBoxes[s.key].checked = !!state.socials[s.key];
+      handleInputs[s.key].value = (state.handles && state.handles[s.key]) || '';
+      handleInputs[s.key].parentNode.style.display = state.socials[s.key] ? '' : 'none';
+    });
+  }
+  // themes
+  THEMES.forEach(function (t) {
+    var b = document.createElement('button'); b.type = 'button';
+    var sw = document.createElement('span'); sw.className = 'sw';
+    sw.style.background = 'linear-gradient(90deg,' + t.c1 + ',' + t.c2 + ')';
+    b.appendChild(sw); b.appendChild(document.createTextNode(t.name));
+    b.addEventListener('click', function () {
+      $('c1').value = t.c1; $('c2').value = t.c2; $('c3').value = t.c3; $('grad').checked = t.grad; draw();
+    });
+    $('themes').appendChild(b);
+  });
+  // text inputs
+  ['title', 'tag', 'tag2', 'st', 'li1', 'li2', 'li3'].forEach(function (id) {
+    $(id).addEventListener('input', function () { remember(); draw(); });
+  });
+  ['sn', 'time', 'goalLabel', 'goal', 'xfer', 'invite', 'tip', 'c1', 'c2', 'c3'].forEach(function (id) { $(id).addEventListener('input', draw); });
+  $('grad').addEventListener('change', draw);
+  $('showGoal').addEventListener('change', function () { $('goalFields').style.display = this.checked ? '' : 'none'; $('xferField').style.display = this.checked ? 'none' : ''; draw(); });
+  $('resetOne').addEventListener('click', function () { delete edits[state.preset]; loadPreset(state.preset); });
+  $('resetAll').addEventListener('click', function () {
+    try { localStorage.removeItem(STORE); } catch (e) {}
+    location.reload();
+  });
 
-function download() {
-  var title = (document.getElementById('title').value || 'panel')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  cv.toBlob(function(blob) {
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'panel_' + (title || 'custom') + '.png';
-    a.click();
-    setTimeout(function() { URL.revokeObjectURL(a.href); }, 2000);
-  }, 'image/png');
-}
+  // avatar upload → 32x32 (pixelated) or 64x64 (smooth) offscreen canvas
+  function buildAvatar() {
+    var img = state.avatarSrc; if (!img) { state.avatar = null; return; }
+    var px = $('pixelate').checked, n = px ? 32 : 64, c = document.createElement('canvas'); c.width = n; c.height = n;
+    var x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+    var side = Math.min(img.naturalWidth, img.naturalHeight);   // centre-crop to square
+    x.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, n, n);
+    state.avatar = c;
+  }
+  function setAvatarFromSrc(src) {
+    var img = new Image();
+    img.onload = function () { state.avatarSrc = img; buildAvatar(); $('avatarClear').style.display = ''; draw(); };
+    img.src = src;
+  }
+  $('avatar').addEventListener('change', function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    var r = new FileReader(); r.onload = function () { setAvatarFromSrc(r.result); }; r.readAsDataURL(f);
+  });
+  $('pixelate').addEventListener('change', function () { buildAvatar(); draw(); });
+  $('avatarClear').addEventListener('click', function () {
+    state.avatarSrc = null; state.avatar = null; $('avatar').value = ''; this.style.display = 'none'; draw();
+  });
 
-draw();
+  // small chrome icons on the page
+  Array.prototype.forEach.call(document.querySelectorAll('canvas.ico[data-icon]'), function (c) {
+    drawPixels(c.getContext('2d'), c.dataset.icon, 0, 0, 1);
+  });
+
+  $('copySugg').addEventListener('click', function () {
+    var t = $('suggText'); t.select();
+    var done = function () { $('copySugg').textContent = 'copied'; setTimeout(function () { $('copySugg').textContent = 'copy'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t.value).then(done, function () { document.execCommand('copy'); done(); });
+    else { document.execCommand('copy'); done(); }
+  });
+  // menu bar: jump to the section
+  Array.prototype.forEach.call(document.querySelectorAll('.menubar .menu'), function (b) {
+    b.addEventListener('click', function () { var el = $(b.dataset.go); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  });
+  // preview-all toggle
+  $('showSet').addEventListener('click', function () {
+    var on = !$('setBox').classList.contains('on'), box = $('setBox');
+    // on phones the preview is sticky, so the set goes below the controls instead of inside it
+    var narrow = window.innerWidth <= 860, home = narrow ? $('controls').parentNode : $('dlRow').parentNode;
+    if (narrow) home.appendChild(box); else $('dlRow').insertAdjacentElement('afterend', box);
+    box.classList.toggle('on', on); this.setAttribute('aria-pressed', on); this.classList.toggle('on', on);
+    if (on) { drawSet(); if (narrow) box.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+
+  /* ───────────────────────── persistence (this browser only) ── */
+  var STORE = 'senergy.panelmaker.retro-messenger.v2', saveTimer = null;
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try {
+        var avatarSrc = null;
+        if (state.avatarSrc) {
+          var c = document.createElement('canvas'), side = Math.min(state.avatarSrc.naturalWidth, state.avatarSrc.naturalHeight), n = Math.min(side, 256);
+          c.width = n; c.height = n;
+          c.getContext('2d').drawImage(state.avatarSrc, (state.avatarSrc.naturalWidth - side) / 2, (state.avatarSrc.naturalHeight - side) / 2, side, side, 0, 0, n, n);
+          avatarSrc = c.toDataURL('image/png');
+        }
+        localStorage.setItem(STORE, JSON.stringify({
+          preset: state.preset, edits: edits, include: include, days: state.days, socials: state.socials, handles: state.handles, avatarSrc: avatarSrc, pixelate: $('pixelate').checked,
+          sn: $('sn').value, time: $('time').value, goalLabel: $('goalLabel').value, goal: $('goal').value, showGoal: $('showGoal').checked, xfer: $('xfer').value, invite: $('invite').value, tip: $('tip').value,
+          c1: $('c1').value, c2: $('c2').value, c3: $('c3').value, grad: $('grad').checked
+        }));
+      } catch (e) { /* private mode / quota — fine, just no persistence */ }
+    }, 250);
+  }
+  function restore() {
+    try {
+      var d = JSON.parse(localStorage.getItem(STORE) || 'null'); if (!d) return;
+      edits = d.edits || {}; include = d.include || {}; if (d.days) state.days = d.days; if (d.socials) state.socials = d.socials; if (d.handles) state.handles = d.handles;
+      Array.prototype.forEach.call(document.querySelectorAll('#presetRow .inc'), function (c, i) { c.checked = include[PRESETS[i].key] !== false; });
+      ['sn', 'time', 'goalLabel', 'goal', 'xfer', 'invite', 'tip', 'c1', 'c2', 'c3'].forEach(function (k) { if (d[k] != null) $(k).value = d[k]; });
+      if (d.grad != null) $('grad').checked = d.grad; if (d.pixelate != null) $('pixelate').checked = d.pixelate;
+      if (d.showGoal != null) { $('showGoal').checked = d.showGoal; $('goalFields').style.display = d.showGoal ? '' : 'none'; $('xferField').style.display = d.showGoal ? 'none' : ''; }
+      if (d.preset && presetDef(d.preset).key === d.preset) state.preset = d.preset;
+      if (d.avatarSrc) setAvatarFromSrc(d.avatarSrc);
+    } catch (e) {}
+  }
+
+  /* ───────────────────────── downloads ───────────────────────── */
+  function saveBlob(blob, name) {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  }
+  function toBlob(canvas) { return new Promise(function (res) { canvas.toBlob(res, 'image/png'); }); }
+  $('dlOne').addEventListener('click', function () {
+    var P = currentPanel();
+    toBlob(renderPanel(P)).then(function (b) { saveBlob(b, fileName(Math.max(0, included().indexOf(P.preset)), P)); });
+  });
+
+  // store-only .zip writer (no libraries)
+  var CRC = (function () { var t = [], c; for (var n = 0; n < 256; n++) { c = n; for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
+  function crc32(u8) { var c = 0xFFFFFFFF; for (var i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function zip(files) {
+    var parts = [], central = [], offset = 0, enc = new TextEncoder();
+    var d = new Date(), dosT = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dosD = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    function u16(v) { return [v & 255, (v >> 8) & 255]; }
+    function u32(v) { return [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255]; }
+    files.forEach(function (f) {
+      var name = enc.encode(f.name), crc = crc32(f.data), n = f.data.length;
+      var lh = new Uint8Array([].concat(u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(dosT), u16(dosD), u32(crc), u32(n), u32(n), u16(name.length), u16(0)));
+      parts.push(lh, name, f.data);
+      central.push(new Uint8Array([].concat(u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(dosT), u16(dosD), u32(crc), u32(n), u32(n), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset))), name);
+      offset += lh.length + name.length + n;
+    });
+    var cdSize = central.reduce(function (a, c) { return a + c.length; }, 0);
+    var end = new Uint8Array([].concat(u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length), u32(cdSize), u32(offset), u16(0)));
+    return new Blob(parts.concat(central, [end]), { type: 'application/zip' });
+  }
+  function readme() {
+    var lines = [
+      'RETRO MESSENGER TWITCH PANELS  -  made with the Senergy Group panel maker',
+      '',
+      'HOW TO UPLOAD (Twitch, desktop):',
+      '  1. Open your channel  >  About  >  Edit Panels (toggle at the top).',
+      '  2. Click the big "+"  >  Add a Text or Image Panel.',
+      '  3. Add Image  >  pick the PNG. Leave the title blank (the banner IS the title).',
+      '  4. "Image Links To": paste the link this panel should open.',
+      '  5. Description: the details below. Save. Repeat per panel, then toggle Edit Panels off.',
+      '',
+      'Panels are 640x200 (2x). Twitch shows them 320 wide, so they stay crisp on any screen.',
+      '',
+      'WHAT TO PUT IN EACH DESCRIPTION:'
+    ];
+    included().forEach(function (p, i) { var P = panelFor(p); lines.push('  ' + fileName(i, P) + '  -  ' + p.readme, '      suggested text: ' + suggested(P)); });
+    lines.push('', 'Part of the Retro Messenger Stream Kit by Senergy Group  -  https://www.etsy.com/shop/SenergyGroup', '');
+    return lines.join('\r\n');
+  }
+  $('dlAll').addEventListener('click', function () {
+    var set = included(), btn = this; btn.disabled = true; $('dlNote').textContent = 'Rendering ' + set.length + ' panels...';
+    var jobs = set.map(function (p, i) {
+      var P = panelFor(p);
+      return toBlob(renderPanel(P)).then(function (b) { return b.arrayBuffer(); }).then(function (ab) {
+        return { name: fileName(i, P), data: new Uint8Array(ab) };
+      });
+    });
+    Promise.all(jobs).then(function (files) {
+      files.push({ name: 'README.txt', data: new TextEncoder().encode(readme()) });
+      saveBlob(zip(files), 'retro_messenger_panels_' + slug($('sn').value || 'set') + '.zip');
+      $('dlNote').textContent = set.length + ' PNGs + README saved.'; btn.disabled = false;
+      setTimeout(function () { $('dlNote').textContent = ''; }, 4000);
+    }).catch(function () { $('dlNote').textContent = 'Something went wrong - try the single download.'; btn.disabled = false; });
+  });
+
+  // exposed for automated capture (harmless in normal use)
+  window.__panelMaker = { render: function (key) { return renderPanel(panelFor(presetDef(key))).toDataURL('image/png'); }, presets: PRESETS.map(function (p) { return p.key; }), load: loadPreset };
+
+  /* ───────────────────────── boot ────────────────────────────── */
+  restore(); syncDays(); syncSocials(); refreshCounts();
+  $('goalFields').style.display = $('showGoal').checked ? '' : 'none'; $('xferField').style.display = $('showGoal').checked ? 'none' : '';
+  function boot() { glyphCache = {}; loadPreset(state.preset); }
+  boot();
+})();
 </script>
 </body>
 </html>

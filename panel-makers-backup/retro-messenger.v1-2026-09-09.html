@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<!-- RETRO MESSENGER PANEL MAKER - self-serve Twitch panel generator.
+     Buyers type their own info, toggle social keys, and download PNGs.
+     Everything renders in a <canvas> (no libraries, works offline).
+     Ship this file with the kit and/or host it on the landing page. -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retro Messenger Panel Maker — Senergy Group</title>
+<style>
+  body { background: #008080; font-family: Tahoma, Arial, sans-serif; margin: 0; padding: 28px;
+         display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  .win { background: #c0c0c0; border-top: 2px solid #dfdfdf; border-left: 2px solid #dfdfdf;
+         border-right: 2px solid #000; border-bottom: 2px solid #000;
+         box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #808080, 4px 4px 0 rgba(0,0,0,.3);
+         padding: 3px; width: 700px; max-width: 96vw; }
+  .tb { background: #000080; color: #fff; font-weight: bold; font-size: 13px; padding: 5px 8px; }
+  .body { padding: 14px; }
+  label { display: block; font-size: 12px; font-weight: bold; margin: 10px 0 3px; }
+  input[type=text] { width: 100%; box-sizing: border-box; padding: 5px 7px; font-family: Tahoma; font-size: 13px;
+         border-top: 1px solid #808080; border-left: 1px solid #808080;
+         border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: #fff; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .preset, .dl { font-family: Tahoma; font-size: 12px; font-weight: bold; padding: 6px 12px; cursor: pointer;
+         background: #c0c0c0; border-top: 2px solid #fff; border-left: 2px solid #fff;
+         border-right: 2px solid #000; border-bottom: 2px solid #000; }
+  .preset:active, .dl:active { border-top: 2px solid #000; border-left: 2px solid #000;
+         border-right: 2px solid #fff; border-bottom: 2px solid #fff; }
+  .checks { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin-top: 6px; }
+  .checks label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-weight: normal; }
+  canvas { display: block; width: 100%; image-rendering: pixelated; margin-top: 4px;
+           border: 1px solid #000; }
+  .hint { font-size: 11px; color: #333; margin-top: 8px; line-height: 1.5; }
+  .colors { display: flex; gap: 16px; align-items: center; font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <div class="win">
+    <div class="tb">Retro Messenger Panel Maker — make YOUR panels</div>
+    <div class="body">
+      <label>Quick presets</label>
+      <div class="row">
+        <button class="preset" onclick="preset('About Me','Get to know the streamer',[])">About Me</button>
+        <button class="preset" onclick="preset('Schedule','Live Tue / Thu / Sat, 7 PM',[])">Schedule</button>
+        <button class="preset" onclick="preset('Chat Rules','Keep the chatroom friendly',[])">Chat Rules</button>
+        <button class="preset" onclick="preset('Socials','Find me everywhere else',['YT','IG','X','TT','DC'])">Socials</button>
+        <button class="preset" onclick="preset('Support the Stream','File transfers gratefully accepted',[])">Support</button>
+      </div>
+
+      <label for="title">Panel title</label>
+      <input type="text" id="title" value="About Me" maxlength="26" oninput="draw()">
+
+      <label for="subtitle">Small line (optional)</label>
+      <input type="text" id="subtitle" value="Get to know the streamer" maxlength="44" oninput="draw()">
+
+      <label>Social keys (shown as classic keyboard keys)</label>
+      <div class="checks">
+        <label><input type="checkbox" value="YT" onchange="draw()"> YouTube</label>
+        <label><input type="checkbox" value="IG" onchange="draw()"> Instagram</label>
+        <label><input type="checkbox" value="X"  onchange="draw()"> X</label>
+        <label><input type="checkbox" value="TT" onchange="draw()"> TikTok</label>
+        <label><input type="checkbox" value="DC" onchange="draw()"> Discord</label>
+        <label><input type="checkbox" value="TW" onchange="draw()"> Twitch</label>
+      </div>
+
+      <div class="colors">
+        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Titlebar
+          <input type="color" id="accent" value="#000080" oninput="draw()"></label>
+        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Window
+          <input type="color" id="winbg" value="#c0c0c0" oninput="draw()"></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="win">
+    <div class="tb">Preview (640 x 200 — Twitch shows it at 320 wide)</div>
+    <div class="body">
+      <canvas id="cv" width="640" height="200"></canvas>
+      <div class="row" style="margin-top:12px;">
+        <button class="dl" onclick="download()">&#11015; Download PNG</button>
+      </div>
+      <div class="hint">
+        Make as many as you like: set the text, click Download, repeat.
+        Upload on Twitch under <b>About &rarr; Edit Panels &rarr; Add a Text or Image Panel &rarr; Add Image</b>.
+        Put your links in the panel's "Image Links To" / description fields on Twitch.
+      </div>
+    </div>
+  </div>
+
+  <div class="win" style="width:700px;">
+    <div class="body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <span style="font-size:12px;">Part of the <b>Retro Messenger Stream Kit</b> — chat, alerts, scenes, goal bar &amp; game frame.</span>
+      <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
+      <a class="dl" style="text-decoration:none;color:#000;"
+         href="https://www.etsy.com/listing/4469875012/retro-messenger-twitch-chat-widget?utm_source=panel-maker&utm_medium=web&utm_campaign=retro-messenger">View on Etsy &#8594;</a>
+    </div>
+  </div>
+
+<script>
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+
+function bevelRect(x, y, w, h, raised, bg) {
+  if (bg) { ctx.fillStyle = bg; ctx.fillRect(x, y, w, h); }
+  ctx.fillStyle = raised ? '#dfdfdf' : '#808080';
+  ctx.fillRect(x, y, w, 3); ctx.fillRect(x, y, 3, h);
+  ctx.fillStyle = raised ? '#000000' : '#ffffff';
+  ctx.fillRect(x, y + h - 3, w, 3); ctx.fillRect(x + w - 3, y, 3, h);
+  ctx.fillStyle = raised ? '#ffffff' : '#000000';
+  ctx.fillRect(x + 3, y + 3, w - 6, 2); ctx.fillRect(x + 3, y + 3, 2, h - 6);
+}
+
+function key(x, y, label) {
+  bevelRect(x, y, 52, 40, true, document.getElementById('winbg').value);
+  ctx.fillStyle = '#000';
+  ctx.font = 'bold 17px Tahoma, Arial';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(label, x + 26, y + 21);
+}
+
+function draw() {
+  var title = document.getElementById('title').value || ' ';
+  var subtitle = document.getElementById('subtitle').value;
+  var accent = document.getElementById('accent').value;
+  var winbg = document.getElementById('winbg').value;
+  var socials = Array.prototype.slice.call(document.querySelectorAll('.checks input:checked')).map(function(c) { return c.value; });
+
+  ctx.clearRect(0, 0, 640, 200);
+  // window
+  bevelRect(0, 0, 640, 200, true, winbg);
+  // titlebar
+  ctx.fillStyle = accent;
+  ctx.fillRect(10, 10, 620, 52);
+  // window buttons
+  var bx = 640 - 10 - 36;
+  [0, 1].forEach(function(i) {
+    bevelRect(bx - i * 42, 18, 36, 32, true, winbg);
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 20px Tahoma';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(i === 0 ? '×' : '–', bx - i * 42 + 18, 34);
+  });
+  // title text
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 30px Tahoma, Arial';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(title, 26, 37, 480);
+  // body: sunken white strip
+  bevelRect(10, 70, 620, 120, false, '#ffffff');
+  var textY = socials.length ? 102 : 130;
+  if (subtitle) {
+    ctx.fillStyle = '#404040';
+    ctx.font = 'italic 22px Tahoma, Arial';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(subtitle, 30, textY, 580);
+  }
+  if (socials.length) {
+    var total = socials.length * 52 + (socials.length - 1) * 10;
+    var x = 30;
+    socials.forEach(function(s, i) { key(x + i * 62, 132, s); });
+  }
+}
+
+function preset(t, s, socials) {
+  document.getElementById('title').value = t;
+  document.getElementById('subtitle').value = s;
+  document.querySelectorAll('.checks input').forEach(function(c) {
+    c.checked = socials.indexOf(c.value) !== -1;
+  });
+  draw();
+}
+
+function download() {
+  var title = (document.getElementById('title').value || 'panel')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  cv.toBlob(function(blob) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'panel_' + (title || 'custom') + '.png';
+    a.click();
+    setTimeout(function() { URL.revokeObjectURL(a.href); }, 2000);
+  }, 'image/png');
+}
+
+draw();
+</script>
+</body>
+</html>
