@@ -6,13 +6,16 @@
      CONNECTED status bar with a block cursor. Buyers type their nick + text, pick a
      theme, upload an avatar, and download PNGs — one at a time or the set as a .zip.
 
+     The maker itself is laid out like an IRC client: a channel list on the left
+     (one channel = one panel, its box = in your set), the panel you are editing on
+     the right, and everything a first-timer does not need folded away.
+
      Text is TRUE BITMAP: IBM Plex Mono (SIL OFL, via @fontsource/ibm-plex-mono) was
      pre-rendered through FreeType's 1-bit rasteriser (Bold 16 titles, Bold 14 nicks
-     and keys, Medium 14 body, Regular 13 timestamps/status) and packed into a glyph
+     and keys, Medium 14 body, Medium 13 timestamps/status) and packed into a glyph
      atlas inside this file. Every string is drawn from that atlas at 1x and blitted
      at exactly 2x, so Twitch's 2:1 downscale lands each text pixel on one screen
      pixel, identically on every OS — no web fonts, no anti-aliasing, nothing to load.
-     All three faces share an 8px cell, so timestamps, nicks and body sit on one grid.
      No libraries, works offline. -->
 <html lang="en">
 <head>
@@ -32,6 +35,7 @@
     --ok: #6bff6b;
     --dim: #8a8f94;
     --line: #3a4046;
+    --sel: #1d2228;
     --mono: "IBM Plex Mono", Consolas, "DejaVu Sans Mono", Menlo, "Liberation Mono", "Courier New", monospace;
   }
   * { box-sizing: border-box; }
@@ -39,83 +43,77 @@
   body {
     background: var(--desk);
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: 13px;
     color: var(--txt);
     min-height: 100vh;
-    padding: 24px 16px 84px;
+    padding: 24px 16px 32px;
   }
-  .desk {
-    display: grid;
-    grid-template-columns: minmax(300px, 440px) minmax(320px, 700px);
-    gap: 18px;
-    justify-content: center;
-    align-items: start;
-  }
-  .mobileOnly { display: none; }
-  @media (max-width: 860px) {
-    .desk { grid-template-columns: minmax(280px, 700px); }
-    .pv-wrap { order: -1; position: sticky; top: 0; z-index: 4; }
-    /* the sticky block is just the true-size panel + the buttons (~170px); everything else moves to step 5 */
-    .pv-wrap #cv, .pv-wrap .actual .lab, .pv-wrap .fakedesc, .pv-wrap .status, .pv-wrap .note, .pv-wrap .sugg, .pv-wrap #help { display: none; }
-    .pv-wrap .actual { display: flex; margin-top: 0; justify-content: center; }
-    .pv-wrap .body { padding: 6px; }
-    .pv-wrap .pvbox { padding: 6px; }
-    .pv-wrap .dl-row { margin-top: 6px; gap: 4px; }
-    .pv-wrap .dl-row button { flex: 1 1 0; justify-content: center; white-space: nowrap; font-size: 11px; padding: 5px 4px; }
-    #setBox { margin: 0 0 12px; }
-    .mobileOnly { display: block; }
-    .statusbar { position: static; margin-top: 16px; }
-    body { padding: 12px 10px 16px; }
-  }
-  @media (max-width: 600px) { #presetRow .pickwrap { flex: 1 1 45%; } }
 
-  /* ── IRC client window chrome ────────────────────────── */
+  /* ── The one window ───────────────────────────────────── */
   .win {
+    max-width: 960px; margin: 0 auto;
     background: var(--win);
     border: 1px solid var(--acc);
     box-shadow: 0 0 0 1px #000, 8px 8px 0 rgba(0,0,0,.35);
   }
   .tb {
     display: flex; align-items: center; gap: 8px;
-    height: 26px; padding: 0 8px;
+    height: 28px; padding: 0 10px;
     background: var(--bar);
     border-bottom: 1px solid var(--acc);
     color: var(--ttl); font-weight: bold; font-size: 13px;
     white-space: nowrap; overflow: hidden;
   }
   .tb .ico { width: 16px; height: 16px; image-rendering: pixelated; flex: 0 0 auto; }
-  .tb .ttl { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
-  .tb .srv { color: var(--dim); font-weight: normal; overflow: hidden; text-overflow: ellipsis; }
+  .tb .srv { color: var(--dim); font-weight: normal; }
   .tb .srv::before { content: "— "; opacity: .5; }
-  .topic { display: flex; gap: 10px; padding: 4px 8px; font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--line); align-items: center; }
-  .topic .sp { flex: 1; }
-  .topic .menu, .topic .menu:active { background: none; border: none; box-shadow: none; padding: 0; font-weight: normal; color: var(--ttl); white-space: nowrap; }
-  .topic .menu::before { content: "["; color: var(--dim); } .topic .menu::after { content: "]"; color: var(--dim); }
-  .topic .menu:hover { color: var(--ok); }
-  .topic .st { color: var(--dim); }
-  .topic .st b { color: var(--txt); font-weight: normal; }
-  .body { padding: 10px 12px 12px; }
+  .tb .steps { margin-left: auto; color: var(--dim); font-weight: normal; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+  .tb .steps b { color: var(--txt); font-weight: normal; }
+  .cols { display: grid; grid-template-columns: 208px minmax(0, 1fr); }
+  .cols > * { min-width: 0; }   /* grid items default to min-width:auto, which lets the channel strip blow the track open on phones */
 
-  /* ── Controls ─────────────────────────────────────────── */
-  fieldset { border: none; margin: 0 0 10px; padding: 0; min-width: 0; }
-  .grp { margin: 0 0 10px; padding: 8px 10px 10px; border: 1px solid var(--line); }
-  .grp .lg { font-weight: bold; font-size: 12px; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: var(--ttl); }
-  .grp .lg > span::before { content: "# "; color: var(--dim); font-weight: normal; }
+  /* ── Channel list (one channel = one panel) ───────────── */
+  .side { border-right: 1px solid var(--line); padding-bottom: 10px; }
+  .side .hd { padding: 8px 10px 6px; color: var(--dim); font-size: 11px; border-bottom: 1px solid var(--line); }
+  .side .hd b { color: var(--txt); font-weight: normal; }
+  #presetRow { display: flex; flex-direction: column; padding: 4px 0; }
+  .pickwrap { display: flex; align-items: center; gap: 6px; padding: 0 8px 0 0; }
+  .pickwrap .pick, .pickwrap .pick:active, .pickwrap .pick:hover {
+    flex: 1 1 auto; justify-content: flex-start; padding: 6px 10px 6px 8px;
+    background: none; border: none; border-left: 3px solid transparent; font-weight: normal; color: var(--txt);
+  }
+  .pickwrap .pick:hover { color: var(--ttl); }
+  .pickwrap .pick.on { background: var(--sel); border-left-color: var(--ok); color: var(--ttl); font-weight: bold; }
+  .pickwrap .inc { width: 15px; height: 15px; margin: 0; accent-color: var(--ok); flex: 0 0 auto; }
+  .side .foot { padding: 10px 12px 0; font-size: 11px; color: var(--dim); line-height: 1.5; }
+
+  /* ── Editor column ────────────────────────────────────── */
+  .main { padding: 12px 14px 14px; min-width: 0; }
+  .pvbox { padding: 14px; background: #18181b; border: 1px solid var(--line); }   /* Twitch's panel-area ground */
+  canvas { display: block; }
+  #cv { width: 100%; height: auto; image-rendering: auto; }
+  .actual { margin-top: 12px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  #cv1 { width: 320px; height: 100px; image-rendering: auto; flex: 0 0 auto; }
+  .actual .lab { font-size: 11px; color: #adadb8; line-height: 1.5; flex: 1 1 200px; }
+  .actual .lab b { color: #fff; font-weight: normal; }
+  .meta { margin: 6px 0 12px; font-size: 11px; color: var(--dim); }
+  .meta b { color: var(--txt); font-weight: normal; }
+
+  .grp { margin: 0 0 12px; padding: 10px 12px 12px; border: 1px solid var(--line); }
+  .grp .lg { font-weight: bold; font-size: 13px; margin: 0 0 4px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: var(--ttl); }
   .grp .lg small { font-weight: normal; color: var(--dim); }
-  label { display: block; font-size: 12px; margin: 8px 0 3px; color: var(--acc); }
-  label .cnt { float: right; color: var(--dim); font-weight: normal; }
+  label { display: block; font-size: 12px; margin: 10px 0 4px; color: var(--acc); }
   input[type=text], input[type=number] {
-    width: 100%; padding: 5px 7px; font: 13px var(--mono); background: var(--desk); color: var(--txt);
+    width: 100%; padding: 6px 8px; font: 13px var(--mono); background: var(--desk); color: var(--txt);
     border: 1px solid var(--line); outline: none; caret-color: var(--ok);
   }
   input[type=text]:focus, input[type=number]:focus { border-color: var(--ttl); }
   input::placeholder { color: #5a6068; }
   .row { display: flex; gap: 6px; flex-wrap: wrap; }
-  .row.tight { gap: 4px; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
   .list3 { display: grid; gap: 4px; }
   button, .btn {
-    font: bold 12px var(--mono); color: var(--txt); cursor: pointer; padding: 5px 10px; background: var(--bar);
+    font: bold 12px var(--mono); color: var(--txt); cursor: pointer; padding: 6px 10px; background: var(--bar);
     border: 1px solid var(--acc); display: inline-flex; align-items: center; gap: 6px; text-decoration: none; line-height: 1.2;
   }
   button:hover, .btn:hover { border-color: var(--ttl); color: var(--ttl); }
@@ -123,147 +121,146 @@
   button:disabled { color: var(--dim); border-color: var(--line); cursor: default; }
   button .ico { width: 16px; height: 16px; image-rendering: pixelated; }
   button:focus-visible { outline: 1px dashed var(--ok); outline-offset: 2px; }
-  .pickwrap { display: inline-flex; align-items: center; gap: 4px; }
-  .pickwrap .pick { flex: 1 1 auto; }
-  .pickwrap .inc { width: 15px; height: 15px; margin: 0; accent-color: var(--ok); }
   input[type=checkbox] { accent-color: var(--ok); }
-  #iconRow { display: grid; grid-template-columns: repeat(5, 1fr); }
+  #iconRow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
   .icons button { padding: 4px 5px; justify-content: center; }
   .icons button .ico { width: 24px; height: 24px; }
   .checks { display: flex; gap: 4px 12px; flex-wrap: wrap; }
   .checks label { display: inline-flex; align-items: center; gap: 5px; margin: 4px 0 0; color: var(--txt); }
   #handles { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; margin-top: 6px; }
   #handles label { margin: 0; font-size: 11px; }
-  #handles input { padding: 3px 6px; font-size: 12px; }
+  #handles input { padding: 4px 6px; font-size: 12px; }
   .days { display: flex; gap: 4px; flex-wrap: wrap; }
-  .days button { min-width: 36px; justify-content: center; padding: 5px 0; }
-  .colors { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; }
+  .days button { min-width: 40px; justify-content: center; padding: 6px 0; }
+  .colors { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
   .colors label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
   input[type=color] { width: 30px; height: 22px; padding: 0; border: 1px solid var(--acc); background: var(--desk); cursor: pointer; }
   input[type=file] { font: 12px var(--mono); max-width: 100%; color: var(--txt); }
   .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .fname { font-size: 11px; color: var(--dim); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fname { font-size: 11px; color: var(--dim); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   label.btn { margin: 0; }
-  .themes { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
-  .themes button { padding: 4px 8px; font-weight: normal; }
+  .themes { display: flex; gap: 6px; flex-wrap: wrap; }
+  .themes button { padding: 5px 9px; font-weight: normal; }
   .sw { width: 12px; height: 12px; border: 1px solid var(--acc); display: inline-block; }
   .hint { font-size: 11px; color: var(--dim); line-height: 1.55; margin-top: 8px; }
   .hint b { color: var(--txt); font-weight: normal; }
-  .avatarRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .avatarRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
   .avatarRow label { margin: 0; display: inline-flex; align-items: center; gap: 5px; color: var(--txt); }
-  .linkish, .linkish:active, .linkish:hover { background: none; border: none; box-shadow: none; padding: 0; font: 11px var(--mono); color: var(--ttl); text-decoration: underline; cursor: pointer; }
+  .linkish, .linkish:active, .linkish:hover { background: none; border: none; box-shadow: none; padding: 0; font: 12px var(--mono); color: var(--ttl); text-decoration: underline; cursor: pointer; }
   .inline { display: inline-flex; align-items: center; gap: 6px; color: var(--txt); }
 
-  /* ── Preview ──────────────────────────────────────────── */
-  .pv-wrap { position: sticky; top: 16px; }
-  .pvbox { padding: 14px; background: #18181b; border: 1px solid var(--line); }   /* Twitch's panel-area ground */
-  canvas { display: block; }
-  #cv { width: 100%; height: auto; image-rendering: auto; }
-  .actual { margin-top: 14px; display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
-  .actual .lab { font-size: 11px; color: #c8c8cc; line-height: 1.5; max-width: 250px; }
-  .actual .lab b { color: #fff; }
-  .twitchcol { width: 320px; flex: 0 0 auto; }
-  #cv1 { width: 320px; height: 100px; image-rendering: auto; }
-  .fakedesc { font: 13px/1.4 Inter, "Helvetica Neue", Arial, sans-serif; color: #adadb8; padding: 6px 0 0; }
-  .fakedesc a { color: #bf94ff; text-decoration: none; }
+  /* folded sections: closed by default, one line each */
+  details.more { margin: 12px 0 0; border-top: 1px dashed var(--line); padding-top: 8px; }
+  details.more > summary { cursor: pointer; color: var(--dim); font-size: 12px; list-style: none; }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary::before { content: "▸ "; color: var(--ok); }
+  details.more[open] > summary::before { content: "▾ "; }
+  details.more > summary:hover { color: var(--ttl); }
+  details.more > .in { padding: 2px 0 4px; }
+
+  .sugg textarea { width: 100%; font: 12px var(--mono); padding: 6px 8px; background: var(--desk); color: var(--txt); resize: vertical; border: 1px solid var(--line); margin-top: 8px; }
+  .dl-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 0; align-items: center; }
+  .dl-row .primary { border-color: var(--ok); color: var(--ok); }
+  .dl-row .note { font-size: 11px; color: var(--dim); }
   #setBox { display: none; margin-top: 10px; padding: 12px; background: #18181b; border: 1px solid var(--line); }
   #setBox.on { display: block; }
   #setBox .lab { font-size: 11px; color: #c8c8cc; margin-bottom: 8px; }
-  #setBox .lab b { color: #fff; }
   #setCol { display: grid; grid-template-columns: repeat(auto-fill, 320px); gap: 10px; }
   #setCol canvas { width: 320px; height: 100px; }
-  .sugg { margin-top: 8px; }
-  .sugg label { margin: 0 0 3px; }
-  .sugg textarea { width: 100%; font: 12px var(--mono); padding: 5px 7px; background: var(--desk); color: var(--txt); resize: vertical; border: 1px solid var(--line); }
-  .status { display: flex; gap: 4px; margin: 8px 0 0; }
-  .status span { flex: 1; padding: 3px 6px; font-size: 11px; color: var(--dim); border: 1px solid var(--line); }
-  .dl-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
-  .dl-row .primary { border-color: var(--ok); color: var(--ok); }
-  .dl-row .note { font-size: 11px; color: var(--dim); }
+  .howto { font-size: 12px; line-height: 1.6; color: var(--txt); }
+  .howto b { color: var(--ttl); font-weight: normal; }
 
-  /* ── Status bar: kit CTA ──────────────────────────────── */
+  /* ── Status bar: kit CTA (static, the window's own bottom bar) ── */
   .statusbar {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
     background: var(--bar); border-top: 1px solid var(--acc);
-    padding: 4px 8px; display: flex; align-items: center; gap: 10px; font-size: 12px;
+    padding: 5px 10px; display: flex; align-items: center; gap: 10px; font-size: 12px;
   }
   .statusbar .dot { color: var(--ok); font-size: 8px; }
-  .statusbar .conn { color: var(--ok); }
+  .statusbar .conn { color: var(--dim); }
   .statusbar .sep { color: var(--line); }
   .statusbar .task { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dim); }
   .statusbar .task b { color: var(--txt); font-weight: normal; }
   .statusbar .start { border-color: var(--ok); color: var(--ok); padding: 4px 8px; }
   .statusbar .start .ico { width: 16px; height: 16px; image-rendering: pixelated; }
   .statusbar .cur { color: var(--ok); animation: blink 1s steps(1, end) infinite; }
-  .statusbar.off { display: none; }
   @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-  @media (max-width: 600px) { .statusbar .task { display: none; } }
-  @media (max-width: 860px) { .statusbar { position: static; margin-top: 16px; } }   /* after the fixed rule so it wins on phones */
-  @media (max-width: 480px) { .two { grid-template-columns: 1fr; } }                  /* after the .two rule so a 21-char nick gets the full row */
+
+  /* ── Phones / narrow: channel strip on top, true-size preview pinned ── */
+  @media (max-width: 760px) {
+    body { padding: 10px 8px 24px; }
+    .tb .steps { display: none; }
+    .cols { grid-template-columns: 1fr; }
+    .side { border-right: none; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+    #presetRow { flex-direction: row; overflow-x: auto; gap: 4px; padding: 6px 8px; -webkit-overflow-scrolling: touch; }
+    .pickwrap { flex: 0 0 auto; padding: 0; border: 1px solid var(--line); }
+    .pickwrap .pick, .pickwrap .pick:hover { border-left: none; padding: 5px 4px 5px 8px; white-space: nowrap; }
+    .pickwrap .pick.on { border-left: none; }
+    .pickwrap .inc { margin-right: 6px; }
+    .side .foot { display: none; }
+    .main { padding: 8px 8px 12px; }
+    .pvbox { position: sticky; top: 0; z-index: 4; padding: 8px; }
+    .pvbox #cv, .actual .lab { display: none; }
+    .actual { margin-top: 0; justify-content: center; }
+    .two { grid-template-columns: 1fr; }
+    .statusbar .task { display: none; }
+  }
 </style>
 </head>
 <body>
-<div class="desk">
 
-  <!-- ── Window 1: controls ───────────────────────────────────────── -->
-  <div class="win" id="controls">
-    <div class="tb">
-      <canvas class="ico" data-icon="prompt" width="16" height="16" aria-hidden="true"></canvas>
-      <span class="ttl">#panel-maker</span><span class="srv">IRC Minimal</span>
-    </div>
-    <div class="topic"><button type="button" class="menu" data-go="presetRow">panels</button><button type="button" class="menu" data-go="controls">this panel</button><button type="button" class="menu" data-go="help">help</button><span class="sp"></span><span class="st">/topic <b>Make YOUR panels</b></span></div>
-    <div class="body">
+<div class="win">
+  <div class="tb">
+    <canvas class="ico" data-icon="prompt" width="16" height="16" aria-hidden="true"></canvas>
+    <span>#panel-maker</span><span class="srv">IRC Minimal</span>
+    <span class="steps"><b>1</b> pick a channel &nbsp;·&nbsp; <b>2</b> type your text &nbsp;·&nbsp; <b>3</b> download</span>
+  </div>
 
-      <fieldset class="grp">
-        <div class="lg"><span>1. Pick a panel</span><small>&#9745; = in the .zip / preview-all</small></div>
-        <div class="row tight" id="presetRow" role="group" aria-label="Panel presets"></div>
-      </fieldset>
+  <div class="cols">
+    <!-- ── channel list: one channel = one panel ─────────────────── -->
+    <aside class="side">
+      <div class="hd">channels &nbsp;·&nbsp; <b>&#9745;</b> = in your set</div>
+      <div id="presetRow" role="group" aria-label="Panels"></div>
+      <div class="foot">Click a channel to edit that panel. Untick the ones you don't want in the download.<br><br>Your edits stay in this browser until you <button type="button" class="linkish" id="resetAll">start over</button>.</div>
+    </aside>
 
-      <fieldset class="grp">
-        <div class="lg"><span>2. About you</span><small>every panel</small></div>
+    <!-- ── the panel you are editing ─────────────────────────────── -->
+    <main class="main">
+      <div class="pvbox">
+        <canvas id="cv" width="640" height="200" aria-label="Panel preview at 2x"></canvas>
+        <div class="actual">
+          <canvas id="cv1" width="320" height="100" aria-label="Panel preview at actual Twitch size"></canvas>
+          <div class="lab"><b>Actual size on Twitch.</b> The image is the header; your links go in Twitch's text box underneath it.</div>
+        </div>
+      </div>
+      <div class="meta"><b id="pvName">About Me</b> &nbsp;·&nbsp; <span id="stFile">01_about.png</span><span id="stTs"></span></div>
+
+      <section class="grp" id="controls">
+        <div class="lg"><span>This panel <small id="thisName"></small></span><button type="button" class="linkish" id="resetOne">reset this panel</button></div>
         <div class="two">
-          <div><label for="sn">Nick <span class="cnt" id="snCnt"></span></label>
-          <input type="text" id="sn" value="RetroStreamer" maxlength="25" autocomplete="off" spellcheck="false"></div>
-          <div><label for="srv">Server (title bar) <span class="cnt" id="srvCnt"></span></label>
-          <input type="text" id="srv" value="StreamLive IRC" maxlength="18" autocomplete="off" spellcheck="false"></div>
+          <div><label for="title">Channel (the panel's title)</label><input type="text" id="title" value="" maxlength="22" autocomplete="off"></div>
+          <div><label for="sn">Your nick</label><input type="text" id="sn" value="RetroStreamer" maxlength="25" autocomplete="off" spellcheck="false"></div>
         </div>
-        <div class="two">
-          <div><label for="time">Go-live time <span class="cnt" id="timeCnt"></span></label>
-          <input type="text" id="time" value="7:00 PM CT" maxlength="14" autocomplete="off"></div>
-          <div><label>&nbsp;</label><label class="inline" style="margin:0;padding-top:6px"><input type="checkbox" id="ts" checked> [hh:mm] timestamps</label></div>
-        </div>
-        <label>Avatar (shown on About Me)</label>
-        <div class="avatarRow">
-          <label class="btn" for="avatar">Upload avatar…</label><input type="file" id="avatar" class="vh" accept="image/png,image/jpeg,image/gif,image/webp">
-          <span class="fname" id="avatarName"></span>
-          <label><input type="checkbox" id="pixelate" checked> Pixelate</label>
-          <button type="button" id="avatarClear" style="display:none">Use icon</button>
-        </div>
-        <label for="nl">Nick list — two mods / regulars, comma-separated <span class="cnt" id="nlCnt"></span></label>
-        <input type="text" id="nl" value="ModMike, VIPVictor" maxlength="32" autocomplete="off" spellcheck="false">
-        <div class="hint">Timestamps count up from your go-live time and are dropped on any panel where a line would not fit. The nick list (you as @op, then these names) fills the right side of list panels when the lines leave room.</div>
-      </fieldset>
-
-      <fieldset class="grp">
-        <div class="lg"><span>3. This panel <small id="thisName"></small></span><button type="button" class="linkish" id="resetOne">Reset this panel</button></div>
-        <label for="title">Channel (panel title) <span class="cnt" id="titleCnt"></span></label>
-        <input type="text" id="title" value="" maxlength="22" autocomplete="off">
-
-        <label>Title icon</label>
-        <div class="row tight icons" id="iconRow" role="group" aria-label="Title icon"></div>
 
         <div id="tagBlock">
-          <label for="tag" id="tagLabel">Small line <span class="cnt" id="tagCnt"></span></label>
+          <label for="tag" id="tagLabel">Small line </label>
           <input type="text" id="tag" value="" maxlength="32" autocomplete="off">
         </div>
-
         <div id="tag2Block">
-          <label for="tag2" id="tag2Label">Second line <span class="cnt" id="tag2Cnt"></span></label>
+          <label for="tag2" id="tag2Label">Second line </label>
           <input type="text" id="tag2" value="" maxlength="32" autocomplete="off">
+        </div>
+        <div id="avatarBlock">
+          <label>Avatar (in the well on the left)</label>
+          <div class="avatarRow">
+            <label class="btn" for="avatar">Upload avatar…</label><input type="file" id="avatar" class="vh" accept="image/png,image/jpeg,image/gif,image/webp">
+            <span class="fname" id="avatarName"></span>
+            <label><input type="checkbox" id="pixelate" checked> Pixelate</label>
+            <button type="button" id="avatarClear" style="display:none">Remove</button>
+          </div>
         </div>
 
         <div id="listBlock">
-          <label>Up to 3 lines <span class="cnt" id="listCnt">34 each · &quot;key - detail&quot; colours the key</span></label>
+          <label>Lines <small id="listCnt"></small></label>
           <div class="list3">
             <input type="text" id="li1" maxlength="34" autocomplete="off" placeholder="Line 1">
             <input type="text" id="li2" maxlength="34" autocomplete="off" placeholder="Line 2">
@@ -272,8 +269,10 @@
         </div>
 
         <div id="daysBlock">
-          <label>Live days <span class="cnt">time is under "About you"</span></label>
+          <label>Live days</label>
           <div class="days" id="days" role="group" aria-label="Days of the week"></div>
+          <label for="time">Go-live time</label>
+          <input type="text" id="time" value="7:00 PM CT" maxlength="14" autocomplete="off">
         </div>
 
         <div id="socBlock">
@@ -283,121 +282,86 @@
         </div>
 
         <div id="goalBlock">
-          <label class="inline"><input type="checkbox" id="showGoal"> Show a numeric goal instead (numbers go stale — re-export when they change)</label>
-          <div id="xferField"><label for="xfer">DCC SEND file name (the gag) <span class="cnt" id="xferCnt"></span></label><input type="text" id="xfer" value="thank_you.wav" maxlength="18" autocomplete="off"></div>
+          <div id="xferField"><label for="xfer">File name in the "DCC SEND" gag</label><input type="text" id="xfer" value="thank_you.wav" maxlength="18" autocomplete="off"></div>
+          <label class="inline" style="margin-top:8px"><input type="checkbox" id="showGoal"> Show a numeric goal instead</label>
           <div class="two" id="goalFields">
-            <div><label for="goalLabel">Goal label <span class="cnt" id="goalLabelCnt"></span></label><input type="text" id="goalLabel" value="sub goal" maxlength="14" autocomplete="off"></div>
-            <div><label for="goal">Progress <span class="cnt">e.g. 31 / 50</span></label><input type="text" id="goal" value="31 / 50" maxlength="11" autocomplete="off"></div>
+            <div><label for="goalLabel">Goal label</label><input type="text" id="goalLabel" value="sub goal" maxlength="14" autocomplete="off"></div>
+            <div><label for="goal">Progress (e.g. 31 / 50)</label><input type="text" id="goal" value="31 / 50" maxlength="11" autocomplete="off"></div>
           </div>
         </div>
-
-        <div id="inviteBlock"><label for="invite">Discord invite link (for the description text) <span class="cnt" id="inviteCnt"></span></label><input type="text" id="invite" value="" maxlength="32" placeholder="discord.gg/…" autocomplete="off"></div>
-        <div id="tipBlock"><label for="tip">Tip link (for the description text) <span class="cnt" id="tipCnt"></span></label><input type="text" id="tip" value="" maxlength="40" placeholder="streamelements.com/you/tip" autocomplete="off"></div>
 
         <div id="ctaBlock">
           <div class="two">
-            <div><label for="cta">Prompt line — the ask <span class="cnt" id="ctaCnt"></span></label><input type="text" id="cta" value="" maxlength="16" placeholder="/follow" autocomplete="off" spellcheck="false"></div>
-            <div><label for="ctaNote">…and a note after it <span class="cnt" id="ctaNoteCnt"></span></label><input type="text" id="ctaNote" value="" maxlength="26" placeholder="to get notified" autocomplete="off"></div>
+            <div><label for="cta">Prompt line — the ask</label><input type="text" id="cta" value="" maxlength="16" placeholder="/follow" autocomplete="off" spellcheck="false"></div>
+            <div><label for="ctaNote">…and a note after it</label><input type="text" id="ctaNote" value="" maxlength="26" placeholder="to get notified" autocomplete="off"></div>
           </div>
-          <div class="hint">Drawn as <b>&gt; /follow&#9608;</b> on the last line, in the prompt green. Leave it empty for no prompt (lists then get their 3rd line back).</div>
         </div>
-        <div id="nickBlock"><label class="inline" style="margin-top:8px"><input type="checkbox" id="nickOn" checked> Nick list on the right when the lines leave room</label></div>
 
-        <label for="st">Status bar (after CONNECTED) <span class="cnt" id="stCnt"></span></label>
-        <input type="text" id="st" value="" maxlength="24" autocomplete="off">
-        <label for="link">"Image Links To" for this panel — not drawn; goes in the README <span class="cnt" id="linkCnt"></span></label>
-        <input type="text" id="link" value="" maxlength="80" placeholder="https://…" autocomplete="off" spellcheck="false">
-      </fieldset>
+        <details class="more"><summary>More options for this panel</summary><div class="in">
+          <label>Title icon</label>
+          <div class="row icons" id="iconRow" role="group" aria-label="Title icon"></div>
+          <label for="st">Status bar text (after CONNECTED)</label>
+          <input type="text" id="st" value="" maxlength="24" autocomplete="off">
+          <div id="nickBlock"><label class="inline" style="margin-top:10px"><input type="checkbox" id="nickOn" checked> Nick list on the right when the lines leave room</label></div>
+          <div id="inviteBlock"><label for="invite">Discord invite link (goes in the description text)</label><input type="text" id="invite" value="" maxlength="32" placeholder="discord.gg/…" autocomplete="off"></div>
+          <div id="tipBlock"><label for="tip">Tip link (goes in the description text)</label><input type="text" id="tip" value="" maxlength="40" placeholder="streamelements.com/you/tip" autocomplete="off"></div>
+          <label for="link">"Image Links To" for this panel (not drawn — listed in the README)</label>
+          <input type="text" id="link" value="" maxlength="80" placeholder="https://…" autocomplete="off" spellcheck="false">
+        </div></details>
+      </section>
 
-      <fieldset class="grp">
-        <div class="lg"><span>4. Colors</span><small>used on every panel</small></div>
+      <section class="grp">
+        <div class="lg"><span>Theme</span><small>used on every panel</small></div>
         <div class="themes" id="themes" role="group" aria-label="Color themes"></div>
-        <div class="colors">
-          <label>Background <input type="color" id="c1" value="#16181d"></label>
-          <label>Frame <input type="color" id="c2" value="#90a4ae"></label>
-          <label>Channel <input type="color" id="c3" value="#6bc5ff"></label>
-        </div>
-        <div class="hint">Text, prompt green and the bars follow the theme; every colour is auto-lifted to at least 5:1 on your background. Most viewers use Twitch's dark mode — a light panel will glow on their page.</div>
-      </fieldset>
-
-      <fieldset class="grp">
-        <div class="lg"><span>5. Export</span><small>same buttons as the preview window</small></div>
-        <div class="dl-row" id="dlRow2">
-          <button class="primary" id="dlOne2">Download this panel</button>
-          <button id="dlAll2">Download all (.zip)</button>
-          <button id="showSet2" aria-pressed="false">Preview all</button>
-          <span class="note" id="dlNote2"></span>
-        </div>
-        <div class="mobileOnly">
-          <div class="sugg">
-            <label for="suggText2">Suggested text for this panel's Twitch description <button type="button" class="linkish" id="copySugg2">copy</button></label>
-            <textarea id="suggText2" rows="2" readonly></textarea>
+        <details class="more"><summary>Custom colours &amp; the details on every panel</summary><div class="in">
+          <div class="colors">
+            <label>Background <input type="color" id="c1" value="#16181d"></label>
+            <label>Frame <input type="color" id="c2" value="#90a4ae"></label>
+            <label>Channel <input type="color" id="c3" value="#6bc5ff"></label>
           </div>
-          <div class="hint"><b>On Twitch:</b> About &rarr; Edit Panels &rarr; Add a Text or Image Panel &rarr; Add Image. Twitch gives each image <b>one</b> link ("Image Links To") — put the rest in the description under the banner.</div>
-        </div>
-      </fieldset>
+          <div class="hint">Every colour is auto-lifted to at least 5:1 on your background. Most viewers use Twitch's dark mode — a light panel will glow on their page.</div>
+          <div class="two">
+            <div><label for="srv">Server name (title bar)</label><input type="text" id="srv" value="StreamLive IRC" maxlength="18" autocomplete="off" spellcheck="false"></div>
+            <div><label for="nl">Nick list — two mods / regulars</label><input type="text" id="nl" value="ModMike, VIPVictor" maxlength="32" autocomplete="off" spellcheck="false"></div>
+          </div>
+          <label class="inline" style="margin-top:10px"><input type="checkbox" id="ts" checked> [hh:mm] timestamps (they count up from your go-live time, and drop off any panel where a line would not fit)</label>
+        </div></details>
+      </section>
 
-      <div class="hint">
-        Presets are starting points — change any text. Your edits are kept in this browser until you
-        <button type="button" class="linkish" id="resetAll">start over</button>.
+      <div class="dl-row" id="dlRow">
+        <button class="primary" id="dlOne">Download this panel</button>
+        <button id="dlAll">Download the set (.zip)</button>
+        <button id="showSet" aria-pressed="false">Preview the set</button>
+        <span class="note" id="dlNote"></span>
       </div>
-    </div>
+      <div id="setBox">
+        <div class="lab">Your set at Twitch size — exactly what the .zip contains, in upload order.</div>
+        <div id="setCol"></div>
+      </div>
+
+      <details class="more sugg"><summary>Text for this panel's Twitch description box</summary><div class="in">
+        <textarea id="suggText" rows="2" readonly></textarea>
+        <div class="hint">Twitch gives each image <b>one</b> link ("Image Links To") — the rest go here. <button type="button" class="linkish" id="copySugg">copy</button></div>
+      </div></details>
+      <details class="more" id="help"><summary>How to put these on Twitch</summary><div class="in howto">
+        Your channel &rarr; <b>About</b> &rarr; toggle <b>Edit Panels</b> &rarr; the big <b>+</b> &rarr; <b>Add a Text or Image Panel</b> &rarr; <b>Add Image</b> and pick a PNG.<br>
+        Leave the panel title blank (the image is the title). Put the panel's link in <b>Image Links To</b> and the text above in the description. Repeat per image, then toggle Edit Panels off.<br>
+        The .zip has every panel numbered in upload order plus a README with all of this.
+      </div></details>
+    </main>
   </div>
 
-  <!-- ── Window 2: preview + download ─────────────────────────────── -->
-  <div class="pv-wrap">
-    <div class="win">
-      <div class="tb">
-        <canvas class="ico" data-icon="about" width="16" height="16" aria-hidden="true"></canvas>
-        <span class="ttl">#preview</span><span class="srv" id="pvName">About Me</span>
-      </div>
-      <div class="body">
-        <div class="pvbox">
-          <canvas id="cv" width="640" height="200" aria-label="Panel preview at 2x"></canvas>
-          <div class="actual">
-            <div class="twitchcol">
-              <canvas id="cv1" width="320" height="100" aria-label="Panel preview at actual Twitch size"></canvas>
-              <div class="fakedesc">Your links &amp; details go here — <a href="#" onclick="return false">Twitch's text field</a></div>
-            </div>
-            <div class="lab"><b>Actual size on Twitch</b> (320 px wide, dark theme). The banner carries the title; the gray text is where your own links live. Downloads are 2× so they stay crisp on high-DPI screens.</div>
-          </div>
-        </div>
-        <div class="status"><span id="stDims">640 × 200 PNG</span><span id="stFile">01_about_me.png</span><span id="stTs"></span></div>
-        <div class="sugg">
-          <label for="suggText">Suggested text for this panel's Twitch description <button type="button" class="linkish" id="copySugg">copy</button></label>
-          <textarea id="suggText" rows="2" readonly></textarea>
-          <div class="hint" style="margin-top:4px">Twitch gives each image <b>one</b> link ("Image Links To") — put the rest in the description.</div>
-        </div>
-        <div class="dl-row" id="dlRow">
-          <button class="primary" id="dlOne">Download this panel</button>
-          <button id="dlAll">Download all (.zip)</button>
-          <button id="showSet" aria-pressed="false">Preview all</button>
-          <span class="note" id="dlNote"></span>
-        </div>
-        <div id="setBox">
-          <div class="lab"><b>The whole set</b> at Twitch size — exactly what the .zip contains, in upload order.</div>
-          <div id="setCol"></div>
-        </div>
-        <div class="hint" id="help">
-          <b>On Twitch:</b> About &rarr; Edit Panels &rarr; Add a Text or Image Panel &rarr; Add Image. Put your links and
-          details in the panel's <b>Image Links To</b> and description fields underneath the banner.
-        </div>
-      </div>
-    </div>
+  <!-- ── status bar: kit CTA ───────────────────────────────────────── -->
+  <div class="statusbar">
+    <span class="dot">&#9679;</span><span class="conn">CONNECTED</span>
+    <span class="sep">|</span>
+    <span class="task">Part of the <b>IRC Minimal Stream Kit</b> — chat, alerts, scenes, goal bar &amp; game frame</span>
+    <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
+    <a class="btn start" href="https://www.etsy.com/listing/4473131682/irc-minimal-chat-widget-for-streamlabs?utm_source=panel-maker&utm_medium=web&utm_campaign=irc-minimal" target="_blank" rel="noopener noreferrer">
+      <canvas class="ico" data-icon="heart" width="16" height="16" aria-hidden="true"></canvas> View on Etsy &#8594;
+    </a>
+    <span class="cur">&#9608;</span>
   </div>
-</div>
-
-<!-- ── Status bar: kit CTA ──────────────────────────────────────────── -->
-<div class="statusbar">
-  <span class="dot">&#9679;</span><span class="conn">CONNECTED</span>
-  <span class="sep">|</span>
-  <span class="task">Part of the <b>IRC Minimal Stream Kit</b> — chat, alerts, scenes, goal bar &amp; game frame</span>
-  <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
-  <a class="btn start" href="https://www.etsy.com/listing/4473131682/irc-minimal-chat-widget-for-streamlabs?utm_source=panel-maker&utm_medium=web&utm_campaign=irc-minimal" target="_blank" rel="noopener noreferrer">
-    <canvas class="ico" data-icon="heart" width="16" height="16" aria-hidden="true"></canvas> View on Etsy &#8594;
-  </a>
-  <span class="cur">&#9608;</span>
-  <button type="button" class="linkish" id="hideBar" title="Hide this bar" aria-label="Hide this bar" style="text-decoration:none;color:var(--dim)">&#215;</button>
 </div>
 
 <script>
@@ -1142,10 +1106,9 @@
     if (cv1.width !== 320 * dpr) { cv1.width = 320 * dpr; cv1.height = 100 * dpr; }
     downscale(cv, cv1);
     $('pvName').textContent = P.preset.label;
-    ['suggText', 'suggText2'].forEach(function (id) { var t = $(id); t.value = suggested(P); t.rows = Math.max(2, Math.ceil(t.value.length / Math.max(30, Math.floor((t.clientWidth || 400) / 7.4)))); });
+    var t = $('suggText'); t.value = suggested(P); t.rows = Math.max(2, Math.ceil(t.value.length / Math.max(30, Math.floor((t.clientWidth || 400) / 7.4))));
     $('stFile').textContent = fileName(Math.max(0, included().indexOf(P.preset)), P);
-    $('stTs').textContent = meta.ts === null ? (P.ts ? 'no timestamps on this layout' : 'timestamps off') : (meta.ts ? 'timestamps on' : 'timestamps dropped: a line is too long');
-    updateCounts();
+    $('stTs').textContent = meta.ts === null ? '' : (meta.ts ? '\u00a0 · \u00a0[hh:mm] on' : '\u00a0 · \u00a0[hh:mm] dropped — a line is too long');
     if ($('setBox').classList.contains('on')) drawSet();
     save();
   }
@@ -1172,11 +1135,6 @@
       downscale(renderPanel(panelFor(p)), c); col.appendChild(c);
     });
   }
-  function updateCounts() {
-    [['sn', 'snCnt'], ['srv', 'srvCnt'], ['nl', 'nlCnt'], ['cta', 'ctaCnt'], ['ctaNote', 'ctaNoteCnt'], ['link', 'linkCnt'], ['title', 'titleCnt'], ['tag', 'tagCnt'], ['tag2', 'tag2Cnt'], ['st', 'stCnt'], ['time', 'timeCnt'], ['goalLabel', 'goalLabelCnt'], ['xfer', 'xferCnt'], ['invite', 'inviteCnt'], ['tip', 'tipCnt']].forEach(function (p) {
-      var el = $(p[0]); $(p[1]).textContent = el.value.length + '/' + el.maxLength;
-    });
-  }
   function remember() {
     var e = edits[state.preset] || (edits[state.preset] = {});
     e.title = $('title').value; e.tag = $('tag').value; e.tag2 = $('tag2').value; e.st = $('st').value;
@@ -1188,17 +1146,18 @@
     state.preset = key;
     var p = presetDef(key), P = panelFor(p);
     $('thisName').textContent = '— ' + p.label;
+    $('avatarBlock').style.display = p.layout === 'info' ? '' : 'none';
     $('title').value = P.title; $('tag').value = P.tag; $('tag2').value = P.tag2; $('st').value = P.st; $('cta').value = P.cta; $('ctaNote').value = P.ctaNote; $('link').value = P.link;
     $('li1').value = P.lines[0] || ''; $('li2').value = P.lines[1] || ''; $('li3').value = P.lines[2] || '';
     var L = p.layout;
     $('tagBlock').style.display  = L === 'list' || L === 'buttons' ? 'none' : '';
-    $('tagLabel').firstChild.nodeValue = L === 'info' ? 'First line ' : 'Small line ';
+    $('tagLabel').firstChild.nodeValue = L === 'info' ? 'First line ' : L === 'days' ? 'Note after the time ' : 'Small line ';
     $('tag2Block').style.display = L === 'info' || L === 'days' ? '' : 'none';
     $('tag2Label').firstChild.nodeValue = L === 'days' ? '--- line (dim) ' : 'Second line ';
     $('nickBlock').style.display = L === 'list' || L === 'invite' ? '' : 'none';
     $('ctaBlock').style.display = L === 'list' || L === 'days' || L === 'transfer' || L === 'invite' ? '' : 'none';
     $('tagBlock').style.display = L === 'list' || L === 'buttons' || L === 'transfer' ? 'none' : '';
-    $('listCnt').textContent = P.cta ? '34 each · 2 lines + the prompt · "key - detail" colours the key' : '34 each · "key - detail" colours the key';
+    $('listCnt').textContent = P.cta ? '(two, plus the prompt below — "key - detail" colours the key)' : '(up to three — "key - detail" colours the key)';
     $('nickOn').checked = P.nick !== false;
     $('listBlock').style.display = L === 'list' ? '' : 'none';
     $('daysBlock').style.display = L === 'days' ? '' : 'none';
@@ -1233,8 +1192,8 @@
   });
   function refreshCounts() {
     var n = included().length;
-    ['dlAll', 'dlAll2'].forEach(function (id) { $(id).textContent = 'Download set (' + n + ' .zip)'; $(id).disabled = n === 0; });
-    ['showSet', 'showSet2'].forEach(function (id) { $(id).textContent = 'Preview set (' + n + ')'; });
+    $('dlAll').textContent = 'Download the set (' + n + ' .zip)'; $('dlAll').disabled = n === 0;
+    $('showSet').textContent = 'Preview the set (' + n + ')';
   }
   // the custom slots show their current #channel on the picker so the buttons match the preview
   function syncCustomLabels() {
@@ -1303,14 +1262,12 @@
   });
   // text inputs
   ['title', 'tag', 'tag2', 'st', 'li1', 'li2', 'li3', 'cta', 'ctaNote', 'link'].forEach(function (id) {
-    $(id).addEventListener('input', function () { remember(); if (id === 'title') syncCustomLabels(); if (id === 'cta') $('listCnt').textContent = $('cta').value ? '34 each · 2 lines + the prompt · "key - detail" colours the key' : '34 each · "key - detail" colours the key'; draw(); });
+    $(id).addEventListener('input', function () { remember(); if (id === 'title') syncCustomLabels(); if (id === 'cta') $('listCnt').textContent = $('cta').value ? '(two, plus the prompt below — "key - detail" colours the key)' : '(up to three — "key - detail" colours the key)'; draw(); });
   });
   ['sn', 'srv', 'nl', 'time', 'goalLabel', 'goal', 'xfer', 'invite', 'tip', 'c1', 'c2', 'c3'].forEach(function (id) { $(id).addEventListener('input', draw); });
   $('ts').addEventListener('change', draw);
   $('nickOn').addEventListener('change', function () { remember(); draw(); });
-  function hideBar() { document.querySelector('.statusbar').classList.add('off'); document.body.style.paddingBottom = '16px'; }
-  $('hideBar').addEventListener('click', function () { hideBar(); try { localStorage.setItem(STORE + '.bar', 'off'); } catch (e) {} });
-  try { if (localStorage.getItem('senergy.panelmaker.irc-minimal.v2.bar') === 'off') hideBar(); } catch (e) {}
+
   $('showGoal').addEventListener('change', function () { $('goalFields').style.display = this.checked ? '' : 'none'; $('xferField').style.display = this.checked ? 'none' : ''; draw(); });
   $('resetOne').addEventListener('click', function () { delete edits[state.preset]; loadPreset(state.preset); });
   $('resetAll').addEventListener('click', function () {
@@ -1347,7 +1304,7 @@
     drawPixels(c.getContext('2d'), c.dataset.icon, 0, 0, 1);
   });
 
-  [['copySugg', 'suggText'], ['copySugg2', 'suggText2']].forEach(function (pair) {
+  [['copySugg', 'suggText']].forEach(function (pair) {
     $(pair[0]).addEventListener('click', function () {
       var t = $(pair[1]), b = $(pair[0]); t.select();
       var done = function () { b.textContent = 'copied'; setTimeout(function () { b.textContent = 'copy'; }, 1500); };
@@ -1355,22 +1312,12 @@
       else { document.execCommand('copy'); done(); }
     });
   });
-  // topic line: jump to the section
-  Array.prototype.forEach.call(document.querySelectorAll('.topic .menu'), function (b) {
-    b.addEventListener('click', function () { var el = $(b.dataset.go); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
-  });
   // preview-all toggle (both buttons)
-  function toggleSet() {
+  $('showSet').addEventListener('click', function () {
     var box = $('setBox'), on = !box.classList.contains('on');
-    // on phones the preview is sticky, so the set goes below the controls instead of inside it
-    var narrow = window.innerWidth <= 860;
-    if (narrow) $('controls').parentNode.appendChild(box); else $('dlRow').insertAdjacentElement('afterend', box);
-    box.classList.toggle('on', on);
-    ['showSet', 'showSet2'].forEach(function (id) { $(id).setAttribute('aria-pressed', on); $(id).classList.toggle('on', on); });
-    if (on) { drawSet(); if (narrow) box.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-  }
-  $('showSet').addEventListener('click', toggleSet);
-  $('showSet2').addEventListener('click', toggleSet);
+    box.classList.toggle('on', on); this.setAttribute('aria-pressed', on); this.classList.toggle('on', on);
+    if (on) { drawSet(); if (window.innerWidth <= 760) box.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
 
   /* ───────────────────────── persistence (this browser only) ── */
   var STORE = 'senergy.panelmaker.irc-minimal.v2', saveTimer = null;
@@ -1419,7 +1366,6 @@
     toBlob(renderPanel(P)).then(function (b) { saveBlob(b, fileName(Math.max(0, included().indexOf(P.preset)), P)); });
   }
   $('dlOne').addEventListener('click', dlOne);
-  $('dlOne2').addEventListener('click', dlOne);
 
   // store-only .zip writer (no libraries)
   var CRC = (function () { var t = [], c; for (var n = 0; n < 256; n++) { c = n; for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
@@ -1464,7 +1410,7 @@
     return lines.join('\r\n');
   }
   function dlAll() {
-    var set = included(), btns = [$('dlAll'), $('dlAll2')], notes = [$('dlNote'), $('dlNote2')];
+    var set = included(), btns = [$('dlAll')], notes = [$('dlNote')];
     var note = function (t) { notes.forEach(function (n) { n.textContent = t; }); };
     btns.forEach(function (b) { b.disabled = true; }); note('Rendering ' + set.length + ' panels...');
     var jobs = set.map(function (p, i) {
@@ -1481,7 +1427,6 @@
     }).catch(function () { note('Something went wrong - try the single download.'); btns.forEach(function (b) { b.disabled = false; }); });
   }
   $('dlAll').addEventListener('click', dlAll);
-  $('dlAll2').addEventListener('click', dlAll);
 
   // exposed for automated capture (harmless in normal use)
   window.__panelMaker = {

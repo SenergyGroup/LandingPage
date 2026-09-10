@@ -1,6 +1,6 @@
 # IRC Minimal Panel Maker v2 — build + review log
 
-**Date:** 2026-09-10 · **File:** `LandingPage/public/panel-makers/irc-minimal.html` (v1 backed up to `LandingPage/panel-makers-backup/irc-minimal.v1-2026-09-10.html`) · **Route:** `/panel-maker/irc-minimal` (unchanged; no `server.js` edits) · **CTA UTM:** `utm_source=panel-maker&utm_medium=web&utm_campaign=irc-minimal` (kept from v1) · **Contact sheet:** `LandingPage/docs/panel-maker-irc-preview-2026-09-10.png` · **Atlas generator:** `LandingPage/docs/panel-maker-make_atlas.py` (now takes a spec file; `panel-maker-irc-faces.json` is the IRC spec) · **Capture harness:** `LandingPage/docs/panel-maker-capture.js`
+**Date:** 2026-09-10 · **File:** `LandingPage/public/panel-makers/irc-minimal.html` (v1 backed up to `LandingPage/panel-makers-backup/irc-minimal.v1-2026-09-10.html`) · **Route:** `/panel-maker/irc-minimal` (unchanged; no `server.js` edits) · **CTA UTM:** `utm_source=panel-maker&utm_medium=web&utm_campaign=irc-minimal` (kept from v1) · **Contact sheet:** `LandingPage/docs/panel-maker-irc-preview-2026-09-10.png` · **Maker UI:** `LandingPage/docs/panel-maker-irc-ui-2026-09-10.png` · **Atlas generator:** `LandingPage/docs/panel-maker-make_atlas.py` (now takes a spec file; `panel-maker-irc-faces.json` is the IRC spec) · **Capture harness:** `LandingPage/docs/panel-maker-capture.js`
 
 ## Process
 
@@ -17,6 +17,16 @@ Best build = rev 3 (7.8, tied with rev 1 but carrying the rev-2 geometry fixes a
 
 **Post-review tweaks applied to the shipped file (not re-reviewed):** the prompt-line cursor now sits at the end of the line (`> /follow  to get notified█`); dim text on the title and status bars is guarded against the bar colour (`dimBar`, ≥7:1 on all five themes; was 5.7:1 on IRC Dark); the phone layout's two-column grid now stacks below 480px so a 21-character nick gets the full row (CSS order bug). Final pixel checks on the shipped build: 8–11 colours per 640×200 export, 0 pixels of frame overprint, 0 non-uniform 2×2 blocks, no page errors, zip = 10 PNGs + README, Preview set = 10.
 
+## Maker UX pass (2026-09-10, after the review loop — not re-reviewed)
+
+Aaron's feedback on the shipped build: the panels fit the era, but the maker "takes a second to figure out what I am even looking at" — too much at once. The maker was re-laid out as an IRC client, with the panel renderer untouched (all 12 default exports byte-identical to the accepted build):
+
+- One window. A **channel list on the left** (one `#channel` = one panel; its checkbox = in your set; the selected one is highlighted) and **the panel you are editing on the right** — the IRC client's own metaphor instead of two dense windows.
+- The title bar carries the whole instruction set: `1 pick a channel · 2 type your text · 3 download`.
+- The editor shows only what that panel uses: channel + nick, the layout's own fields (lines / days + time / platforms / DCC gag), the prompt line, and the avatar row only on About. Icon picker, status-bar text, nick-list toggle, invite/tip links and "Image Links To" are folded under **More options for this panel**; server name, mods, timestamps and the colour pickers under **Custom colours & the details on every panel**; the Twitch description text and the how-to under their own folds.
+- Removed: the five numbered sections, the topic-line nav, the character counters on every field, the duplicated export row, the status row, and the fixed Etsy bar (now the window's own static status bar). One export row: Download this panel · Download the set · Preview the set.
+- Phones: the channel list becomes a horizontal strip, the true-size 320px preview stays pinned while the editor scrolls under it. (A grid `min-width:auto` bug let the strip push the page to 1526px wide — fixed with `.cols > * { min-width: 0 }`.)
+
 ## What's in v2
 
 - 10 presets in the zip (About, Schedule, Rules, Socials, Discord, Subscribe, Support, Commands, Specs, Custom) plus two optional slots (`#youtube`, `#business`) that are off by default — Twitch gives one link per image, so YouTube / merch / business want their own panel.
@@ -25,7 +35,7 @@ Best build = rev 3 (7.8, tied with rev 1 but carrying the rev-2 geometry fixes a
 - **Prompt-line call to action** on link panels: `> /follow█`, `/join #discord`, `/subscribe`, `/tip` with an optional note, editable per panel; lists show two lines + the prompt, or three lines without it.
 - True bitmap text from a 1-bit IBM Plex Mono atlas (Bold 16 titles, Bold 14 nicks/keys, Medium 14 body, Medium 13 dim; SIL OFL via `@fontsource/ibm-plex-mono`, pre-rendered through FreeType by `make_atlas.py`). All three 13/14px faces share an 8px cell, so stamps, nicks and body sit on one column grid; the first glyph of every row is bearing-compensated so every panel shares one ink edge.
 - Five themes (IRC Dark = the widget, Phosphor, Amber, mIRC Light, Solarized) + Background / Frame / Channel pickers. Every text colour is guarded: ≥7:1 body and dim, ≥6:1 title, ≥5:1 accent / green / role colours, dim-on-bar ≥7:1. Mono themes collapse nick and brand colours to the phosphor.
-- Nick (25), server name, go-live time, timestamps toggle, avatar upload (pixelated or smooth), nick-list names, per-panel title / icon (13 pixel icons) / lines / prompt / status / "Image Links To"; per-panel reset; browser persistence; Preview set; download one PNG or the set numbered in upload order + README (upload steps, per-file Image-Links-To and suggested description). Export buttons in the preview window and again at the end of the controls. No libraries, works offline (no web fonts at all).
+- Nick (25), server name, go-live time, timestamps toggle, avatar upload (pixelated or smooth), nick-list names, per-panel title / icon (13 pixel icons) / lines / prompt / status / "Image Links To"; per-panel reset; browser persistence; Preview the set; download one PNG or the set numbered in upload order + README (upload steps, per-file Image-Links-To and suggested description). No libraries, works offline (no web fonts at all).
 
 ## Still open (ranked, from the last two reviewers)
 
