@@ -5,7 +5,8 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test tests/buyer-flow.test.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.5.0",

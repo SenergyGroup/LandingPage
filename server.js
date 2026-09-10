@@ -296,7 +296,7 @@ const addLandingUtm = (rawUrl, { slug, content }) => {
 
 // Store-style product card (non-selectable; buy CTA goes to Etsy).
 const renderStoreCard = (widget, utmContent) => `
-  <div class="widget-card store-card">
+  <div class="widget-card store-card" id="${escapeHtml(widget.id)}">
     <div class="widget-thumbnail" style="background-image: url('${widget.image || widget.thumbnail}')"></div>
     <div class="store-card-head">
       <div class="widget-name">${widget.name}</div>
@@ -305,7 +305,7 @@ const renderStoreCard = (widget, utmContent) => `
     <div class="widget-desc">${widget.description}</div>
     <div class="store-card-foot">
       <span class="aesthetic-tag">${aestheticLabel(widget.aesthetic || "retro")}</span>
-      ${widget.productType === "bundle" ? '<span class="bundle-tag">Bundle</span>' : ""}
+      ${widget.productType === "bundle" ? `<span class="bundle-tag">${escapeHtml(widget.badgeText || "Bundle")}</span>` : ""}
       <a class="buy-button"
          href="${addLandingUtm(widget.etsyUrl, { slug: widget.id, content: utmContent })}"
          target="_blank"
@@ -352,25 +352,25 @@ const renderHomePage = (widgets) => {
     "what_we_make.dir",
     `
       <div class="type-grid">
-        <a class="type-card" href="/store">
+        <a class="type-card" href="/store?type=chat">
           <div class="type-icon">💬</div>
           <div class="type-name">Chat Widgets</div>
           <div class="type-desc">Live chat overlays styled as CRT terminals, buddy lists, forums, inboxes, and more.</div>
         </a>
-        <a class="type-card" href="/store">
+        <a class="type-card" href="/store?type=bundle">
           <div class="type-icon">🔔</div>
           <div class="type-name">Alert Widgets</div>
-          <div class="type-desc">Follow, sub, tip, cheer, and raid pop-ups with retro chimes. One install, all events.</div>
+          <div class="type-desc">Follow, sub, tip, cheer, and raid pop-ups with retro chimes. Included in the Retro Messenger kit.</div>
         </a>
-        <a class="type-card" href="/store">
+        <a class="type-card" href="/store?type=bundle">
           <div class="type-icon">🖥️</div>
           <div class="type-name">Scenes &amp; Goals</div>
-          <div class="type-desc">Starting Soon, BRB, and Ending screens plus themed goal bars that run for hours.</div>
+          <div class="type-desc">Starting Soon, BRB, and Ending screens plus a themed goal bar. Included in the Retro Messenger kit.</div>
         </a>
-        <a class="type-card" href="/custom">
+        <a class="type-card" href="/store?type=bundle">
           <div class="type-icon">📦</div>
           <div class="type-name">Full Stream Kits</div>
-          <div class="type-desc">The complete 8-piece stack in one matching theme, or commissioned in <em>your</em> style.</div>
+          <div class="type-desc">Ready-made chat, alerts, scenes, goals, game frame, and panels in one matching theme. Buy and install today.</div>
         </a>
       </div>
     `
@@ -457,19 +457,27 @@ const renderHomePage = (widgets) => {
  * Store
  * ------------------------------------------------------------------------ */
 
-const renderStorePage = (widgets, activeAesthetic) => {
+const renderStorePage = (widgets, activeAesthetic, activeType) => {
   const published = publishedWidgets(widgets);
-  const filtered = activeAesthetic
-    ? published.filter((w) => w.aesthetic === activeAesthetic)
-    : published;
-  const aesthetics = [...new Set(published.map((w) => w.aesthetic).filter(Boolean))].sort();
+  const byType = activeType ? published.filter((w) => w.productType === activeType) : published;
+  const filtered = activeAesthetic ? byType.filter((w) => w.aesthetic === activeAesthetic) : byType;
+  const aesthetics = [...new Set(byType.map((w) => w.aesthetic).filter(Boolean))].sort();
+  const storeUrl = (type, aesthetic) => {
+    const params = new URLSearchParams();
+    if (type) params.set("type", type);
+    if (aesthetic) params.set("aesthetic", aesthetic);
+    return escapeHtml(`/store${params.size ? `?${params}` : ""}`);
+  };
 
   const filterBar = `
-    <nav class="filter-bar" aria-label="Filter by aesthetic">
-      <a href="/store" class="filter-btn${!activeAesthetic ? " filter-active" : ""}">All</a>
-      ${aesthetics.map((a) => `<a href="/store?aesthetic=${a}" class="filter-btn${activeAesthetic === a ? " filter-active" : ""}">${aestheticLabel(a)}</a>`).join("\n      ")}
+    <nav class="filter-bar" aria-label="Filter by product type">
+      ${[[null, "All products"], ["bundle", "Stream Kits & Bundles"], ["chat", "Chat Widgets"]].map(([type, label]) => `<a href="${storeUrl(type, null)}" class="filter-btn${activeType === type ? " filter-active" : ""}"${activeType === type ? ' aria-current="page"' : ""}>${escapeHtml(label)}</a>`).join("\n      ")}
     </nav>
-    <p class="filter-count">Showing ${filtered.length} of ${published.length} widgets</p>
+    <nav class="filter-bar" aria-label="Filter by aesthetic">
+      <a href="${storeUrl(activeType, null)}" class="filter-btn${!activeAesthetic ? " filter-active" : ""}">All styles</a>
+      ${aesthetics.map((a) => `<a href="${storeUrl(activeType, a)}" class="filter-btn${activeAesthetic === a ? " filter-active" : ""}">${aestheticLabel(a)}</a>`).join("\n      ")}
+    </nav>
+    <p class="filter-count">Showing ${filtered.length} of ${published.length} products</p>
   `;
 
   return formatHtml(
@@ -481,8 +489,8 @@ const renderStorePage = (widgets, activeAesthetic) => {
         "store.exe",
         `
         <p class="eyebrow">The full catalog</p>
-        <h1>Widget Store</h1>
-        <p class="subhead">Every widget we've published. Purchases go through our Etsy shop:
+        <h1>${activeType === "bundle" ? "Ready-made Stream Kits" : "Widget Store"}</h1>
+        <p class="subhead">${activeType === "bundle" ? "Complete your stream with a ready-made kit." : "Explore our chat widgets and ready-made stream kits."} Purchases go through our Etsy shop:
           instant digital download, buyer protection, and a themed install guide with every order.</p>
         `,
         "hero-win"
@@ -491,6 +499,7 @@ const renderStorePage = (widgets, activeAesthetic) => {
       <div class="widget-grid">
         ${filtered.map((w) => renderStoreCard(w, "store-cta")).join("\n")}
       </div>
+      ${filtered.length ? "" : '<p class="notice">No products in this style yet. <a href="/store">Browse all products</a>.</p>'}
       ${win(
         "psst.txt",
         `
@@ -966,8 +975,9 @@ app.get("/", (req, res) => {
 });
 
 app.get("/store", (req, res) => {
-  const aesthetic = req.query.aesthetic || null;
-  res.send(renderStorePage(loadWidgets(), aesthetic));
+  const aesthetic = typeof req.query.aesthetic === "string" ? req.query.aesthetic : null;
+  const type = ["bundle", "chat"].includes(req.query.type) ? req.query.type : null;
+  res.send(renderStorePage(loadWidgets(), aesthetic, type));
 });
 
 app.get("/about", (req, res) => {
@@ -1191,7 +1201,7 @@ app.get("/download/:token", (req, res) => {
   const token = req.params.token;
   const claim = db.prepare("SELECT * FROM widget_claims WHERE claim_token = ?").get(token);
 
-  if (!claim || claim.status !== "confirmed") {
+  if (!claim || !["confirmed", "delivered"].includes(claim.status)) {
     res.status(403).send(renderErrorPage("Please confirm your email before downloading."));
     return;
   }
@@ -1210,7 +1220,8 @@ app.get("/download/:token", (req, res) => {
   }
 
   if (DOWNLOAD_BASE_URL) {
-    res.redirect(`${DOWNLOAD_BASE_URL}/${widget.zip}`);
+    // A redirect is not evidence that the external host completed a download.
+    res.redirect(`${DOWNLOAD_BASE_URL.replace(/\/+$/, "")}/${widget.zip}`);
     return;
   }
 
@@ -1218,11 +1229,21 @@ app.get("/download/:token", (req, res) => {
   const downloadName = path.basename(widget.zip);
   res.download(zipPath, downloadName, (err) => {
     if (err) {
-      res.status(500).send(renderErrorPage("Download failed. Please contact support."));
+      // A cancelled or partially sent response cannot accept a second response.
+      // Leave the claim usable so the buyer can retry on this or another device.
+      if (req.aborted || res.destroyed || res.writableEnded) return;
+      if (res.headersSent) {
+        res.destroy();
+        return;
+      }
+      res.removeHeader("Content-Disposition");
+      res.status(err.statusCode === 404 || err.code === "ENOENT" ? 404 : 500)
+        .send(renderErrorPage("Download failed. Please try this link again or contact support."));
       return;
     }
+    if (req.method === "HEAD") return;
     const deliveredAt = new Date().toISOString();
-    db.prepare("UPDATE widget_claims SET status = ?, delivered_at = ? WHERE id = ?").run(
+    db.prepare("UPDATE widget_claims SET status = ?, delivered_at = COALESCE(delivered_at, ?) WHERE id = ?").run(
       "delivered",
       deliveredAt,
       claim.id

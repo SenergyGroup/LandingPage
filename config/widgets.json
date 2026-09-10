@@ -1,5 +1,18 @@
 [
   {
+    "id": "sku-mk-kit-full",
+    "name": "Retro Messenger Full Stream Kit",
+    "description": "One matching retro desktop: chat, alerts, three scenes, goal bar, game frame, and Twitch panels. Chat supports Streamlabs or StreamElements; alerts, scenes, and goals use StreamElements with OBS. Includes the setup PDF.",
+    "category": "bundle",
+    "productType": "bundle",
+    "badgeText": "Full Stream Kit",
+    "aesthetic": "y2k",
+    "price": 29.99,
+    "etsyUrl": "https://www.etsy.com/listing/4533131913/retro-bundle-streamelements-y2k-early",
+    "image": "https://i.etsystatic.com/46135568/r/il/b00677/8272884607/il_794xN.8272884607_i2es.jpg",
+    "freebie": false
+  },
+  {
     "id": "sku-legacy-01-windows95",
     "legacyId": "windows-95",
     "name": "Windows 95",

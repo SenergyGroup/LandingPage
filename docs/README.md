@@ -66,6 +66,8 @@ Field semantics:
 - `freebie: false` → store-only paid listing; never shown in the claim form. Entries default to freebie when the field is missing.
 - `price` → shown on store cards. Missing price renders without a tag (not an error).
 - `productType: "bundle"` → gets a Bundle badge and sorts first in the store.
+- `badgeText` → optional label for a bundle badge (for example, "Full Stream Kit").
+- `/store?type=bundle` shows ready-made kits/bundles; `/store?type=chat` shows chat widgets. Aesthetic filters retain the selected product type. Homepage alerts and scenes point to the kit that includes them; custom commissions remain at `/custom`.
 
 Thumbnails and download PDFs resolve by folder scan: `public/images/{id}/` (first
 PNG/JPG/WEBP/SVG) and `assets/zips/{id}/` (first PDF/ZIP). No explicit
@@ -73,6 +75,29 @@ PNG/JPG/WEBP/SVG) and `assets/zips/{id}/` (first PDF/ZIP). No explicit
 
 The main repo's `/published` skill upserts entries here after an Etsy listing
 goes live.
+
+The Retro Messenger Full Stream Kit is a paid-only entry (`sku-mk-kit-full`). Its
+$29.99 price, Etsy listing 4533131913, and platform wording were verified against
+the live Etsy listing on September 10, 2026. The parent registry still has older
+kit metadata; reconcile that record before running a later `/published` sync so
+it does not replace the verified price with the old $44.99 planning price.
+
+## Download access and regression checks
+
+Confirmed and delivered claim tokens both remain valid for repeat downloads,
+including from a new browser/device. The first completed local-file transfer sets
+`delivered_at`; retries keep that timestamp. HEAD requests and cancelled transfers
+do not record a completed download. Download errors after headers are sent close
+the response instead of trying to send another error page.
+
+When `DOWNLOAD_BASE_URL` is configured, the app redirects to that host and keeps
+the claim usable. A redirect does not establish successful delivery from the
+external host; external file availability and inbox delivery require their own
+live checks.
+
+Run `npm test` for isolated HTTP regression checks. Tests use temporary fixture
+files, an in-memory database, and blocked outbound requests. They never load
+the production `.env` or create real subscribers.
 
 ## Custom commission pricing
 
