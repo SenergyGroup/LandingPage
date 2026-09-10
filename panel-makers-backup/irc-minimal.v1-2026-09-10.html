@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<!-- IRC MINIMAL PANEL MAKER - self-serve Twitch panel generator.
+     Buyers type their own info, toggle social tags, and download PNGs.
+     Everything renders in a <canvas> (no libraries, works offline). -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>IRC Minimal Panel Maker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap');
+  body { background: #0f1114; font-family: 'IBM Plex Mono', 'Courier New', monospace; margin: 0; padding: 28px;
+         display: flex; flex-direction: column; align-items: center; gap: 20px; color: #d4d4d4; }
+  .win { background: #16181d; border: 1px solid #90a4ae; width: 700px; max-width: 96vw; }
+  .tb { background: #2a2a2a; color: #6bc5ff; font-weight: bold; font-size: 13px; padding: 6px 10px;
+        border-bottom: 1px solid #90a4ae; }
+  .body { padding: 14px; }
+  label { display: block; font-size: 12px; font-weight: bold; margin: 10px 0 3px; color: #90a4ae; }
+  input[type=text] { width: 100%; box-sizing: border-box; padding: 6px 8px; font-family: 'IBM Plex Mono', monospace;
+         font-size: 13px; background: #0f1114; color: #d4d4d4; border: 1px solid #3a4046; }
+  input[type=text]:focus { outline: none; border-color: #6bc5ff; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .preset, .dl { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: bold; padding: 6px 12px;
+         cursor: pointer; background: #2a2a2a; color: #d4d4d4; border: 1px solid #90a4ae; }
+  .preset:hover, .dl:hover { border-color: #6bff6b; color: #6bff6b; }
+  .checks { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin-top: 6px; }
+  .checks label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-weight: normal; color: #d4d4d4; }
+  canvas { display: block; width: 100%; margin-top: 4px; border: 1px solid #3a4046; }
+  .hint { font-size: 11px; color: #8a8f94; margin-top: 8px; line-height: 1.5; }
+  .colors { display: flex; gap: 16px; align-items: center; font-size: 12px; margin-top: 6px; }
+  a.dl { text-decoration: none; }
+</style>
+</head>
+<body>
+  <div class="win">
+    <div class="tb">#panel-maker — IRC Minimal · make YOUR panels</div>
+    <div class="body">
+      <label>Quick presets</label>
+      <div class="row">
+        <button class="preset" onclick="preset('#about','$ cat about.txt','get to know the streamer',[])">#about</button>
+        <button class="preset" onclick="preset('#schedule','$ ls schedule/','live tue / thu / sat — 7pm',[])">#schedule</button>
+        <button class="preset" onclick="preset('#rules','$ cat rules.txt','keep the channel friendly',[])">#rules</button>
+        <button class="preset" onclick="preset('#socials','/connect socials','find me everywhere else',['yt','ig','x','dc'])">#socials</button>
+        <button class="preset" onclick="preset('#donate','$ ./donate.sh','support keeps the server up',[])">#donate</button>
+      </div>
+
+      <label for="title">Panel title (channel style: #about)</label>
+      <input type="text" id="title" value="#about" maxlength="24" oninput="draw()">
+
+      <label for="cmd">Command line</label>
+      <input type="text" id="cmd" value="$ cat about.txt" maxlength="36" oninput="draw()">
+
+      <label for="subtitle">Small line (optional)</label>
+      <input type="text" id="subtitle" value="get to know the streamer" maxlength="44" oninput="draw()">
+
+      <label>Social tags (rendered as [irc] style tags on the prompt line)</label>
+      <div class="checks">
+        <label><input type="checkbox" value="yt" onchange="draw()"> YouTube</label>
+        <label><input type="checkbox" value="ig" onchange="draw()"> Instagram</label>
+        <label><input type="checkbox" value="x"  onchange="draw()"> X</label>
+        <label><input type="checkbox" value="tt" onchange="draw()"> TikTok</label>
+        <label><input type="checkbox" value="dc" onchange="draw()"> Discord</label>
+        <label><input type="checkbox" value="tw" onchange="draw()"> Twitch</label>
+      </div>
+
+      <div class="colors">
+        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Frame
+          <input type="color" id="accent" value="#90a4ae" oninput="draw()"></label>
+        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Background
+          <input type="color" id="winbg" value="#16181d" oninput="draw()"></label>
+        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Title
+          <input type="color" id="titlecol" value="#6bc5ff" oninput="draw()"></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="win">
+    <div class="tb">preview — 640 x 200 (Twitch shows it at 320 wide)</div>
+    <div class="body">
+      <canvas id="cv" width="640" height="200"></canvas>
+      <div class="row" style="margin-top:12px;">
+        <button class="dl" onclick="download()">&#11015; Download PNG</button>
+      </div>
+      <div class="hint">
+        Make as many as you like: set the text, click Download, repeat.
+        Upload on Twitch under <b>About &rarr; Edit Panels &rarr; Add a Text or Image Panel &rarr; Add Image</b>.
+        Put your links in the panel's "Image Links To" / description fields on Twitch.
+      </div>
+    </div>
+  </div>
+
+  <div class="win">
+    <div class="body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <span style="font-size:12px;">Part of the <b>IRC Minimal Stream Kit</b> — chat, alerts, scenes, goal bars &amp; game frame.</span>
+      <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
+      <a class="dl" href="https://www.etsy.com/listing/4473131682/irc-minimal-chat-widget-for-streamlabs?utm_source=panel-maker&utm_medium=web&utm_campaign=irc-minimal">View on Etsy &#8594;</a>
+    </div>
+  </div>
+
+<script>
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+var MONO = "'IBM Plex Mono', 'Courier New', monospace";
+var GREEN = '#6bff6b';
+
+function draw() {
+  var title = document.getElementById('title').value || ' ';
+  var cmd = document.getElementById('cmd').value || '';
+  var subtitle = document.getElementById('subtitle').value || '';
+  var accent = document.getElementById('accent').value;
+  var winbg = document.getElementById('winbg').value;
+  var titlecol = document.getElementById('titlecol').value;
+  var socials = Array.prototype.slice.call(document.querySelectorAll('.checks input:checked')).map(function(c) { return c.value; });
+
+  ctx.clearRect(0, 0, 640, 200);
+  // window ground
+  ctx.fillStyle = winbg;
+  ctx.fillRect(0, 0, 640, 200);
+  // flat 2px frame
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, 0, 640, 2); ctx.fillRect(0, 198, 640, 2);
+  ctx.fillRect(0, 0, 2, 200); ctx.fillRect(638, 0, 2, 200);
+  // titlebar
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(2, 2, 636, 46);
+  ctx.fillStyle = accent;
+  ctx.fillRect(2, 48, 636, 2);
+  // title text
+  ctx.fillStyle = titlecol;
+  ctx.font = 'bold 30px ' + MONO;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(title, 18, 27, 520);
+  // dim side label
+  ctx.fillStyle = 'rgba(212,212,212,0.4)';
+  ctx.font = '20px ' + MONO;
+  ctx.textAlign = 'right';
+  ctx.fillText('irc', 622, 27);
+  // command line: leading $ or / in green
+  ctx.textAlign = 'left';
+  var cy = subtitle ? 92 : 104;
+  var cx = 20;
+  var m = cmd.match(/^([$\/>])\s?(.*)$/);
+  ctx.font = '26px ' + MONO;
+  if (m) {
+    ctx.fillStyle = GREEN;
+    ctx.fillText(m[1], cx, cy);
+    cx += ctx.measureText(m[1] + ' ').width;
+    ctx.fillStyle = '#d4d4d4';
+    ctx.fillText(m[2], cx, cy, 640 - cx - 20);
+  } else {
+    ctx.fillStyle = '#d4d4d4';
+    ctx.fillText(cmd, cx, cy, 600);
+  }
+  // dim description
+  if (subtitle) {
+    ctx.fillStyle = 'rgba(212,212,212,0.55)';
+    ctx.font = '21px ' + MONO;
+    ctx.fillText(subtitle, 20, 130, 600);
+  }
+  // prompt line: > [yt] [dc] ... ▌
+  var py = 172;
+  var px = 20;
+  ctx.font = 'bold 24px ' + MONO;
+  ctx.fillStyle = GREEN;
+  ctx.fillText('>', px, py);
+  px += ctx.measureText('> ').width;
+  ctx.font = '22px ' + MONO;
+  socials.forEach(function(s) {
+    var tag = '[' + s + ']';
+    ctx.fillStyle = '#6bc5ff';
+    ctx.fillText(tag, px, py);
+    px += ctx.measureText(tag + ' ').width;
+  });
+  // block cursor
+  ctx.fillStyle = GREEN;
+  ctx.fillRect(px, py - 11, 13, 22);
+}
+
+function preset(t, c, s, socials) {
+  document.getElementById('title').value = t;
+  document.getElementById('cmd').value = c;
+  document.getElementById('subtitle').value = s;
+  document.querySelectorAll('.checks input').forEach(function(cb) {
+    cb.checked = socials.indexOf(cb.value) !== -1;
+  });
+  draw();
+}
+
+function download() {
+  var title = (document.getElementById('title').value || 'panel')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  cv.toBlob(function(blob) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'panel_' + (title || 'custom') + '.png';
+    a.click();
+    setTimeout(function() { URL.revokeObjectURL(a.href); }, 2000);
+  }, 'image/png');
+}
+
+draw();
+if (document.fonts && document.fonts.ready) { document.fonts.ready.then(draw); }
+</script>
+</body>
+</html>

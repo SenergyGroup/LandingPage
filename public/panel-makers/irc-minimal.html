@@ -1,204 +1,1508 @@
 <!DOCTYPE html>
-<!-- IRC MINIMAL PANEL MAKER - self-serve Twitch panel generator.
-     Buyers type their own info, toggle social tags, and download PNGs.
-     Everything renders in a <canvas> (no libraries, works offline). -->
-<html>
+<!-- IRC MINIMAL PANEL MAKER v2 — self-serve Twitch panel generator.
+     Each panel is a classic IRC client window rendered in <canvas>: a #channel title
+     bar with the server name, a three-line log with [hh:mm] timestamps, <nick>
+     brackets, *** server lines and /commands, an adaptive nick list, and a
+     CONNECTED status bar with a block cursor. Buyers type their nick + text, pick a
+     theme, upload an avatar, and download PNGs — one at a time or the set as a .zip.
+
+     Text is TRUE BITMAP: IBM Plex Mono (SIL OFL, via @fontsource/ibm-plex-mono) was
+     pre-rendered through FreeType's 1-bit rasteriser (Bold 16 titles, Bold 14 nicks
+     and keys, Medium 14 body, Regular 13 timestamps/status) and packed into a glyph
+     atlas inside this file. Every string is drawn from that atlas at 1x and blitted
+     at exactly 2x, so Twitch's 2:1 downscale lands each text pixel on one screen
+     pixel, identically on every OS — no web fonts, no anti-aliasing, nothing to load.
+     All three faces share an 8px cell, so timestamps, nicks and body sit on one grid.
+     No libraries, works offline. -->
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>IRC Minimal Panel Maker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IRC Minimal Panel Maker — Senergy Group</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap');
-  body { background: #0f1114; font-family: 'IBM Plex Mono', 'Courier New', monospace; margin: 0; padding: 28px;
-         display: flex; flex-direction: column; align-items: center; gap: 20px; color: #d4d4d4; }
-  .win { background: #16181d; border: 1px solid #90a4ae; width: 700px; max-width: 96vw; }
-  .tb { background: #2a2a2a; color: #6bc5ff; font-weight: bold; font-size: 13px; padding: 6px 10px;
-        border-bottom: 1px solid #90a4ae; }
-  .body { padding: 14px; }
-  label { display: block; font-size: 12px; font-weight: bold; margin: 10px 0 3px; color: #90a4ae; }
-  input[type=text] { width: 100%; box-sizing: border-box; padding: 6px 8px; font-family: 'IBM Plex Mono', monospace;
-         font-size: 13px; background: #0f1114; color: #d4d4d4; border: 1px solid #3a4046; }
-  input[type=text]:focus { outline: none; border-color: #6bc5ff; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-  .preset, .dl { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: bold; padding: 6px 12px;
-         cursor: pointer; background: #2a2a2a; color: #d4d4d4; border: 1px solid #90a4ae; }
-  .preset:hover, .dl:hover { border-color: #6bff6b; color: #6bff6b; }
-  .checks { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin-top: 6px; }
-  .checks label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-weight: normal; color: #d4d4d4; }
-  canvas { display: block; width: 100%; margin-top: 4px; border: 1px solid #3a4046; }
-  .hint { font-size: 11px; color: #8a8f94; margin-top: 8px; line-height: 1.5; }
-  .colors { display: flex; gap: 16px; align-items: center; font-size: 12px; margin-top: 6px; }
-  a.dl { text-decoration: none; }
+  /* No web fonts: the panel text comes from the 1-bit glyph atlas in the script below.
+     The maker's own UI uses whatever terminal face the OS has, like any IRC client. */
+  :root {
+    --desk: #0f1114;
+    --win: #16181d;
+    --bar: #2a2a2a;
+    --acc: #90a4ae;
+    --txt: #d4d4d4;
+    --ttl: #6bc5ff;
+    --ok: #6bff6b;
+    --dim: #8a8f94;
+    --line: #3a4046;
+    --mono: "IBM Plex Mono", Consolas, "DejaVu Sans Mono", Menlo, "Liberation Mono", "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--desk);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--txt);
+    min-height: 100vh;
+    padding: 24px 16px 84px;
+  }
+  .desk {
+    display: grid;
+    grid-template-columns: minmax(300px, 440px) minmax(320px, 700px);
+    gap: 18px;
+    justify-content: center;
+    align-items: start;
+  }
+  .mobileOnly { display: none; }
+  @media (max-width: 860px) {
+    .desk { grid-template-columns: minmax(280px, 700px); }
+    .pv-wrap { order: -1; position: sticky; top: 0; z-index: 4; }
+    /* the sticky block is just the true-size panel + the buttons (~170px); everything else moves to step 5 */
+    .pv-wrap #cv, .pv-wrap .actual .lab, .pv-wrap .fakedesc, .pv-wrap .status, .pv-wrap .note, .pv-wrap .sugg, .pv-wrap #help { display: none; }
+    .pv-wrap .actual { display: flex; margin-top: 0; justify-content: center; }
+    .pv-wrap .body { padding: 6px; }
+    .pv-wrap .pvbox { padding: 6px; }
+    .pv-wrap .dl-row { margin-top: 6px; gap: 4px; }
+    .pv-wrap .dl-row button { flex: 1 1 0; justify-content: center; white-space: nowrap; font-size: 11px; padding: 5px 4px; }
+    #setBox { margin: 0 0 12px; }
+    .mobileOnly { display: block; }
+    .statusbar { position: static; margin-top: 16px; }
+    body { padding: 12px 10px 16px; }
+  }
+  @media (max-width: 600px) { #presetRow .pickwrap { flex: 1 1 45%; } }
+
+  /* ── IRC client window chrome ────────────────────────── */
+  .win {
+    background: var(--win);
+    border: 1px solid var(--acc);
+    box-shadow: 0 0 0 1px #000, 8px 8px 0 rgba(0,0,0,.35);
+  }
+  .tb {
+    display: flex; align-items: center; gap: 8px;
+    height: 26px; padding: 0 8px;
+    background: var(--bar);
+    border-bottom: 1px solid var(--acc);
+    color: var(--ttl); font-weight: bold; font-size: 13px;
+    white-space: nowrap; overflow: hidden;
+  }
+  .tb .ico { width: 16px; height: 16px; image-rendering: pixelated; flex: 0 0 auto; }
+  .tb .ttl { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+  .tb .srv { color: var(--dim); font-weight: normal; overflow: hidden; text-overflow: ellipsis; }
+  .tb .srv::before { content: "— "; opacity: .5; }
+  .topic { display: flex; gap: 10px; padding: 4px 8px; font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--line); align-items: center; }
+  .topic .sp { flex: 1; }
+  .topic .menu, .topic .menu:active { background: none; border: none; box-shadow: none; padding: 0; font-weight: normal; color: var(--ttl); white-space: nowrap; }
+  .topic .menu::before { content: "["; color: var(--dim); } .topic .menu::after { content: "]"; color: var(--dim); }
+  .topic .menu:hover { color: var(--ok); }
+  .topic .st { color: var(--dim); }
+  .topic .st b { color: var(--txt); font-weight: normal; }
+  .body { padding: 10px 12px 12px; }
+
+  /* ── Controls ─────────────────────────────────────────── */
+  fieldset { border: none; margin: 0 0 10px; padding: 0; min-width: 0; }
+  .grp { margin: 0 0 10px; padding: 8px 10px 10px; border: 1px solid var(--line); }
+  .grp .lg { font-weight: bold; font-size: 12px; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: var(--ttl); }
+  .grp .lg > span::before { content: "# "; color: var(--dim); font-weight: normal; }
+  .grp .lg small { font-weight: normal; color: var(--dim); }
+  label { display: block; font-size: 12px; margin: 8px 0 3px; color: var(--acc); }
+  label .cnt { float: right; color: var(--dim); font-weight: normal; }
+  input[type=text], input[type=number] {
+    width: 100%; padding: 5px 7px; font: 13px var(--mono); background: var(--desk); color: var(--txt);
+    border: 1px solid var(--line); outline: none; caret-color: var(--ok);
+  }
+  input[type=text]:focus, input[type=number]:focus { border-color: var(--ttl); }
+  input::placeholder { color: #5a6068; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row.tight { gap: 4px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .list3 { display: grid; gap: 4px; }
+  button, .btn {
+    font: bold 12px var(--mono); color: var(--txt); cursor: pointer; padding: 5px 10px; background: var(--bar);
+    border: 1px solid var(--acc); display: inline-flex; align-items: center; gap: 6px; text-decoration: none; line-height: 1.2;
+  }
+  button:hover, .btn:hover { border-color: var(--ttl); color: var(--ttl); }
+  button:active, .btn:active, button.on { border-color: var(--ok); color: var(--ok); background: #172119; }
+  button:disabled { color: var(--dim); border-color: var(--line); cursor: default; }
+  button .ico { width: 16px; height: 16px; image-rendering: pixelated; }
+  button:focus-visible { outline: 1px dashed var(--ok); outline-offset: 2px; }
+  .pickwrap { display: inline-flex; align-items: center; gap: 4px; }
+  .pickwrap .pick { flex: 1 1 auto; }
+  .pickwrap .inc { width: 15px; height: 15px; margin: 0; accent-color: var(--ok); }
+  input[type=checkbox] { accent-color: var(--ok); }
+  #iconRow { display: grid; grid-template-columns: repeat(5, 1fr); }
+  .icons button { padding: 4px 5px; justify-content: center; }
+  .icons button .ico { width: 24px; height: 24px; }
+  .checks { display: flex; gap: 4px 12px; flex-wrap: wrap; }
+  .checks label { display: inline-flex; align-items: center; gap: 5px; margin: 4px 0 0; color: var(--txt); }
+  #handles { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; margin-top: 6px; }
+  #handles label { margin: 0; font-size: 11px; }
+  #handles input { padding: 3px 6px; font-size: 12px; }
+  .days { display: flex; gap: 4px; flex-wrap: wrap; }
+  .days button { min-width: 36px; justify-content: center; padding: 5px 0; }
+  .colors { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; }
+  .colors label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+  input[type=color] { width: 30px; height: 22px; padding: 0; border: 1px solid var(--acc); background: var(--desk); cursor: pointer; }
+  input[type=file] { font: 12px var(--mono); max-width: 100%; color: var(--txt); }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .fname { font-size: 11px; color: var(--dim); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  label.btn { margin: 0; }
+  .themes { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+  .themes button { padding: 4px 8px; font-weight: normal; }
+  .sw { width: 12px; height: 12px; border: 1px solid var(--acc); display: inline-block; }
+  .hint { font-size: 11px; color: var(--dim); line-height: 1.55; margin-top: 8px; }
+  .hint b { color: var(--txt); font-weight: normal; }
+  .avatarRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .avatarRow label { margin: 0; display: inline-flex; align-items: center; gap: 5px; color: var(--txt); }
+  .linkish, .linkish:active, .linkish:hover { background: none; border: none; box-shadow: none; padding: 0; font: 11px var(--mono); color: var(--ttl); text-decoration: underline; cursor: pointer; }
+  .inline { display: inline-flex; align-items: center; gap: 6px; color: var(--txt); }
+
+  /* ── Preview ──────────────────────────────────────────── */
+  .pv-wrap { position: sticky; top: 16px; }
+  .pvbox { padding: 14px; background: #18181b; border: 1px solid var(--line); }   /* Twitch's panel-area ground */
+  canvas { display: block; }
+  #cv { width: 100%; height: auto; image-rendering: auto; }
+  .actual { margin-top: 14px; display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .actual .lab { font-size: 11px; color: #c8c8cc; line-height: 1.5; max-width: 250px; }
+  .actual .lab b { color: #fff; }
+  .twitchcol { width: 320px; flex: 0 0 auto; }
+  #cv1 { width: 320px; height: 100px; image-rendering: auto; }
+  .fakedesc { font: 13px/1.4 Inter, "Helvetica Neue", Arial, sans-serif; color: #adadb8; padding: 6px 0 0; }
+  .fakedesc a { color: #bf94ff; text-decoration: none; }
+  #setBox { display: none; margin-top: 10px; padding: 12px; background: #18181b; border: 1px solid var(--line); }
+  #setBox.on { display: block; }
+  #setBox .lab { font-size: 11px; color: #c8c8cc; margin-bottom: 8px; }
+  #setBox .lab b { color: #fff; }
+  #setCol { display: grid; grid-template-columns: repeat(auto-fill, 320px); gap: 10px; }
+  #setCol canvas { width: 320px; height: 100px; }
+  .sugg { margin-top: 8px; }
+  .sugg label { margin: 0 0 3px; }
+  .sugg textarea { width: 100%; font: 12px var(--mono); padding: 5px 7px; background: var(--desk); color: var(--txt); resize: vertical; border: 1px solid var(--line); }
+  .status { display: flex; gap: 4px; margin: 8px 0 0; }
+  .status span { flex: 1; padding: 3px 6px; font-size: 11px; color: var(--dim); border: 1px solid var(--line); }
+  .dl-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+  .dl-row .primary { border-color: var(--ok); color: var(--ok); }
+  .dl-row .note { font-size: 11px; color: var(--dim); }
+
+  /* ── Status bar: kit CTA ──────────────────────────────── */
+  .statusbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+    background: var(--bar); border-top: 1px solid var(--acc);
+    padding: 4px 8px; display: flex; align-items: center; gap: 10px; font-size: 12px;
+  }
+  .statusbar .dot { color: var(--ok); font-size: 8px; }
+  .statusbar .conn { color: var(--ok); }
+  .statusbar .sep { color: var(--line); }
+  .statusbar .task { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dim); }
+  .statusbar .task b { color: var(--txt); font-weight: normal; }
+  .statusbar .start { border-color: var(--ok); color: var(--ok); padding: 4px 8px; }
+  .statusbar .start .ico { width: 16px; height: 16px; image-rendering: pixelated; }
+  .statusbar .cur { color: var(--ok); animation: blink 1s steps(1, end) infinite; }
+  .statusbar.off { display: none; }
+  @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+  @media (max-width: 600px) { .statusbar .task { display: none; } }
+  @media (max-width: 860px) { .statusbar { position: static; margin-top: 16px; } }   /* after the fixed rule so it wins on phones */
+  @media (max-width: 480px) { .two { grid-template-columns: 1fr; } }                  /* after the .two rule so a 21-char nick gets the full row */
 </style>
 </head>
 <body>
-  <div class="win">
-    <div class="tb">#panel-maker — IRC Minimal · make YOUR panels</div>
-    <div class="body">
-      <label>Quick presets</label>
-      <div class="row">
-        <button class="preset" onclick="preset('#about','$ cat about.txt','get to know the streamer',[])">#about</button>
-        <button class="preset" onclick="preset('#schedule','$ ls schedule/','live tue / thu / sat — 7pm',[])">#schedule</button>
-        <button class="preset" onclick="preset('#rules','$ cat rules.txt','keep the channel friendly',[])">#rules</button>
-        <button class="preset" onclick="preset('#socials','/connect socials','find me everywhere else',['yt','ig','x','dc'])">#socials</button>
-        <button class="preset" onclick="preset('#donate','$ ./donate.sh','support keeps the server up',[])">#donate</button>
-      </div>
+<div class="desk">
 
-      <label for="title">Panel title (channel style: #about)</label>
-      <input type="text" id="title" value="#about" maxlength="24" oninput="draw()">
-
-      <label for="cmd">Command line</label>
-      <input type="text" id="cmd" value="$ cat about.txt" maxlength="36" oninput="draw()">
-
-      <label for="subtitle">Small line (optional)</label>
-      <input type="text" id="subtitle" value="get to know the streamer" maxlength="44" oninput="draw()">
-
-      <label>Social tags (rendered as [irc] style tags on the prompt line)</label>
-      <div class="checks">
-        <label><input type="checkbox" value="yt" onchange="draw()"> YouTube</label>
-        <label><input type="checkbox" value="ig" onchange="draw()"> Instagram</label>
-        <label><input type="checkbox" value="x"  onchange="draw()"> X</label>
-        <label><input type="checkbox" value="tt" onchange="draw()"> TikTok</label>
-        <label><input type="checkbox" value="dc" onchange="draw()"> Discord</label>
-        <label><input type="checkbox" value="tw" onchange="draw()"> Twitch</label>
-      </div>
-
-      <div class="colors">
-        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Frame
-          <input type="color" id="accent" value="#90a4ae" oninput="draw()"></label>
-        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Background
-          <input type="color" id="winbg" value="#16181d" oninput="draw()"></label>
-        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Title
-          <input type="color" id="titlecol" value="#6bc5ff" oninput="draw()"></label>
-      </div>
+  <!-- ── Window 1: controls ───────────────────────────────────────── -->
+  <div class="win" id="controls">
+    <div class="tb">
+      <canvas class="ico" data-icon="prompt" width="16" height="16" aria-hidden="true"></canvas>
+      <span class="ttl">#panel-maker</span><span class="srv">IRC Minimal</span>
     </div>
-  </div>
-
-  <div class="win">
-    <div class="tb">preview — 640 x 200 (Twitch shows it at 320 wide)</div>
+    <div class="topic"><button type="button" class="menu" data-go="presetRow">panels</button><button type="button" class="menu" data-go="controls">this panel</button><button type="button" class="menu" data-go="help">help</button><span class="sp"></span><span class="st">/topic <b>Make YOUR panels</b></span></div>
     <div class="body">
-      <canvas id="cv" width="640" height="200"></canvas>
-      <div class="row" style="margin-top:12px;">
-        <button class="dl" onclick="download()">&#11015; Download PNG</button>
-      </div>
+
+      <fieldset class="grp">
+        <div class="lg"><span>1. Pick a panel</span><small>&#9745; = in the .zip / preview-all</small></div>
+        <div class="row tight" id="presetRow" role="group" aria-label="Panel presets"></div>
+      </fieldset>
+
+      <fieldset class="grp">
+        <div class="lg"><span>2. About you</span><small>every panel</small></div>
+        <div class="two">
+          <div><label for="sn">Nick <span class="cnt" id="snCnt"></span></label>
+          <input type="text" id="sn" value="RetroStreamer" maxlength="25" autocomplete="off" spellcheck="false"></div>
+          <div><label for="srv">Server (title bar) <span class="cnt" id="srvCnt"></span></label>
+          <input type="text" id="srv" value="StreamLive IRC" maxlength="18" autocomplete="off" spellcheck="false"></div>
+        </div>
+        <div class="two">
+          <div><label for="time">Go-live time <span class="cnt" id="timeCnt"></span></label>
+          <input type="text" id="time" value="7:00 PM CT" maxlength="14" autocomplete="off"></div>
+          <div><label>&nbsp;</label><label class="inline" style="margin:0;padding-top:6px"><input type="checkbox" id="ts" checked> [hh:mm] timestamps</label></div>
+        </div>
+        <label>Avatar (shown on About Me)</label>
+        <div class="avatarRow">
+          <label class="btn" for="avatar">Upload avatar…</label><input type="file" id="avatar" class="vh" accept="image/png,image/jpeg,image/gif,image/webp">
+          <span class="fname" id="avatarName"></span>
+          <label><input type="checkbox" id="pixelate" checked> Pixelate</label>
+          <button type="button" id="avatarClear" style="display:none">Use icon</button>
+        </div>
+        <label for="nl">Nick list — two mods / regulars, comma-separated <span class="cnt" id="nlCnt"></span></label>
+        <input type="text" id="nl" value="ModMike, VIPVictor" maxlength="32" autocomplete="off" spellcheck="false">
+        <div class="hint">Timestamps count up from your go-live time and are dropped on any panel where a line would not fit. The nick list (you as @op, then these names) fills the right side of list panels when the lines leave room.</div>
+      </fieldset>
+
+      <fieldset class="grp">
+        <div class="lg"><span>3. This panel <small id="thisName"></small></span><button type="button" class="linkish" id="resetOne">Reset this panel</button></div>
+        <label for="title">Channel (panel title) <span class="cnt" id="titleCnt"></span></label>
+        <input type="text" id="title" value="" maxlength="22" autocomplete="off">
+
+        <label>Title icon</label>
+        <div class="row tight icons" id="iconRow" role="group" aria-label="Title icon"></div>
+
+        <div id="tagBlock">
+          <label for="tag" id="tagLabel">Small line <span class="cnt" id="tagCnt"></span></label>
+          <input type="text" id="tag" value="" maxlength="32" autocomplete="off">
+        </div>
+
+        <div id="tag2Block">
+          <label for="tag2" id="tag2Label">Second line <span class="cnt" id="tag2Cnt"></span></label>
+          <input type="text" id="tag2" value="" maxlength="32" autocomplete="off">
+        </div>
+
+        <div id="listBlock">
+          <label>Up to 3 lines <span class="cnt" id="listCnt">34 each · &quot;key - detail&quot; colours the key</span></label>
+          <div class="list3">
+            <input type="text" id="li1" maxlength="34" autocomplete="off" placeholder="Line 1">
+            <input type="text" id="li2" maxlength="34" autocomplete="off" placeholder="Line 2">
+            <input type="text" id="li3" maxlength="34" autocomplete="off" placeholder="Line 3">
+          </div>
+        </div>
+
+        <div id="daysBlock">
+          <label>Live days <span class="cnt">time is under "About you"</span></label>
+          <div class="days" id="days" role="group" aria-label="Days of the week"></div>
+        </div>
+
+        <div id="socBlock">
+          <label>Platforms (up to 6 — one row each)</label>
+          <div class="checks" id="socials"></div>
+          <div id="handles"></div>
+        </div>
+
+        <div id="goalBlock">
+          <label class="inline"><input type="checkbox" id="showGoal"> Show a numeric goal instead (numbers go stale — re-export when they change)</label>
+          <div id="xferField"><label for="xfer">DCC SEND file name (the gag) <span class="cnt" id="xferCnt"></span></label><input type="text" id="xfer" value="thank_you.wav" maxlength="18" autocomplete="off"></div>
+          <div class="two" id="goalFields">
+            <div><label for="goalLabel">Goal label <span class="cnt" id="goalLabelCnt"></span></label><input type="text" id="goalLabel" value="sub goal" maxlength="14" autocomplete="off"></div>
+            <div><label for="goal">Progress <span class="cnt">e.g. 31 / 50</span></label><input type="text" id="goal" value="31 / 50" maxlength="11" autocomplete="off"></div>
+          </div>
+        </div>
+
+        <div id="inviteBlock"><label for="invite">Discord invite link (for the description text) <span class="cnt" id="inviteCnt"></span></label><input type="text" id="invite" value="" maxlength="32" placeholder="discord.gg/…" autocomplete="off"></div>
+        <div id="tipBlock"><label for="tip">Tip link (for the description text) <span class="cnt" id="tipCnt"></span></label><input type="text" id="tip" value="" maxlength="40" placeholder="streamelements.com/you/tip" autocomplete="off"></div>
+
+        <div id="ctaBlock">
+          <div class="two">
+            <div><label for="cta">Prompt line — the ask <span class="cnt" id="ctaCnt"></span></label><input type="text" id="cta" value="" maxlength="16" placeholder="/follow" autocomplete="off" spellcheck="false"></div>
+            <div><label for="ctaNote">…and a note after it <span class="cnt" id="ctaNoteCnt"></span></label><input type="text" id="ctaNote" value="" maxlength="26" placeholder="to get notified" autocomplete="off"></div>
+          </div>
+          <div class="hint">Drawn as <b>&gt; /follow&#9608;</b> on the last line, in the prompt green. Leave it empty for no prompt (lists then get their 3rd line back).</div>
+        </div>
+        <div id="nickBlock"><label class="inline" style="margin-top:8px"><input type="checkbox" id="nickOn" checked> Nick list on the right when the lines leave room</label></div>
+
+        <label for="st">Status bar (after CONNECTED) <span class="cnt" id="stCnt"></span></label>
+        <input type="text" id="st" value="" maxlength="24" autocomplete="off">
+        <label for="link">"Image Links To" for this panel — not drawn; goes in the README <span class="cnt" id="linkCnt"></span></label>
+        <input type="text" id="link" value="" maxlength="80" placeholder="https://…" autocomplete="off" spellcheck="false">
+      </fieldset>
+
+      <fieldset class="grp">
+        <div class="lg"><span>4. Colors</span><small>used on every panel</small></div>
+        <div class="themes" id="themes" role="group" aria-label="Color themes"></div>
+        <div class="colors">
+          <label>Background <input type="color" id="c1" value="#16181d"></label>
+          <label>Frame <input type="color" id="c2" value="#90a4ae"></label>
+          <label>Channel <input type="color" id="c3" value="#6bc5ff"></label>
+        </div>
+        <div class="hint">Text, prompt green and the bars follow the theme; every colour is auto-lifted to at least 5:1 on your background. Most viewers use Twitch's dark mode — a light panel will glow on their page.</div>
+      </fieldset>
+
+      <fieldset class="grp">
+        <div class="lg"><span>5. Export</span><small>same buttons as the preview window</small></div>
+        <div class="dl-row" id="dlRow2">
+          <button class="primary" id="dlOne2">Download this panel</button>
+          <button id="dlAll2">Download all (.zip)</button>
+          <button id="showSet2" aria-pressed="false">Preview all</button>
+          <span class="note" id="dlNote2"></span>
+        </div>
+        <div class="mobileOnly">
+          <div class="sugg">
+            <label for="suggText2">Suggested text for this panel's Twitch description <button type="button" class="linkish" id="copySugg2">copy</button></label>
+            <textarea id="suggText2" rows="2" readonly></textarea>
+          </div>
+          <div class="hint"><b>On Twitch:</b> About &rarr; Edit Panels &rarr; Add a Text or Image Panel &rarr; Add Image. Twitch gives each image <b>one</b> link ("Image Links To") — put the rest in the description under the banner.</div>
+        </div>
+      </fieldset>
+
       <div class="hint">
-        Make as many as you like: set the text, click Download, repeat.
-        Upload on Twitch under <b>About &rarr; Edit Panels &rarr; Add a Text or Image Panel &rarr; Add Image</b>.
-        Put your links in the panel's "Image Links To" / description fields on Twitch.
+        Presets are starting points — change any text. Your edits are kept in this browser until you
+        <button type="button" class="linkish" id="resetAll">start over</button>.
       </div>
     </div>
   </div>
 
-  <div class="win">
-    <div class="body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-      <span style="font-size:12px;">Part of the <b>IRC Minimal Stream Kit</b> — chat, alerts, scenes, goal bars &amp; game frame.</span>
-      <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
-      <a class="dl" href="https://www.etsy.com/listing/4473131682/irc-minimal-chat-widget-for-streamlabs?utm_source=panel-maker&utm_medium=web&utm_campaign=irc-minimal">View on Etsy &#8594;</a>
+  <!-- ── Window 2: preview + download ─────────────────────────────── -->
+  <div class="pv-wrap">
+    <div class="win">
+      <div class="tb">
+        <canvas class="ico" data-icon="about" width="16" height="16" aria-hidden="true"></canvas>
+        <span class="ttl">#preview</span><span class="srv" id="pvName">About Me</span>
+      </div>
+      <div class="body">
+        <div class="pvbox">
+          <canvas id="cv" width="640" height="200" aria-label="Panel preview at 2x"></canvas>
+          <div class="actual">
+            <div class="twitchcol">
+              <canvas id="cv1" width="320" height="100" aria-label="Panel preview at actual Twitch size"></canvas>
+              <div class="fakedesc">Your links &amp; details go here — <a href="#" onclick="return false">Twitch's text field</a></div>
+            </div>
+            <div class="lab"><b>Actual size on Twitch</b> (320 px wide, dark theme). The banner carries the title; the gray text is where your own links live. Downloads are 2× so they stay crisp on high-DPI screens.</div>
+          </div>
+        </div>
+        <div class="status"><span id="stDims">640 × 200 PNG</span><span id="stFile">01_about_me.png</span><span id="stTs"></span></div>
+        <div class="sugg">
+          <label for="suggText">Suggested text for this panel's Twitch description <button type="button" class="linkish" id="copySugg">copy</button></label>
+          <textarea id="suggText" rows="2" readonly></textarea>
+          <div class="hint" style="margin-top:4px">Twitch gives each image <b>one</b> link ("Image Links To") — put the rest in the description.</div>
+        </div>
+        <div class="dl-row" id="dlRow">
+          <button class="primary" id="dlOne">Download this panel</button>
+          <button id="dlAll">Download all (.zip)</button>
+          <button id="showSet" aria-pressed="false">Preview all</button>
+          <span class="note" id="dlNote"></span>
+        </div>
+        <div id="setBox">
+          <div class="lab"><b>The whole set</b> at Twitch size — exactly what the .zip contains, in upload order.</div>
+          <div id="setCol"></div>
+        </div>
+        <div class="hint" id="help">
+          <b>On Twitch:</b> About &rarr; Edit Panels &rarr; Add a Text or Image Panel &rarr; Add Image. Put your links and
+          details in the panel's <b>Image Links To</b> and description fields underneath the banner.
+        </div>
+      </div>
     </div>
   </div>
+</div>
+
+<!-- ── Status bar: kit CTA ──────────────────────────────────────────── -->
+<div class="statusbar">
+  <span class="dot">&#9679;</span><span class="conn">CONNECTED</span>
+  <span class="sep">|</span>
+  <span class="task">Part of the <b>IRC Minimal Stream Kit</b> — chat, alerts, scenes, goal bar &amp; game frame</span>
+  <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
+  <a class="btn start" href="https://www.etsy.com/listing/4473131682/irc-minimal-chat-widget-for-streamlabs?utm_source=panel-maker&utm_medium=web&utm_campaign=irc-minimal" target="_blank" rel="noopener noreferrer">
+    <canvas class="ico" data-icon="heart" width="16" height="16" aria-hidden="true"></canvas> View on Etsy &#8594;
+  </a>
+  <span class="cur">&#9608;</span>
+  <button type="button" class="linkish" id="hideBar" title="Hide this bar" aria-label="Hide this bar" style="text-decoration:none;color:var(--dim)">&#215;</button>
+</div>
 
 <script>
-var cv = document.getElementById('cv');
-var ctx = cv.getContext('2d');
-var MONO = "'IBM Plex Mono', 'Courier New', monospace";
-var GREEN = '#6bff6b';
+(function () {
+  'use strict';
 
-function draw() {
-  var title = document.getElementById('title').value || ' ';
-  var cmd = document.getElementById('cmd').value || '';
-  var subtitle = document.getElementById('subtitle').value || '';
-  var accent = document.getElementById('accent').value;
-  var winbg = document.getElementById('winbg').value;
-  var titlecol = document.getElementById('titlecol').value;
-  var socials = Array.prototype.slice.call(document.querySelectorAll('.checks input:checked')).map(function(c) { return c.value; });
+  /* ───────────────────────── pixel art ───────────────────────── */
+  // Icon palette keys map to the CURRENT theme's tokens, so icons recolour with the theme:
+  // A accent · T text · B channel/title · G prompt green · Y gold · R red · k background
+  var ICONS = {
+    about: [
+      '................',
+      '.AAAAAAAAAAAAAA.',
+      '.A............A.',
+      '.A............A.',
+      '.A.GGGG..BBBBBA.',
+      '.A.GGGG..BBBBBA.',
+      '.A.GGGG.......A.',
+      '.A.GGGG..TTTTTA.',
+      '.A.GGGG..TTTTTA.',
+      '.A............A.',
+      '.A.TTTTTTTTTT.A.',
+      '.A.TTTTTTTTTT.A.',
+      '.A............A.',
+      '.AAAAAAAAAAAAAA.',
+      '................',
+      '................'
+    ],
+    calendar: [
+      '................',
+      '....TT....TT....',
+      '..BBBBBBBBBBBB..',
+      '..BBBBBBBBBBBB..',
+      '..BBBBBBBBBBBB..',
+      '..A..........A..',
+      '..A.GG.TT.TT.A..',
+      '..A.GG.TT.TT.A..',
+      '..A..........A..',
+      '..A.TT.GG.TT.A..',
+      '..A.TT.GG.TT.A..',
+      '..A..........A..',
+      '..A.TT.......A..',
+      '..A.TT.......A..',
+      '..AAAAAAAAAAAA..',
+      '................'
+    ],
+    rules: [
+      '................',
+      '..AAAAAAAAAAAA..',
+      '..A..........A..',
+      '..A.GG.TTTTT.A..',
+      '..A.GG.......A..',
+      '..A..........A..',
+      '..A.GG.TTTTT.A..',
+      '..A.GG.......A..',
+      '..A..........A..',
+      '..A.GG.TTTTT.A..',
+      '..A.GG.......A..',
+      '..A..........A..',
+      '..A.TT.TTT...A..',
+      '..A..........A..',
+      '..AAAAAAAAAAAA..',
+      '................'
+    ],
+    share: [
+      '................',
+      '..BBBB..........',
+      '..BBBB..........',
+      '..BBBB..........',
+      '..BBBB.A........',
+      '....A...A.......',
+      '....A....A......',
+      '....A.....TTTT..',
+      '....A.....TTTT..',
+      '....A.....TTTT..',
+      '....A....ATTTT..',
+      '....A...A.......',
+      '..GGGG.A........',
+      '..GGGG..........',
+      '..GGGG..........',
+      '..GGGG..........'
+    ],
+    hash: [
+      '................',
+      '................',
+      '.....BB...BB....',
+      '.....BB...BB....',
+      '..BBBBBBBBBBBB..',
+      '..BBBBBBBBBBBB..',
+      '.....BB...BB....',
+      '.....BB...BB....',
+      '..BBBBBBBBBBBB..',
+      '..BBBBBBBBBBBB..',
+      '.....BB...BB....',
+      '.....BB...BB....',
+      '................',
+      '................',
+      '................',
+      '................'
+    ],
+    star: [
+      '................',
+      '.......YY.......',
+      '.......YY.......',
+      '......YYYY......',
+      '......YYYY......',
+      '.YYYYYYYYYYYYYY.',
+      '.YYYYYYYYYYYYYY.',
+      '..YYYYYYYYYYYY..',
+      '...YYYYYYYYYY...',
+      '....YYYYYYYY....',
+      '....YYYYYYYY....',
+      '...YYYY..YYYY...',
+      '...YYY....YYY...',
+      '..YY........YY..',
+      '................',
+      '................'
+    ],
+    heart: [
+      '................',
+      '..GGGG....GGGG..',
+      '.GGGGGG..GGGGGG.',
+      'GGGGGGGGGGGGGGGG',
+      'GGGGGGGGGGGGGGGG',
+      'GGGGGGGGGGGGGGGG',
+      'GGGGGGGGGGGGGGGG',
+      '.GGGGGGGGGGGGGG.',
+      '..GGGGGGGGGGGG..',
+      '...GGGGGGGGGG...',
+      '....GGGGGGGG....',
+      '.....GGGGGG.....',
+      '......GGGG......',
+      '.......GG.......',
+      '................',
+      '................'
+    ],
+    prompt: [
+      '................',
+      '.AAAAAAAAAAAAAA.',
+      '.A............A.',
+      '.A.GG.........A.',
+      '.A.GGG........A.',
+      '.A..GGG.......A.',
+      '.A...GGG......A.',
+      '.A....GGG.....A.',
+      '.A...GGG......A.',
+      '.A..GGG.......A.',
+      '.A.GGG........A.',
+      '.A.GG..TTTTT..A.',
+      '.A............A.',
+      '.AAAAAAAAAAAAAA.',
+      '................',
+      '................'
+    ],
+    chip: [
+      '................',
+      '...T.T.T.T.T....',
+      '..AAAAAAAAAAAA..',
+      '.TA..........AT.',
+      '..A.BBBBBBBB.A..',
+      '.TA.BBBBBBBB.AT.',
+      '..A.BBBBBBBB.A..',
+      '.TA.BBBBBBBB.AT.',
+      '..A.BBBBBBBB.A..',
+      '.TA.BBBBBBBB.AT.',
+      '..A..........A..',
+      '..AAAAAAAAAAAA..',
+      '...T.T.T.T.T....',
+      '................',
+      '................',
+      '................'
+    ],
+    play: [
+      '................',
+      '.AAAAAAAAAAAAAA.',
+      '.A............A.',
+      '.A............A.',
+      '.A...TT.......A.',
+      '.A...TTTT.....A.',
+      '.A...TTTTTT...A.',
+      '.A...TTTTTTTT.A.',
+      '.A...TTTTTTTT.A.',
+      '.A...TTTTTT...A.',
+      '.A...TTTT.....A.',
+      '.A...TT.......A.',
+      '.A............A.',
+      '.AAAAAAAAAAAAAA.',
+      '................',
+      '................'
+    ],
+    tag: [
+      '................',
+      '.AAAAAAAA.......',
+      '.A......AA......',
+      '.A.GG....AA.....',
+      '.A.GG.....AA....',
+      '.A.........AA...',
+      '.AA.........AA..',
+      '..AA.........AA.',
+      '...AA.........A.',
+      '....AA.......AA.',
+      '.....AA.....AA..',
+      '......AA...AA...',
+      '.......AA.AA....',
+      '........AAA.....',
+      '................',
+      '................'
+    ],
+    user: [
+      '................',
+      '......AAAA......',
+      '.....AAAAAA.....',
+      '.....AATTAA.....',
+      '.....AATTAA.....',
+      '.....AAAAAA.....',
+      '......AAAA......',
+      '.......AA.......',
+      '....AAAAAAAA....',
+      '...AAAAAAAAAA...',
+      '..AAAAAAAAAAAA..',
+      '..AAAAAAAAAAAA..',
+      '..AAAAAAAAAAAA..',
+      '..AAAAAAAAAAAA..',
+      '................',
+      '................'
+    ],
+    file: [
+      '................',
+      '..AAAAAAAA......',
+      '..A......AA.....',
+      '..A......A.A....',
+      '..A......AAAA...',
+      '..A.........A...',
+      '..A.GGGGGG..A...',
+      '..A.........A...',
+      '..A.TTTTTTT.A...',
+      '..A.........A...',
+      '..A.TTTTT...A...',
+      '..A.........A...',
+      '..A.TTTTTTT.A...',
+      '..A.........A...',
+      '..AAAAAAAAAAA...',
+      '................'
+    ]
+  };
+  var ICON_KEYS = ['about', 'calendar', 'rules', 'share', 'hash', 'star', 'heart', 'prompt', 'chip', 'file', 'play', 'tag'];
 
-  ctx.clearRect(0, 0, 640, 200);
-  // window ground
-  ctx.fillStyle = winbg;
-  ctx.fillRect(0, 0, 640, 200);
-  // flat 2px frame
-  ctx.fillStyle = accent;
-  ctx.fillRect(0, 0, 640, 2); ctx.fillRect(0, 198, 640, 2);
-  ctx.fillRect(0, 0, 2, 200); ctx.fillRect(638, 0, 2, 200);
-  // titlebar
-  ctx.fillStyle = '#2a2a2a';
-  ctx.fillRect(2, 2, 636, 46);
-  ctx.fillStyle = accent;
-  ctx.fillRect(2, 48, 636, 2);
-  // title text
-  ctx.fillStyle = titlecol;
-  ctx.font = 'bold 30px ' + MONO;
-  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.fillText(title, 18, 27, 520);
-  // dim side label
-  ctx.fillStyle = 'rgba(212,212,212,0.4)';
-  ctx.font = '20px ' + MONO;
-  ctx.textAlign = 'right';
-  ctx.fillText('irc', 622, 27);
-  // command line: leading $ or / in green
-  ctx.textAlign = 'left';
-  var cy = subtitle ? 92 : 104;
-  var cx = 20;
-  var m = cmd.match(/^([$\/>])\s?(.*)$/);
-  ctx.font = '26px ' + MONO;
-  if (m) {
-    ctx.fillStyle = GREEN;
-    ctx.fillText(m[1], cx, cy);
-    cx += ctx.measureText(m[1] + ' ').width;
-    ctx.fillStyle = '#d4d4d4';
-    ctx.fillText(m[2], cx, cy, 640 - cx - 20);
-  } else {
-    ctx.fillStyle = '#d4d4d4';
-    ctx.fillText(cmd, cx, cy, 600);
+  function drawPixels(ctx, key, x, y, s, rows, pal) {
+    rows = rows || ICONS[key];
+    if (!rows) return;
+    pal = pal || iconPal(DEFAULT_TOKENS);
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      for (var c = 0; c < row.length; c++) {
+        var ch = row[c];
+        if (ch === '.') continue;
+        ctx.fillStyle = pal[ch] || '#f0f';
+        ctx.fillRect(x + c * s, y + r * s, s, s);
+      }
+    }
   }
-  // dim description
-  if (subtitle) {
-    ctx.fillStyle = 'rgba(212,212,212,0.55)';
-    ctx.font = '21px ' + MONO;
-    ctx.fillText(subtitle, 20, 130, 600);
+
+  /* ───────────────────────── presets ─────────────────────────── */
+  var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var DAY_FULL = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' };
+  var SOCIALS = [
+    { key: 'TW', name: 'Twitch',    sw: '#9146ff', tag: 'TV' },
+    { key: 'YT', name: 'YouTube',   sw: '#e02020', tag: 'YT' },
+    { key: 'DC', name: 'Discord',   sw: '#5865f2', tag: 'DC' },
+    { key: 'TT', name: 'TikTok',    sw: '#00c8c8', tag: 'TT' },
+    { key: 'IG', name: 'Instagram', sw: '#e0407a', tag: 'IG' },
+    { key: 'X',  name: 'X',         sw: null,      tag: 'X'  },   // null = text colour on the field, so it reads on any theme
+    { key: 'BS', name: 'Bluesky',   sw: '#1185fe', tag: 'BS' }
+  ];
+  var PRESETS = [
+    { key: 'about',     label: 'About Me',  icon: 'about',    layout: 'info',
+      title: '#about', tag: 'Retro games, cozy vibes.', tag2: 'Live Tue / Thu / Sat since 2019', st: 'joined: 2019',
+      readme: 'Who you are, what you stream, when you started. Keep it to 3 lines.' },
+    { key: 'schedule',  label: 'Schedule',  icon: 'calendar', layout: 'days',
+      title: '#schedule', tag: 'may shift a little', cta: '/follow', ctaNote: 'to get notified', st: 'topic: go-live time',
+      readme: 'Tue / Thu / Sat - 7:00 PM CT (your time zone). Mention if it changes.' },
+    { key: 'rules',     label: 'Rules',     icon: 'rules',    layout: 'list',
+      title: '#rules', lines: ['Be cool', 'No spoilers', 'Mods decide'], st: 'mode: +nt',
+      readme: 'Your full rules list. Short numbered lines read best.' },
+    { key: 'socials',   label: 'Socials',   icon: 'share',    layout: 'buttons',
+      title: '#socials', tag: '', st: 'links in the description',
+      readme: 'One link per line: YouTube, Discord, TikTok... Set "Image Links To" to the one that matters most.' },
+    { key: 'discord',   label: 'Discord',   icon: 'hash',     layout: 'invite',
+      title: '#discord', tag: 'Hang out between streams', cta: '/join #discord', ctaNote: '', st: '3 ops online',
+      readme: 'Paste your permanent invite link in "Image Links To" so the whole banner is clickable.' },
+    { key: 'subscribe', label: 'Subscribe', icon: 'star',     layout: 'list',
+      title: '#subscribe', lines: ['No ads, custom emotes', 'Sub badge in chat', ''], cta: '/subscribe', ctaNote: '', nick: false, st: 'mode +v for subs',
+      readme: 'What subs get. Link "Image Links To" to your subscribe page.' },
+    { key: 'support',   label: 'Support',   icon: 'heart',    layout: 'transfer',
+      title: '#support', tag: '', cta: '/tip', ctaNote: 'bits & subs welcome too', st: 'DCC: transfer complete',
+      readme: 'Your tip / Ko-fi / StreamElements link. Update the goal numbers in the maker as you go.' },
+    { key: 'commands',  label: 'Commands',  icon: 'prompt',   layout: 'list',
+      title: '#commands', lines: ['!discord - join the server', '!specs - my PC build', '!schedule - when I am live'], st: 'type !commands in chat',
+      readme: 'List every chat command and what it does.' },
+    { key: 'specs',     label: 'Specs',     icon: 'chip',     layout: 'list',
+      title: '#specs', lines: ['CPU - Ryzen 7 7800X3D', 'GPU - RTX 4070', 'RAM - 32 GB'], st: 'topic: the rig',
+      readme: 'Full build: CPU, GPU, RAM, mic, camera, capture card.' },
+    { key: 'custom',    label: 'Custom',    icon: 'file',     layout: 'list',
+      title: '#giveaways', lines: ['Every 100 followers', 'Winners picked live', 'Must be in chat'], st: 'online',
+      readme: 'Anything else: giveaways, merch, sponsors, emotes. Retitle it and change the three lines.' },
+    // two more custom slots, off by default: Twitch gives one link per image, so YouTube / merch / sponsors want their own panel
+    { key: 'custom2',   label: 'Custom 2',  icon: 'play',     layout: 'list', off: true,
+      title: '#youtube', lines: ['Full VODs & highlights', 'New video every Friday', 'Link below'], st: 'online',
+      readme: 'A second extra panel (YouTube, TikTok, merch...). Tick its box in step 1 to include it.' },
+    { key: 'custom3',   label: 'Custom 3',  icon: 'tag',      layout: 'list', off: true,
+      title: '#business', lines: ['Sponsors & collabs welcome', 'hello@yourname.tv', 'Replies within 48h'], st: 'mode: +o',
+      readme: 'A third extra panel (business / contact, merch, sponsors). Tick its box in step 1 to include it.' }
+  ];
+  // Themes: the widget's own defaults first (panels.json tokens), then classic terminal looks.
+  // mono = single-phosphor display: nick colours collapse to the theme instead of red/gold/blue.
+  var THEMES = [
+    { name: 'IRC Dark',   bg: '#16181d', bar: '#2a2a2a', acc: '#90a4ae', text: '#d4d4d4', chan: '#6bc5ff', ok: '#6bff6b' },
+    { name: 'Phosphor',   bg: '#07140b', bar: '#143a22', acc: '#2e8b4a', text: '#8dff9e', chan: '#d0ffd8', ok: '#5cff70', mono: true },
+    { name: 'Amber',      bg: '#181004', bar: '#43300c', acc: '#a8741c', text: '#ffb84a', chan: '#ffe2a8', ok: '#ffd060', mono: true },
+    { name: 'mIRC Light', bg: '#ffffff', bar: '#e6e6e6', acc: '#7a8a96', text: '#1a1a1a', chan: '#0038c8', ok: '#0a7a28' },
+    { name: 'Solarized',  bg: '#002b36', bar: '#1c4a57', acc: '#586e75', text: '#93a1a1', chan: '#268bd2', ok: '#9bbb1a' }
+  ];
+  var DEFAULT_TOKENS = THEMES[0];
+
+  /* ───────────────────────── state ───────────────────────────── */
+  var $ = function (id) { return document.getElementById(id); };
+  var state = {
+    preset: 'about',
+    days: { Mon: false, Tue: true, Wed: false, Thu: true, Fri: false, Sat: true, Sun: false },
+    socials: { TW: false, YT: true, DC: true, TT: true, IG: false, X: false, BS: false },
+    handles: {},
+    theme: { bar: THEMES[0].bar, text: THEMES[0].text, ok: THEMES[0].ok, mono: false },   // tokens the pickers do not expose
+    avatar: null,        // 32x32 / 64x64 canvas when the buyer uploads a picture
+    avatarSrc: null      // original Image (re-pixelated when the checkbox toggles)
+  };
+  var edits = {};   // per-preset edits: {title, tag, tag2, st, lines, icon}
+  var include = {};  // preset key → in the zip / preview-all (default true)
+  function included() { return PRESETS.filter(function (p) { return include[p.key] != null ? include[p.key] : !p.off; }); }
+
+  function presetDef(key) {
+    for (var i = 0; i < PRESETS.length; i++) if (PRESETS[i].key === key) return PRESETS[i];
+    return PRESETS[0];
   }
-  // prompt line: > [yt] [dc] ... ▌
-  var py = 172;
-  var px = 20;
-  ctx.font = 'bold 24px ' + MONO;
-  ctx.fillStyle = GREEN;
-  ctx.fillText('>', px, py);
-  px += ctx.measureText('> ').width;
-  ctx.font = '22px ' + MONO;
-  socials.forEach(function(s) {
-    var tag = '[' + s + ']';
-    ctx.fillStyle = '#6bc5ff';
-    ctx.fillText(tag, px, py);
-    px += ctx.measureText(tag + ' ').width;
+  function shared() {
+    return {
+      screen: $('sn').value.trim() || 'RetroStreamer', server: $('srv').value.trim(), ts: $('ts').checked, nl: $('nl').value,
+      time: $('time').value.trim(), days: state.days, socials: state.socials, handles: state.handles,
+      goalLabel: $('goalLabel').value.trim(), goal: $('goal').value.trim(), showGoal: $('showGoal').checked, xfer: $('xfer').value.trim(),
+      avatar: state.avatar,
+      bg: $('c1').value, acc: $('c2').value, chan: $('c3').value,
+      bar: state.theme.bar, text: state.theme.text, ok: state.theme.ok, mono: !!state.theme.mono
+    };
+  }
+  function panelFor(p) {   // preset defaults + saved edits + shared personalization
+    var e = edits[p.key] || {}, s = shared();
+    s.preset = p;
+    s.title = e.title != null ? e.title : p.title;
+    s.tag = e.tag != null ? e.tag : (p.tag || '');
+    s.tag2 = e.tag2 != null ? e.tag2 : (p.tag2 || '');
+    s.st = e.st != null ? e.st : (p.st || '').replace('RetroStreamer', s.screen);
+    s.lines = e.lines || p.lines || [];
+    s.icon = e.icon || p.icon;
+    s.nick = e.nick != null ? e.nick : p.nick !== false;
+    s.cta = e.cta != null ? e.cta : (p.cta || '');
+    s.link = e.link || '';
+    s.ctaNote = e.ctaNote != null ? e.ctaNote : (p.ctaNote || '');
+    return s;
+  }
+  function currentPanel() { return panelFor(presetDef(state.preset)); }
+
+  /* ───────────────────────── colour helpers ──────────────────── */
+  function hexToRgb(h) {
+    h = h.replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    var n = parseInt(h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function rgbToHex(c) { return '#' + c.map(function (v) { return ('0' + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2); }).join(''); }
+  function lin(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+  function lum(h) { var c = hexToRgb(h); return 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]); }   // WCAG relative luminance
+  function contrast(a, b) { var la = lum(a), lb = lum(b); return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05); }
+  function mix(a, b, t) { var x = hexToRgb(a), y = hexToRgb(b); return rgbToHex([x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t]); }
+  function isLight(bg) { return lum(bg) > 0.35; }
+  function inkFor(bg) { return isLight(bg) ? '#000000' : '#ffffff'; }
+  // contrast guard: push a colour towards the field's ink (white on dark, black on light) until it reads at ≥ min
+  function readable(hex, field, min) {
+    var ink = inkFor(field), t = 0, out = hex;
+    while (contrast(out, field) < min && t < 1) { t += 0.05; out = mix(hex, ink, t); }
+    return out;
+  }
+  // every colour that touches text is guarded here, so all five themes and any picker combo stay ≥ 5:1
+  function palette(P) {
+    var bg = P.bg, light = isLight(bg);
+    var text = readable(P.text || (light ? '#1a1a1a' : '#d4d4d4'), bg, 7);
+    var dim = readable(mix(text, bg, 0.42), bg, 7);
+    var pal = {
+      bg: bg, light: light,
+      bar: P.bar || mix(bg, inkFor(bg), 0.08),
+      frame: P.acc,                                  // the 1px frame / separators: decorative, unguarded
+      line: mix(bg, P.acc, 0.35),                    // hairlines inside the field
+      acc: readable(P.acc, bg, 5),                   // accent used for text
+      title: readable(P.chan, bg, 6),                 // the channel/title colour (picker 3)
+      ok: readable(P.ok, bg, 5),
+      text: text, dim: dim,
+      dimBar: readable(dim, P.bar || mix(bg, inkFor(bg), 0.08), 7)   // dim text on the (lighter) bars: guarded against the bar, not the field
+    };
+    if (P.mono) { pal.r = pal.title; pal.g = pal.ok; pal.y = pal.text; pal.b = pal.acc; pal.p = pal.dim; }
+    else { pal.r = readable('#ff6b6b', bg, 5); pal.g = readable('#6bff6b', bg, 5); pal.y = readable('#ffd700', bg, 5); pal.b = readable('#6bc5ff', bg, 5); pal.p = readable('#c8a8ff', bg, 5); }
+    return pal;
+  }
+  function iconPal(T) {   // T: theme tokens or a palette()
+    var pal = T.frame ? T : palette(T);
+    return { A: pal.acc, T: pal.text, B: pal.title, G: pal.ok, Y: pal.y, R: pal.r, k: pal.bg, w: '#ffffff', n: '#000000' };
+  }
+
+  /* ───────────────────────── bitmap text engine ──────────────── */
+  // Glyph atlas: four faces pre-rendered at 1x through FreeType's mono rasteriser
+  // (see make_atlas.py). Each glyph = [advance, left, top(rel. baseline), w, h, hexRows].
+  var ATLAS = {"T":{"size":16,"cap":12,"xh":9,"asc":15,"desc":3,"g":{" ":[10,0,0,0,0,[]],"!":[10,3,-12,3,12,["3","3","3","3","3","3","3","2","0","7","7","7"]],"\"":[10,2,-13,6,5,["33","33","33","33","33"]],"#":[10,1,-12,9,12,["36","36","66","1e7","1ef","6c","6c","1ef","1cf","cc","d8","d8"]],"$":[10,1,-13,8,15,["18","18","7e","fe","da","d8","f8","7e","1f","1b","1b","ff","7e","18","18"]],"%":[10,1,-12,10,12,["1c3","3e6","366","36c","36c","3e0","1de","3f","b3","1b3","1bf","31e"]],"&":[10,1,-12,9,12,["78","fc","c8","c0","e0","67","f7","1be","19c","18c","1f6","f7"]],"'":[10,4,-13,2,5,["3","3","3","3","3"]],"(":[10,3,-13,5,15,["3","6","c","c","18","18","18","18","18","18","18","c","c","6","3"]],")":[10,2,-13,5,15,["18","c","6","6","3","3","3","3","3","3","3","6","6","c","18"]],"*":[10,1,-10,8,8,["18","18","db","ff","7e","3c","7e","66"]],"+":[10,1,-9,8,8,["18","18","18","ff","ff","18","18","18"]],",":[10,3,-2,3,5,["3","7","7","6","6"]],"-":[10,2,-6,5,2,["1f","1f"]],".":[10,3,-3,3,3,["7","7","7"]],"/":[10,1,-13,7,16,["3","3","7","6","6","e","c","c","1c","18","18","38","30","30","70","60"]],"0":[10,1,-12,9,12,["7c","fe","c6","183","183","1b3","1b3","183","183","c6","fe","7c"]],"1":[10,0,-12,9,12,["78","78","f8","1d8","98","18","18","18","18","18","ff","ff"]],"2":[10,1,-12,8,12,["3c","fe","e3","43","3","7","e","1c","38","f0","ff","ff"]],"3":[10,0,-12,8,12,["3c","7f","63","3","3","1e","1e","3","3","e3","7e","3c"]],"4":[10,1,-12,9,12,["1c","1c","3c","6c","6c","cc","cc","18c","1ff","1ff","c","c"]],"5":[10,1,-12,8,12,["fe","fe","c0","c0","dc","fe","c7","3","3","c7","fe","7c"]],"6":[10,1,-12,8,12,["1c","38","70","60","dc","fe","e7","c3","c3","e7","7e","3c"]],"7":[10,1,-12,8,12,["ff","ff","c7","c7","6","e","c","1c","1c","18","38","38"]],"8":[10,1,-12,8,12,["3c","ff","c3","c3","c3","7e","7e","c3","c3","c3","7e","3c"]],"9":[10,1,-12,8,12,["3c","7e","e7","c3","c3","e7","7f","3a","6","c","1c","38"]],":":[10,3,-9,3,9,["7","7","7","0","0","0","7","7","7"]],";":[10,3,-9,3,11,["7","7","7","0","0","0","7","7","6","6","4"]],"<":[10,1,-11,7,10,["1","7","1e","78","70","70","3c","f","7","1"]],"=":[10,1,-8,8,6,["ff","ff","0","0","ff","ff"]],">":[10,1,-11,7,10,["40","70","3c","f","7","7","1e","78","70","40"]],"?":[10,1,-12,7,12,["1c","3e","73","3","3","7","e","c","0","1c","1c","1c"]],"@":[10,1,-12,8,14,["3c","7e","63","cf","df","db","db","db","db","df","cf","60","7c","3c"]],"A":[10,0,-12,9,12,["3c","3c","7c","6c","6e","66","e6","fe","ff","c7","1c3","1c3"]],"B":[10,1,-12,7,12,["7e","7f","63","63","63","7e","7e","63","63","63","7f","7e"]],"C":[10,1,-12,8,12,["3c","7e","67","c6","c0","c0","c0","c0","c6","67","7e","3c"]],"D":[10,1,-12,8,12,["fc","fe","c6","c3","c3","c3","c3","c3","c3","c6","fe","fc"]],"E":[10,1,-12,7,12,["7f","7f","60","60","60","7f","7f","60","60","60","7f","7f"]],"F":[10,1,-12,8,12,["ff","ff","c0","c0","c0","fe","fe","c0","c0","c0","c0","c0"]],"G":[10,1,-12,8,12,["3c","7e","67","c0","c0","cf","cf","c3","c3","e7","7f","3b"]],"H":[10,1,-12,7,12,["63","63","63","63","63","7f","7f","63","63","63","63","63"]],"I":[10,1,-12,7,12,["7f","7f","c","c","c","c","c","c","c","c","7f","7f"]],"J":[10,1,-12,7,12,["3f","3f","3","3","3","3","3","3","23","73","3e","1c"]],"K":[10,1,-12,8,12,["c7","ce","cc","dc","f8","f8","f8","fc","cc","ce","c6","c7"]],"L":[10,1,-12,7,12,["60","60","60","60","60","60","60","60","60","60","7f","7f"]],"M":[10,1,-12,8,12,["e7","e7","f7","ff","db","db","db","db","d3","c3","c3","c3"]],"N":[10,1,-12,8,12,["e3","e3","f3","f3","fb","db","db","df","cf","cf","c7","c7"]],"O":[10,1,-12,8,12,["3c","7e","66","c3","c3","c3","c3","c3","c3","e6","7e","3c"]],"P":[10,1,-12,7,12,["7e","7e","63","63","63","63","7e","7e","60","60","60","60"]],"Q":[10,1,-12,8,15,["3c","7e","e6","c3","c3","c3","c3","c3","c3","66","7e","3c","18","1e","e"]],"R":[10,1,-12,7,12,["7e","7e","63","63","63","63","7f","7e","6e","66","67","63"]],"S":[10,1,-12,8,12,["3e","7f","c2","c0","e0","7e","3f","3","3","c3","fe","7c"]],"T":[10,1,-12,9,12,["1ff","1ff","30","30","30","30","30","30","30","30","30","30"]],"U":[10,1,-12,8,12,["c3","c3","c3","c3","c3","c3","c3","c3","c3","c3","7e","3c"]],"V":[10,0,-12,9,12,["1c3","c3","c7","e7","e6","e6","6e","6e","7c","7c","3c","3c"]],"W":[10,1,-12,9,12,["183","183","183","1bb","1bb","1ab","1ab","1ab","1ab","1ef","1ef","1ef"]],"X":[10,0,-12,9,12,["c7","e7","66","7e","3c","3c","3c","7c","6e","e6","c7","1c7"]],"Y":[10,1,-12,8,12,["c3","e7","66","66","3c","3c","3c","18","18","18","18","18"]],"Z":[10,1,-12,8,12,["ff","ff","7","e","c","1c","38","30","70","e0","ff","ff"]],"[":[10,3,-13,5,16,["1f","1f","18","18","18","18","18","18","18","18","18","18","18","18","1f","1f"]],"\\":[10,1,-13,7,16,["60","30","30","30","18","18","18","c","c","c","6","6","6","3","3","3"]],"]":[10,1,-13,6,16,["3f","3f","3","3","3","3","3","3","3","3","3","3","3","3","3f","3f"]],"^":[10,0,-12,9,7,["38","3c","6c","66","e6","c7","1c3"]],"_":[10,1,1,8,2,["ff","ff"]],"`":[10,3,-14,3,4,["2","6","6","3"]],"a":[10,1,-9,9,9,["f8","1fc","8c","c","fc","1fc","18c","1ff","e7"]],"b":[10,1,-13,8,13,["c0","c0","c0","c0","dc","fe","c7","c3","c3","c3","c7","fe","dc"]],"c":[10,1,-9,7,9,["1e","3f","62","60","60","60","63","3f","1e"]],"d":[10,1,-13,8,13,["3","3","3","3","3b","7f","e3","c3","c3","c3","e3","7f","3b"]],"e":[10,1,-9,8,9,["3c","7e","c3","ff","ff","c0","e2","7f","3c"]],"f":[10,1,-13,8,13,["f","1f","18","18","ff","ff","18","18","18","18","18","ff","ff"]],"g":[10,1,-11,8,14,["6","6","3c","7e","66","66","7e","3c","60","7e","3f","c3","ff","7e"]],"h":[10,1,-13,7,13,["60","60","60","60","6e","7f","63","63","63","63","63","63","63"]],"i":[10,1,-13,7,13,["1c","1c","1c","0","7c","7c","1c","1c","1c","1c","1c","7f","7f"]],"j":[10,1,-13,5,16,["3","3","3","0","1f","1f","3","3","3","3","3","3","3","3","1f","1e"]],"k":[10,1,-13,8,13,["c0","c0","c0","c0","c6","cc","d8","f8","f8","dc","cc","ce","c7"]],"l":[10,1,-13,7,13,["7c","7c","c","c","c","c","c","c","c","c","c","7f","7f"]],"m":[10,1,-9,8,9,["d6","ff","db","db","db","db","db","db","db"]],"n":[10,1,-9,7,9,["6e","7f","63","63","63","63","63","63","63"]],"o":[10,1,-9,8,9,["3c","7e","e7","c3","c3","c3","e7","7e","3c"]],"p":[10,1,-9,8,12,["dc","fe","c7","c3","c3","c3","c7","fe","dc","c0","c0","c0"]],"q":[10,1,-9,8,12,["3b","7f","e3","c3","c3","c3","e3","7f","3b","3","3","3"]],"r":[10,1,-9,8,9,["f7","ff","38","30","30","30","30","fe","fe"]],"s":[10,1,-9,7,9,["3e","7f","62","70","3e","7","63","7f","3e"]],"t":[10,1,-12,8,12,["30","30","30","ff","ff","30","30","30","30","30","3f","1f"]],"u":[10,1,-9,7,9,["63","63","63","63","63","63","63","7f","3b"]],"v":[10,1,-9,8,9,["c3","c7","e6","66","66","6c","3c","3c","38"]],"w":[10,0,-9,9,9,["199","19b","1bb","1bb","af","ef","ef","e7","e7"]],"x":[10,1,-9,8,9,["e7","66","7c","3c","38","3c","6e","e6","c7"]],"y":[10,0,-9,9,12,["1c3","c7","e6","66","6c","6c","3c","38","38","30","f0","e0"]],"z":[10,1,-9,7,9,["7f","7f","7","e","1c","38","70","7f","7f"]],"{":[10,1,-13,7,16,["f","1f","18","18","18","c","c","78","78","c","c","18","18","18","1f","1f"]],"|":[10,4,-13,2,15,["3","3","3","3","3","3","3","3","3","3","3","3","3","3","3"]],"}":[10,1,-13,7,16,["7c","7c","c","c","c","18","18","f","f","18","18","c","c","c","7c","7c"]],"~":[10,1,-7,8,4,["73","fb","de","8e"]],"\u2026":[10,1,-2,8,2,["db","db"]],"\u00e9":[10,1,-15,8,14,["c","c","18","18","0","3c","7e","c3","ff","ff","c0","e2","7f","3c"]],"\u2019":[10,3,-13,4,5,["7","6","6","c","c"]],"\u00b7":[10,3,-6,3,3,["7","7","7"]],"\u2013":[10,1,-6,8,2,["ff","ff"]],"\u2014":[10,0,-6,10,2,["3ff","3ff"]]}},"E":{"size":14,"cap":11,"xh":8,"asc":13,"desc":3,"g":{" ":[8,0,0,0,0,[]],"!":[8,3,-11,2,11,["3","3","3","3","3","3","2","0","3","3","3"]],"\"":[8,2,-11,5,5,["1b","1b","1b","1b","1b"]],"#":[8,1,-11,8,11,["36","36","36","f7","36","24","6c","ef","6c","6c","6c"]],"$":[8,1,-12,7,14,["c","c","3e","7e","6c","6c","3e","1f","f","f","7f","7e","c","c"]],"%":[8,1,-11,8,11,["73","db","da","de","dc","70","6","2f","6f","6f","c6"]],"&":[8,1,-11,8,11,["3c","64","60","70","70","7b","da","ce","ce","c6","7b"]],"'":[8,3,-11,2,5,["3","3","3","3","3"]],"(":[8,2,-11,5,13,["3","6","c","8","18","18","18","18","18","8","c","6","3"]],")":[8,1,-11,5,13,["18","c","6","2","3","3","3","3","3","2","6","c","18"]],"*":[8,0,-9,8,8,["18","18","ff","ff","3c","3c","66","24"]],"+":[8,1,-8,7,7,["18","18","18","7f","18","18","18"]],",":[8,2,-3,4,5,["7","6","6","6","c"]],"-":[8,2,-5,4,1,["f"]],".":[8,3,-3,3,3,["7","7","7"]],"/":[8,1,-11,6,14,["3","3","3","6","6","6","c","c","c","18","18","18","30","30"]],"0":[8,1,-11,8,11,["3c","66","c3","c3","c3","db","c3","c3","c3","66","3c"]],"1":[8,1,-11,7,11,["3c","7c","6c","4c","c","c","c","c","c","c","7f"]],"2":[8,1,-11,7,11,["3c","62","23","3","3","7","e","1c","38","70","7f"]],"3":[8,0,-11,7,11,["3e","33","23","3","3","1c","3","3","23","63","3e"]],"4":[8,0,-11,9,11,["1c","1c","2c","2c","6c","4c","cc","8c","1ff","c","c"]],"5":[8,1,-11,7,11,["7e","60","60","60","7e","67","3","3","43","66","7c"]],"6":[8,1,-11,7,11,["c","18","30","30","6e","77","63","63","63","26","1c"]],"7":[8,1,-11,7,11,["7f","63","63","6","6","6","c","c","c","18","18"]],"8":[8,1,-11,7,11,["3e","63","63","63","22","1c","63","63","63","63","3e"]],"9":[8,1,-11,7,11,["1c","36","63","63","63","77","3b","6","6","c","18"]],":":[8,3,-8,3,8,["7","7","7","0","0","7","7","7"]],";":[8,3,-8,3,10,["7","7","7","0","0","7","7","6","6","4"]],"<":[8,1,-10,6,9,["1","7","1e","38","30","3c","e","3","1"]],"=":[8,1,-7,7,5,["7f","0","0","0","7f"]],">":[8,1,-10,6,9,["20","38","1e","7","3","f","1c","30","20"]],"?":[8,1,-11,7,11,["3e","73","23","3","3","6","18","0","1c","1c","1c"]],"@":[8,1,-11,7,12,["1e","33","63","6f","7b","7b","7b","7b","6f","60","30","1c"]],"A":[8,0,-11,8,11,["1c","3c","3c","3e","36","76","66","7e","63","e3","c3"]],"B":[8,1,-11,7,11,["7c","66","66","66","66","7c","63","63","63","63","7e"]],"C":[8,1,-11,7,11,["1e","33","63","60","60","60","60","60","63","33","1e"]],"D":[8,1,-11,7,11,["7c","66","63","63","63","63","63","63","63","66","7c"]],"E":[8,1,-11,6,11,["3f","30","30","30","30","3f","30","30","30","30","3f"]],"F":[8,1,-11,7,11,["7f","60","60","60","60","7e","60","60","60","60","60"]],"G":[8,1,-11,7,11,["1e","37","63","60","60","6f","63","63","63","37","3b"]],"H":[8,1,-11,7,11,["63","63","63","63","63","7f","63","63","63","63","63"]],"I":[8,1,-11,6,11,["3f","c","c","c","c","c","c","c","c","c","3f"]],"J":[8,1,-11,6,11,["1f","3","3","3","3","3","3","3","33","33","1e"]],"K":[8,1,-11,7,11,["63","66","6e","6c","78","7c","7c","6e","66","67","63"]],"L":[8,1,-11,7,11,["60","60","60","60","60","60","60","60","60","60","7f"]],"M":[8,1,-11,7,11,["77","77","77","77","7f","6b","6b","6b","6b","63","63"]],"N":[8,1,-11,7,11,["73","73","73","7b","6b","6b","6b","6f","67","67","67"]],"O":[8,1,-11,8,11,["3c","66","c3","c3","c3","c3","c3","c3","c3","66","3c"]],"P":[8,1,-11,7,11,["7e","63","63","63","63","63","7e","60","60","60","60"]],"Q":[8,1,-11,8,14,["3c","66","c2","c3","c3","c3","c3","c3","c3","66","7e","18","18","1e"]],"R":[8,1,-11,7,11,["7e","63","63","63","63","63","7e","6e","66","67","63"]],"S":[8,1,-11,7,11,["3e","62","60","70","7e","7f","3f","3","3","62","7c"]],"T":[8,1,-11,8,11,["ff","18","18","18","18","18","18","18","18","18","18"]],"U":[8,1,-11,7,11,["63","63","63","63","63","63","63","63","63","63","3e"]],"V":[8,0,-11,8,11,["e3","e3","63","66","66","76","36","36","3c","3c","1c"]],"W":[8,1,-11,8,11,["c3","c3","c3","db","db","db","db","db","ef","e7","e7"]],"X":[8,0,-11,8,11,["63","66","36","3c","3c","1c","3c","3e","66","67","e3"]],"Y":[8,0,-11,8,11,["c3","66","66","7e","3c","3c","18","18","18","18","18"]],"Z":[8,1,-11,7,11,["7f","7","6","e","c","1c","18","38","30","70","7f"]],"[":[8,3,-11,5,13,["1f","18","18","18","18","18","18","18","18","18","18","18","1f"]],"\\":[8,1,-11,6,14,["30","10","18","18","8","c","c","4","6","6","2","3","3","1"]],"]":[8,1,-11,5,13,["1f","3","3","3","3","3","3","3","3","3","3","3","1f"]],"^":[8,1,-10,7,6,["1c","3c","26","66","63","42"]],"_":[8,1,1,7,1,["7f"]],"`":[8,2,-13,3,3,["6","3","3"]],"a":[8,1,-8,8,8,["78","4c","c","c","7c","cc","cc","7f"]],"b":[8,1,-11,7,11,["60","60","60","7e","67","63","63","63","63","67","7e"]],"c":[8,1,-8,6,8,["f","13","30","30","30","30","11","f"]],"d":[8,1,-11,7,11,["3","3","3","3f","73","63","63","63","63","63","3f"]],"e":[8,1,-8,7,8,["1e","23","63","7f","60","60","32","1e"]],"f":[8,1,-11,7,11,["f","18","18","7f","18","18","18","18","18","18","7f"]],"g":[8,1,-9,8,12,["6","7c","c6","c6","c6","7c","c0","c0","7e","c3","c3","7e"]],"h":[8,1,-11,7,11,["60","60","60","6e","73","63","63","63","63","63","63"]],"i":[8,1,-11,7,11,["18","0","0","78","18","18","18","18","18","18","7f"]],"j":[8,1,-11,5,14,["3","0","0","1f","3","3","3","3","3","3","3","3","3","1e"]],"k":[8,1,-11,7,11,["60","60","60","67","6e","7c","78","7c","6e","66","67"]],"l":[8,1,-11,7,11,["78","18","18","18","18","18","18","18","18","18","7f"]],"m":[8,1,-8,8,8,["ff","db","db","db","db","db","db","db"]],"n":[8,1,-8,7,8,["6e","73","63","63","63","63","63","63"]],"o":[8,1,-8,7,8,["1c","26","63","63","63","63","26","1c"]],"p":[8,1,-8,7,11,["7e","67","63","63","63","63","67","7e","60","60","60"]],"q":[8,1,-8,7,11,["3b","77","63","63","63","63","63","3b","3","3","3"]],"r":[8,1,-8,7,8,["7b","1c","18","18","18","18","18","7e"]],"s":[8,1,-8,6,8,["1f","32","38","3e","1f","7","23","3e"]],"t":[8,1,-11,7,11,["18","18","18","7f","18","18","18","18","18","18","f"]],"u":[8,1,-8,7,8,["63","63","63","63","63","63","63","3f"]],"v":[8,1,-8,7,8,["63","67","66","36","36","3c","3c","1c"]],"w":[8,0,-8,8,8,["d9","d9","db","d7","57","57","57","67"]],"x":[8,1,-8,7,8,["67","76","3c","1c","1c","3c","66","67"]],"y":[8,0,-8,8,11,["e3","63","66","76","34","3c","3c","18","18","18","70"]],"z":[8,1,-8,6,8,["3f","7","6","e","1c","18","38","3f"]],"{":[8,1,-11,7,13,["1f","18","18","1c","c","c","70","c","c","1c","18","18","1f"]],"|":[8,3,-11,2,13,["3","3","3","3","3","3","3","3","3","3","3","3","3"]],"}":[8,1,-11,7,13,["7c","c","c","1c","18","18","7","18","18","1c","c","c","7c"]],"~":[8,1,-7,7,4,["33","5b","4a","4e"]],"\u2026":[8,1,-1,8,1,["db"]],"\u00e9":[8,1,-12,7,12,["e","c","8","0","1e","23","63","7f","60","60","32","1e"]],"\u2019":[8,3,-11,3,5,["7","7","6","6","4"]],"\u00b7":[8,3,-6,3,3,["7","7","7"]],"\u2013":[8,1,-5,7,1,["7f"]],"\u2014":[8,0,-5,8,1,["ff"]]}},"B":{"size":14,"cap":11,"xh":8,"asc":13,"desc":3,"g":{" ":[8,0,0,0,0,[]],"!":[8,3,-11,2,11,["3","3","3","3","3","3","2","0","0","3","3"]],"\"":[8,2,-11,4,4,["f","f","f","f"]],"#":[8,1,-11,8,11,["12","16","36","36","e7","24","24","ef","6c","6c","48"]],"$":[8,1,-12,7,14,["8","8","3e","6a","68","68","3c","e","b","b","6b","7e","8","8"]],"%":[8,1,-11,8,11,["61","92","92","96","94","60","6","29","49","49","86"]],"&":[8,1,-11,8,11,["3c","64","60","60","30","73","ca","ce","c6","c6","7b"]],"'":[8,3,-11,2,4,["3","3","3","3"]],"(":[8,3,-11,5,13,["2","6","c","8","18","18","18","18","18","8","c","6","3"]],")":[8,1,-11,5,13,["18","c","6","2","3","3","3","3","3","2","6","c","18"]],"*":[8,1,-8,8,7,["18","18","db","ff","3c","3c","66"]],"+":[8,1,-8,7,7,["18","18","18","7f","18","18","18"]],",":[8,3,-2,2,4,["3","3","3","2"]],"-":[8,2,-5,4,1,["f"]],".":[8,3,-2,2,2,["3","3"]],"/":[8,1,-11,6,14,["1","3","2","2","6","4","4","c","8","8","18","10","30","30"]],"0":[8,1,-11,7,11,["1c","36","63","63","63","6f","6f","63","63","36","1c"]],"1":[8,1,-11,7,11,["1c","3c","6c","4c","c","c","c","c","c","c","7f"]],"2":[8,1,-11,7,11,["3e","63","43","3","3","6","e","1c","30","60","7f"]],"3":[8,1,-11,7,11,["3e","63","3","3","6","1c","6","3","3","67","3c"]],"4":[8,0,-11,8,11,["e","e","1e","16","36","26","66","46","ff","6","6"]],"5":[8,1,-11,6,11,["3f","20","20","20","3e","27","3","3","23","26","1c"]],"6":[8,1,-11,7,11,["c","18","30","30","6e","77","63","63","63","36","1c"]],"7":[8,1,-11,7,11,["7f","62","62","6","4","4","4","c","8","8","18"]],"8":[8,1,-11,7,11,["3e","63","63","63","22","1c","22","63","63","63","3e"]],"9":[8,1,-11,7,11,["1c","36","63","63","63","77","3b","6","6","c","18"]],":":[8,3,-8,2,8,["3","3","0","0","0","0","3","3"]],";":[8,3,-8,2,9,["3","3","0","0","0","3","3","2","2"]],"<":[8,1,-10,6,9,["1","7","c","38","30","18","e","3","1"]],"=":[8,1,-7,7,4,["7f","0","0","7f"]],">":[8,1,-10,6,9,["20","38","c","7","1","6","1c","30","20"]],"?":[8,2,-11,6,11,["1e","23","23","3","6","1c","18","0","0","18","18"]],"@":[8,1,-11,7,12,["1e","23","41","4f","59","59","59","59","4f","40","20","1e"]],"A":[8,0,-11,8,11,["18","1c","3c","34","34","26","66","7e","62","43","c3"]],"B":[8,1,-11,7,11,["7c","66","66","66","66","78","66","63","63","63","7e"]],"C":[8,1,-11,7,11,["1e","33","61","60","60","60","60","60","61","33","1e"]],"D":[8,1,-11,7,11,["7c","66","63","63","63","63","63","63","63","66","7c"]],"E":[8,1,-11,7,11,["7f","60","60","60","60","7e","60","60","60","60","7f"]],"F":[8,1,-11,7,11,["7f","60","60","60","60","7e","60","60","60","60","60"]],"G":[8,1,-11,7,11,["1e","37","63","60","60","60","6f","63","63","33","3f"]],"H":[8,1,-11,7,11,["63","63","63","63","63","7f","63","63","63","63","63"]],"I":[8,1,-11,6,11,["3f","c","c","c","c","c","c","c","c","c","3f"]],"J":[8,1,-11,6,11,["1f","3","3","3","3","3","3","3","23","23","1e"]],"K":[8,1,-11,7,11,["63","62","66","6c","68","7c","7c","66","66","63","61"]],"L":[8,2,-11,6,11,["30","30","30","30","30","30","30","30","30","30","3f"]],"M":[8,1,-11,7,11,["73","77","77","77","6b","6b","6b","6b","63","63","63"]],"N":[8,1,-11,7,11,["73","73","73","73","6b","6b","6b","6f","67","67","67"]],"O":[8,1,-11,7,11,["1c","36","63","63","63","63","63","63","63","36","1c"]],"P":[8,1,-11,7,11,["7e","63","63","63","63","63","7e","60","60","60","60"]],"Q":[8,1,-11,7,13,["1c","36","63","63","63","63","63","63","63","3e","1c","c","e"]],"R":[8,1,-11,7,11,["7e","63","63","63","63","63","7e","6c","66","66","63"]],"S":[8,1,-11,7,11,["3e","63","60","60","7c","3e","f","3","3","62","3e"]],"T":[8,1,-11,8,11,["ff","18","18","18","18","18","18","18","18","18","18"]],"U":[8,1,-11,7,11,["63","63","63","63","63","63","63","63","63","63","3e"]],"V":[8,0,-11,8,11,["c3","43","62","62","66","26","34","34","3c","1c","18"]],"W":[8,0,-11,8,11,["c3","c3","43","5b","5b","5b","57","77","76","66","66"]],"X":[8,1,-11,7,11,["43","62","26","34","1c","18","1c","34","26","62","43"]],"Y":[8,0,-11,8,11,["c3","c3","66","66","3c","3c","18","18","18","18","18"]],"Z":[8,1,-11,7,11,["7f","3","6","6","c","8","18","30","30","60","7f"]],"[":[8,3,-11,5,13,["1f","18","18","18","18","18","18","18","18","18","18","18","1f"]],"\\":[8,1,-11,6,14,["30","10","10","18","8","8","c","4","4","6","2","3","1","1"]],"]":[8,1,-11,5,13,["1f","3","3","3","3","3","3","3","3","3","3","3","1f"]],"^":[8,1,-11,7,6,["18","1c","34","26","62","43"]],"_":[8,1,1,7,1,["7f"]],"`":[8,3,-12,2,3,["2","2","1"]],"a":[8,1,-8,7,8,["3c","66","6","6","3e","66","66","3f"]],"b":[8,1,-11,7,11,["60","60","60","6e","77","63","63","63","63","67","7e"]],"c":[8,1,-8,7,8,["1e","33","60","60","60","60","33","1e"]],"d":[8,1,-11,7,11,["3","3","3","3b","77","63","63","63","63","73","3f"]],"e":[8,1,-8,7,8,["1c","32","63","7f","60","62","33","1e"]],"f":[8,1,-11,7,11,["f","18","18","7f","18","18","18","18","18","18","7e"]],"g":[8,1,-9,7,12,["7","3c","66","66","66","3c","60","40","3e","63","63","3e"]],"h":[8,1,-11,6,11,["30","30","30","36","3b","33","33","33","33","33","33"]],"i":[8,1,-11,6,11,["c","c","0","3c","c","c","c","c","c","c","3f"]],"j":[8,1,-11,5,14,["3","3","0","1f","3","3","3","3","3","3","3","3","3","1e"]],"k":[8,1,-11,7,11,["60","60","60","63","66","6c","78","7c","66","62","63"]],"l":[8,1,-11,6,11,["3c","c","c","c","c","c","c","c","c","c","3f"]],"m":[8,1,-8,8,8,["ff","db","db","db","db","db","db","db"]],"n":[8,1,-8,6,8,["36","3b","33","33","33","33","33","33"]],"o":[8,1,-8,7,8,["1c","36","63","63","63","63","36","1c"]],"p":[8,1,-8,7,11,["6e","77","63","63","63","63","67","7e","60","60","60"]],"q":[8,1,-8,7,11,["3b","77","63","63","63","63","73","3f","3","3","3"]],"r":[8,1,-8,7,8,["7b","1c","18","18","18","18","18","7e"]],"s":[8,1,-8,6,8,["1e","32","30","3e","1f","3","23","1e"]],"t":[8,1,-11,7,11,["18","18","18","7f","18","18","18","18","18","18","f"]],"u":[8,1,-8,6,8,["33","33","33","33","33","33","33","1f"]],"v":[8,1,-8,7,8,["43","62","66","26","34","34","1c","18"]],"w":[8,0,-8,8,8,["d9","d9","59","55","57","56","66","66"]],"x":[8,1,-8,6,8,["31","13","1e","c","c","1e","13","31"]],"y":[8,1,-8,7,11,["43","62","66","24","34","3c","18","18","18","10","70"]],"z":[8,1,-8,6,8,["3f","3","6","c","c","18","30","3f"]],"{":[8,1,-11,6,13,["f","c","c","c","6","6","38","6","6","c","c","c","f"]],"|":[8,4,-11,2,13,["3","3","3","3","3","3","3","3","3","3","3","3","3"]],"}":[8,2,-11,5,13,["1e","6","6","6","c","c","3","c","c","6","6","6","1e"]],"~":[8,1,-6,7,3,["31","5a","4e"]],"\u2026":[8,1,-2,8,2,["db","db"]],"\u00e9":[8,1,-13,7,12,["4","8","8","0","1c","32","63","7f","60","62","33","1e"]],"\u2019":[8,3,-11,3,4,["3","6","6","4"]],"\u00b7":[8,3,-5,2,2,["3","3"]],"\u2013":[8,1,-5,7,1,["7f"]],"\u2014":[8,0,-5,8,1,["ff"]]}},"D":{"size":13,"cap":9,"xh":7,"asc":12,"desc":3,"g":{" ":[8,0,0,0,0,[]],"!":[8,3,-9,2,9,["1","1","1","1","1","1","0","3","3"]],"\"":[8,2,-10,4,4,["9","9","9","9"]],"#":[8,1,-9,7,9,["1a","12","12","77","14","77","24","24","2c"]],"$":[8,1,-12,6,13,["4","4","1e","35","24","34","1e","7","5","25","3f","c","4"]],"%":[8,1,-9,7,9,["31","4a","4a","30","2","15","25","25","42"]],"&":[8,1,-9,7,9,["1c","24","20","30","33","4a","46","46","3b"]],"'":[8,3,-10,1,4,["1","1","1","1"]],"(":[8,2,-10,3,12,["1","2","2","4","4","4","4","4","4","2","2","1"]],")":[8,2,-10,3,12,["4","2","2","1","1","1","1","1","1","2","2","4"]],"*":[8,0,-7,7,6,["8","8","7f","1c","1c","36"]],"+":[8,1,-7,6,6,["4","4","3f","4","4","4"]],",":[8,3,-2,2,4,["3","3","2","2"]],"-":[8,2,-5,4,1,["f"]],".":[8,3,-2,2,2,["3","3"]],"/":[8,1,-10,6,12,["3","2","2","4","4","c","8","8","18","10","10","30"]],"0":[8,1,-9,6,9,["1e","12","21","21","25","21","21","12","1e"]],"1":[8,0,-9,7,9,["c","14","64","4","4","4","4","4","3f"]],"2":[8,1,-9,6,9,["1e","31","1","1","2","6","c","30","3f"]],"3":[8,1,-9,5,9,["e","11","1","1","e","1","1","11","1e"]],"4":[8,0,-9,8,9,["c","1c","14","24","64","44","ff","4","4"]],"5":[8,1,-9,6,9,["3e","20","20","2e","33","1","1","23","1e"]],"6":[8,1,-9,6,9,["c","18","10","2e","33","21","21","33","1e"]],"7":[8,1,-9,7,9,["7f","42","46","4","c","8","18","18","30"]],"8":[8,1,-9,6,9,["1e","21","21","21","1e","21","21","21","1e"]],"9":[8,1,-9,6,9,["1e","21","21","21","1f","3","2","6","1c"]],":":[8,3,-7,2,7,["3","3","0","0","0","3","3"]],";":[8,3,-7,2,9,["3","3","0","0","0","3","3","2","2"]],"<":[8,1,-8,6,8,["1","6","1c","30","30","1c","7","1"]],"=":[8,1,-6,6,4,["3f","0","0","3f"]],">":[8,1,-8,6,8,["20","30","c","7","7","c","30","20"]],"?":[8,1,-9,6,9,["1e","31","1","1","6","4","0","c","c"]],"@":[8,1,-9,6,10,["1e","11","27","29","29","29","29","27","10","1e"]],"A":[8,0,-9,7,9,["c","1c","16","12","12","3f","23","21","61"]],"B":[8,1,-9,6,9,["3c","22","22","22","3c","23","21","21","3e"]],"C":[8,1,-9,6,9,["1e","13","20","20","20","20","20","13","1e"]],"D":[8,1,-9,6,9,["3e","22","21","21","21","21","21","22","3c"]],"E":[8,1,-9,5,9,["1f","10","10","10","1f","10","10","10","1f"]],"F":[8,1,-9,5,9,["1f","10","10","10","1f","10","10","10","10"]],"G":[8,1,-9,6,9,["1e","13","20","20","27","21","21","33","1d"]],"H":[8,1,-9,6,9,["21","21","21","21","3f","21","21","21","21"]],"I":[8,1,-9,6,9,["3f","8","8","8","8","8","8","8","3f"]],"J":[8,1,-9,5,9,["f","1","1","1","1","1","1","19","e"]],"K":[8,1,-9,6,9,["23","26","2c","28","3c","3c","26","22","23"]],"L":[8,1,-9,5,9,["10","10","10","10","10","10","10","10","1f"]],"M":[8,1,-9,6,9,["33","33","3b","2d","2d","29","21","21","21"]],"N":[8,1,-9,6,9,["31","31","39","29","2d","25","27","23","23"]],"O":[8,1,-9,6,9,["1e","12","21","21","21","21","21","12","1e"]],"P":[8,1,-9,6,9,["3e","21","21","21","3e","20","20","20","20"]],"Q":[8,1,-9,6,11,["1e","12","21","21","21","21","21","13","e","4","7"]],"R":[8,1,-9,6,9,["3e","21","21","21","3e","26","26","23","21"]],"S":[8,1,-9,6,9,["1e","21","20","30","1e","3","1","21","1e"]],"T":[8,1,-9,7,9,["7f","8","8","8","8","8","8","8","8"]],"U":[8,1,-9,6,9,["21","21","21","21","21","21","21","21","1e"]],"V":[8,0,-9,7,9,["61","21","33","32","12","12","1e","1c","c"]],"W":[8,1,-9,7,9,["43","43","5b","5b","5b","57","76","66","66"]],"X":[8,1,-9,6,9,["21","33","16","1c","c","1c","16","33","21"]],"Y":[8,0,-9,7,9,["63","22","36","14","1c","8","8","8","8"]],"Z":[8,1,-9,6,9,["3f","3","2","4","c","8","10","30","3f"]],"[":[8,3,-10,4,12,["f","8","8","8","8","8","8","8","8","8","8","f"]],"\\":[8,1,-10,6,12,["30","10","10","18","8","8","c","4","4","2","2","3"]],"]":[8,1,-10,4,12,["f","1","1","1","1","1","1","1","1","1","1","f"]],"^":[8,1,-9,6,6,["c","1c","12","32","21","21"]],"_":[8,1,1,6,1,["3f"]],"`":[8,2,-10,2,2,["3","1"]],"a":[8,1,-7,6,7,["1c","22","2","1e","22","22","1f"]],"b":[8,1,-10,6,10,["20","20","20","2e","33","21","21","21","23","3e"]],"c":[8,1,-7,5,7,["f","11","10","10","10","11","f"]],"d":[8,1,-10,6,10,["1","1","1","1d","33","21","21","21","31","1f"]],"e":[8,1,-7,6,7,["1e","33","21","3f","20","31","1e"]],"f":[8,1,-10,6,10,["f","8","8","3f","8","8","8","8","8","3f"]],"g":[8,1,-8,6,11,["1","e","11","11","11","e","10","1f","21","21","1e"]],"h":[8,1,-10,5,10,["10","10","10","1e","11","11","11","11","11","11"]],"i":[8,1,-10,6,10,["c","c","0","38","8","8","8","8","8","3f"]],"j":[8,1,-10,5,13,["3","3","0","1e","2","2","2","2","2","2","2","2","1e"]],"k":[8,1,-10,6,10,["20","20","20","26","2c","28","3c","24","26","23"]],"l":[8,1,-10,6,10,["38","8","8","8","8","8","8","8","8","3f"]],"m":[8,1,-7,7,7,["7f","49","49","49","49","49","49"]],"n":[8,1,-7,5,7,["1e","11","11","11","11","11","11"]],"o":[8,1,-7,6,7,["1e","33","21","21","21","33","1e"]],"p":[8,1,-7,6,10,["2e","33","21","21","21","23","3e","20","20","20"]],"q":[8,1,-7,6,10,["1d","33","21","21","21","31","1f","1","1","1"]],"r":[8,1,-7,7,7,["77","18","10","10","10","10","7e"]],"s":[8,1,-7,6,7,["1e","21","20","1e","1","21","1e"]],"t":[8,1,-9,6,9,["8","8","3f","8","8","8","8","8","f"]],"u":[8,1,-7,5,7,["11","11","11","11","11","11","f"]],"v":[8,1,-7,6,7,["21","33","32","12","1e","c","c"]],"w":[8,0,-7,7,7,["6d","6d","2d","35","35","33","33"]],"x":[8,1,-7,6,7,["33","12","1c","c","1c","12","23"]],"y":[8,1,-7,6,10,["21","23","32","12","1e","c","c","8","8","30"]],"z":[8,1,-7,6,7,["3f","3","6","c","18","30","3f"]],"{":[8,1,-10,5,12,["7","4","4","2","2","1c","2","2","4","4","4","7"]],"|":[8,3,-10,1,12,["1","1","1","1","1","1","1","1","1","1","1","1"]],"}":[8,2,-10,5,12,["1c","4","4","8","8","7","8","8","4","4","4","1c"]],"~":[8,1,-6,6,3,["39","2d","26"]],"\u2026":[8,1,-2,8,2,["93","93"]],"\u00e9":[8,1,-11,6,11,["4","6","c","0","1e","33","21","3f","20","31","1e"]],"\u2019":[8,3,-10,2,4,["3","3","2","2"]],"\u00b7":[8,3,-5,2,2,["3","3"]],"\u2013":[8,1,-5,6,1,["3f"]],"\u2014":[8,0,-5,8,1,["ff"]]}}};
+  function mkFont(key) {
+    var a = ATLAS[key], H = a.g['H'];
+    return { key: key, g: a.g, cap: H[4], asc: a.asc, desc: a.desc, size: a.size, adv: a.g['0'][0] };
+  }
+  var FONT_T = mkFont('T');   // titles: Plex Mono Bold 16
+  var FONT_E = mkFont('E');   // emphasis: nicks, keys, chips — Bold 14
+  var FONT_B = mkFont('B');   // body — Medium 14
+  var FONT_D = mkFont('D');   // dim: timestamps, server name, status — Regular 13
+  var CAP_REF = FONT_B.cap;   // all faces share one baseline per row (mixed faces on a line stay aligned)
+  var CELL = FONT_B.adv * 2;  // 16px at 2x: the character cell every 13/14px face sits on
+  var glyphCache = {};
+  function glyphOf(font, ch) { return font.g[ch] || font.g['?']; }
+  function measure1x(s, font) { var w = 0; for (var i = 0; i < s.length; i++) w += glyphOf(font, s[i])[0]; return w; }
+  function rasterise(s, font, color, bold) {
+    var key = font.key + '|' + color + '|' + (bold ? 1 : 0) + '|' + s;
+    if (glyphCache[key]) return glyphCache[key];
+    var bo = bold ? 1 : 0;
+    var w = measure1x(s, font) + bo + 2, h = font.asc + font.desc + 2, base = font.asc + 1;
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var x = c.getContext('2d'); x.fillStyle = color;
+    var pen = 1;
+    for (var i = 0; i < s.length; i++) {
+      var g = glyphOf(font, s[i]), rows = g[5];
+      for (var r = 0; r < rows.length; r++) {
+        var bits = parseInt(rows[r], 16), gw = g[3];
+        for (var q = 0; q < gw; q++) if (bits & (1 << (gw - 1 - q))) {
+          x.fillRect(pen + g[1] + q, base + g[2] + r, 1 + bo, 1);
+        }
+      }
+      pen += g[0];
+    }
+    var out = { c: c, w: w - 2, base: base, cap: font.cap };
+    if (Object.keys(glyphCache).length > 600) glyphCache = {};
+    glyphCache[key] = out;
+    return out;
+  }
+  // truncate with an ellipsis to fit maxW (1x units)
+  function fit(s, font, maxW, bold) {
+    var extra = bold ? 1 : 0;
+    if (!maxW || measure1x(s, font) + extra <= maxW) return s;
+    while (s.length > 1 && measure1x(s + '...', font) + extra > maxW) s = s.slice(0, -1);
+    return s + '...';
+  }
+  // draw text on the 2x canvas: (x, cy) in 2x px — cy is the vertical centre of the body cap height;
+  // every face shares that row's baseline, so a 13px timestamp and a 14px nick sit on one line
+  function text(ctx, s, x, cy, font, color, align, maxW, bold, noComp) {
+    if (!s) return 0;
+    s = fit(s, font, maxW ? maxW / 2 : 0, bold);
+    var g = rasterise(s, font, color, bold), sc = 2;
+    var w2 = g.w * sc;
+    var px = align === 'right' ? x - w2 : align === 'center' ? x - w2 / 2 : x;
+    // row starts: pull the first glyph's side bearing back to the common 1px letter bearing, so '[', '*' and '-'
+    // rows share one ink edge with letter rows (the rest of the row keeps its cell grid)
+    if (!align || align === 'left') { if (!noComp) px -= (glyphOf(font, s[0])[1] - 1) * sc; }
+    px = Math.round(px / 2) * 2 - sc;                      // the bitmap has 1px (1x) left padding
+    var base = Math.round((cy + CAP_REF) / 2) * 2;         // shared baseline: cap box of the body face centred on cy
+    var py = base - g.base * sc;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(g.c, 0, 0, g.c.width, g.c.height, px, py, g.c.width * sc, g.c.height * sc);
+    return w2;
+  }
+  function width2x(s, font, bold) { return (measure1x(s, font) + (bold ? 1 : 0)) * 2; }
+  // a chat line made of coloured runs: [[str, font, colour], ...]; each run is clipped to what is left of maxW.
+  // A run tagged 'cursor' draws the block cursor (one cell) instead of text.
+  function runs(ctx, segs, x, cy, maxW, noComp) {
+    var px = x;
+    for (var i = 0; i < segs.length; i++) {
+      var s = segs[i], room = maxW ? maxW - (px - x) : 0;
+      if (maxW && room < CELL) break;
+      if (s[3] === 'cursor') { block(ctx, px + 4, cy, s[1], s[2]); px += CELL; continue; }
+      px += text(ctx, s[0], px, cy, s[1], s[2], 'left', maxW ? room : 0, false, i > 0 || noComp);
+    }
+    return px - x;
+  }
+  function runsWidth(segs) { var t = 0; segs.forEach(function (s) { t += s[3] === 'cursor' ? CELL : width2x(s[0], s[1]); }); return t; }
+
+  /* ───────────────────────── the panel ───────────────────────── */
+  // 2x geometry: 1px frame · title bar 2..48 · rule · log 50..168 · rule · status bar 170..198 (28px: a 13px face + descenders)
+  var W = 640, H = 200, BODY_Y = 50, BODY_H = 118, NICK_MAX = 14;
+  var meta = { ts: null };   // what the last render decided (timestamps kept or dropped) — shown in the preview status
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  // [hh:mm] stamps counted up from the buyer's go-live time (falls back to 20:15)
+  function stamps(P) {
+    var m = /(\d{1,2})(?::(\d{2}))?\s*([ap]m)?/i.exec(P.time || ''), h = 20, mi = 15;
+    if (m) { h = +m[1]; mi = m[2] ? +m[2] : 0; var ap = (m[3] || '').toLowerCase(); if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0; }
+    var out = [];
+    for (var i = 0; i < 4; i++) { var t = ((h % 24) * 60 + mi + i) % 1440; out.push('[' + pad2(Math.floor(t / 60)) + ':' + pad2(t % 60) + ']'); }
+    return out;
+  }
+  // vertical centres (2x px, even) for n rows on a 34px pitch, centred in the log area
+  function rowsY(n) {
+    var pitch = 34, y0 = 2 * Math.round((BODY_Y + (BODY_H - pitch * n) / 2 + pitch / 2) / 2), out = [];
+    for (var i = 0; i < n; i++) out.push(y0 + i * pitch);
+    return out;
+  }
+  function drawIcon(ctx, P, pal, x, y, s) {   // preset icon, or the uploaded avatar on About Me
+    if (P.preset.layout === 'info' && P.avatar) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(P.avatar, x, y, 16 * s, 16 * s);
+    } else drawPixels(ctx, P.icon, x, y, s, null, iconPal(pal));
+  }
+  function block(ctx, x, cy, capFont, color) {   // block cursor sized to a face's cap height, on the row baseline
+    var base = Math.round((cy + CAP_REF) / 2) * 2, h = capFont.cap * 2;
+    ctx.fillStyle = color; ctx.fillRect(x, base - h, 12, h);
+  }
+  // the prompt line: "> /command█  note" — the panel's call to action, never timestamped
+  function ctaRow(P, pal) {   // the cursor sits at the END of the input line, after the note
+    var segs = [['> ', FONT_E, pal.ok], [P.cta, FONT_E, pal.title]];
+    if (P.ctaNote) segs.push(['  ' + P.ctaNote, FONT_B, pal.text]);
+    segs.push(['', FONT_E, pal.ok, 'cursor']);
+    segs.cta = true;
+    return segs;
+  }
+  // the nick list on the right of the log: the buyer as @op plus their own mods / regulars (section 2).
+  // The column is capped at NICK_MAX cells (long nicks get an ellipsis) so a long nick never reshapes the set.
+  function nickNames(P) {
+    var list = [{ n: '@' + P.screen, c: 'text' }];
+    (P.nl || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 2).forEach(function (s) {
+      list.push({ n: /^[@+%~&]/.test(s) ? s : '+' + s, c: 'dim' });
+    });
+    list.forEach(function (e) { if (e.n.length > NICK_MAX) e.n = e.n.slice(0, NICK_MAX - 1) + '…'; });
+    return list;
+  }
+  function nickWidth(P) { var w = 10; nickNames(P).forEach(function (e) { w = Math.max(w, e.n.length); }); return Math.min(w, NICK_MAX) * CELL; }
+  function nickList(ctx, P, pal, b, nickW) {
+    var x = b.x + b.w - 12 - nickW, names = nickNames(P);
+    ctx.fillStyle = pal.line; ctx.fillRect(x - 14, b.y + 8, 2, b.h - 16);
+    var ys = rowsY(3);   // the same three rows as the log, so the two columns share a grid
+    names.forEach(function (e, i) { text(ctx, e.n, x, ys[i], FONT_B, pal[e.c], 'left', nickW); });
+  }
+  // rows of coloured runs on the shared left edge; timestamps stay only if every stamped row still fits,
+  // and the nick list fills the right side whenever the rows leave it room (and the panel allows it)
+  function layoutRows(ctx, P, b, pal, rows, ts) {
+    var L = b.x + 12, R = b.x + b.w - 12, full = R - L;
+    var maxRow = 0, maxStamped = 0;
+    rows.forEach(function (r) { var w = runsWidth(r); maxRow = Math.max(maxRow, w); if (!r.cta) maxStamped = Math.max(maxStamped, w); });
+    var tsW = width2x('[00:00] ', FONT_D);
+    var useTs = P.ts && maxStamped + tsW <= full;
+    meta.ts = P.ts ? useTs : null;
+    var need = Math.max(maxRow, maxStamped + (useTs ? tsW : 0)), nickW = nickWidth(P);
+    var nick = P.nick !== false && need <= full - nickW - 26;
+    var maxW = nick ? full - nickW - 26 : full;
+    var ys = rowsY(rows.length);
+    rows.forEach(function (segs, i) { runs(ctx, useTs && !segs.cta ? [[ts[i] + ' ', FONT_D, pal.dim]].concat(segs) : segs, L, ys[i], maxW); });
+    if (nick) nickList(ctx, P, pal, b, nickW);
+  }
+
+  function renderPanel(P, canvas) {
+    var cv = canvas || document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    var ctx = cv.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, W, H);
+    var pal = palette(P);
+    meta.ts = null;
+
+    // window: 1px frame in the kit accent, field, title bar, rules
+    ctx.fillStyle = pal.frame; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = pal.bg;    ctx.fillRect(2, 2, W - 4, H - 4);
+    ctx.fillStyle = pal.bar;   ctx.fillRect(2, 2, W - 4, 46); ctx.fillRect(2, 170, W - 4, 28);
+    ctx.fillStyle = pal.frame; ctx.fillRect(2, 48, W - 4, 2); ctx.fillRect(2, 168, W - 4, 2);
+
+    // title bar: icon · #channel — server   (icon on the 2px grid so it survives Twitch's downscale)
+    drawIcon(ctx, P, pal, 10, 10, 2);
+    var tx = 52, tcy = 25, R = W - 14;
+    var tw = text(ctx, P.title || '#', tx, tcy, FONT_T, pal.title, 'left', R - tx);
+    if (P.server) {
+      var sx = tx + tw + 16;
+      if (sx + width2x('— ' + P.server, FONT_D) <= R) runs(ctx, [['— ', FONT_D, pal.dimBar], [P.server, FONT_D, pal.dimBar]], sx, tcy, 0, true);
+    }
+
+    // status bar: ● CONNECTED  label: value █  — only the dot and the cursor carry the green
+    var scy = 178, x = 28;   // baseline 190: cap 172..190, descenders end at 196, frame at 198
+    ctx.fillStyle = pal.ok; ctx.fillRect(14, 178, 6, 6);
+    x += text(ctx, 'CONNECTED', x, scy, FONT_D, pal.dimBar);
+    if (P.st) {
+      x += 16;
+      var i = P.st.indexOf(': ');   // "label: value" → dim label, bright value (a bare "03:12:44" stays whole)
+      if (i > 0 && i < P.st.length - 2) x += runs(ctx, [[P.st.slice(0, i + 1), FONT_D, pal.dimBar], [P.st.slice(i + 1), FONT_D, pal.text]], x, scy, R - x - 24, true);
+      else x += text(ctx, P.st, x, scy, FONT_D, pal.text, 'left', R - x - 24, false, true);
+    }
+    block(ctx, x + 8, scy, FONT_D, pal.ok);
+
+    // log area
+    var box = { x: 2, y: BODY_Y, w: W - 4, h: BODY_H };
+    LAYOUTS[P.preset.layout](ctx, P, box, pal);
+    return cv;
+  }
+
+  var LAYOUTS = {
+    // whois card: avatar in a framed well, <nick> in the streamer colour, two lines
+    info: function (ctx, P, b, pal) {
+      var L = b.x + 14, R = b.x + b.w - 12, well = 72, ys = rowsY(3), wy = ys[1] - well / 2 + 2;   // well centred on the text block
+      ctx.fillStyle = pal.line; ctx.fillRect(L, wy, well, well);
+      ctx.fillStyle = P.avatar ? pal.bg : pal.bar; ctx.fillRect(L + 2, wy + 2, well - 4, well - 4);
+      if (P.avatar) drawIcon(ctx, P, pal, L + 4, wy + 4, 4); else drawPixels(ctx, 'user', L + 4, wy + 4, 4, null, iconPal(pal));
+      var lx = L + well + 14, maxW = R - lx;
+      text(ctx, '<' + P.screen + '>', lx, ys[0], FONT_E, pal.r, 'left', maxW);
+      text(ctx, P.tag, lx, ys[1], FONT_B, pal.text, 'left', maxW);
+      text(ctx, P.tag2, lx, ys[2], FONT_B, pal.text, 'left', maxW);
+    },
+
+    // schedule: a mode line of [DAY] tags (live days lit in prompt green), *** time + note, then the prompt line
+    days: function (ctx, P, b, pal) {
+      var L = b.x + 12, R = b.x + b.w - 12, ys = rowsY(3), x = L;
+      for (var i = 0; i < 7; i++) {
+        var d = DAYS[i].toUpperCase(), on = !!P.days[DAYS[i]], f = on ? FONT_E : FONT_D;
+        x += runs(ctx, [['[', f, pal.dim], [d, f, on ? pal.ok : pal.dim], [']', f, pal.dim]], x, ys[0], 0, i > 0) + 4;
+      }
+      var segs = [['*** ', FONT_D, pal.dim]];
+      if (P.time) segs.push([P.time, FONT_E, pal.title]);
+      if (P.tag) segs.push([(P.time ? '  ' : '') + P.tag, FONT_B, pal.text]);
+      runs(ctx, segs, L, ys[1], R - L);
+      if (P.cta) runs(ctx, ctaRow(P, pal), L, ys[2], R - L);
+      else if (P.tag2) runs(ctx, [['--- ', FONT_D, pal.dim], [P.tag2, FONT_D, pal.dim]], L, ys[2], R - L);
+    },
+
+    // socials: one row per platform — [TAG] in the brand colour, platform, that platform's handle.
+    // Handles are never truncated while there is a way out: the platform-name column goes first.
+    buttons: function (ctx, P, b, pal) {
+      var list = SOCIALS.filter(function (s) { return P.socials[s.key]; }).slice(0, 6);
+      if (!list.length) list = SOCIALS.slice(0, 3);
+      var L = b.x + 12, R = b.x + b.w - 12, cols = list.length > 3 ? 2 : 1, n = Math.ceil(list.length / cols);
+      var colW = cols === 1 ? R - L : Math.floor((R - L - 24) / 4) * 2, ys = rowsY(n), tagW = 4 * CELL;
+      var nameW = 0, handles = {}, longest = 0;
+      list.forEach(function (s) {
+        nameW = Math.max(nameW, width2x(s.name, FONT_E));
+        var h = (P.handles && P.handles[s.key]) || '';
+        h = h ? (/[\/.]/.test(h) || h[0] === '@' ? h : '@' + h) : defaultHandle(s, P.screen);
+        handles[s.key] = h; longest = Math.max(longest, width2x(h, FONT_B));
+      });
+      var names = cols === 1 && tagW + CELL + nameW + CELL + longest <= R - L;
+      list.forEach(function (s, i) {
+        var col = Math.floor(i / n), x = L + col * (colW + 24), cy = ys[i % n];
+        var sw = P.mono ? pal.ok : (s.sw ? readable(s.sw, pal.bg, 5) : pal.text);
+        runs(ctx, [['[', FONT_E, pal.dim], [s.tag, FONT_E, sw], [']', FONT_E, pal.dim]], x, cy);
+        var hx = x + tagW + CELL;
+        if (names) { text(ctx, s.name, hx, cy, FONT_E, pal.title, 'left', 0, false, true); hx += nameW + CELL; }
+        text(ctx, handles[s.key], hx, cy, FONT_B, pal.text, 'left', (cols === 1 ? R : x + colW) - hx, false, true);
+      });
+    },
+
+    // DCC SEND gag (or the opt-in numeric goal), a segmented [████] bar, then the prompt line
+    transfer: function (ctx, P, b, pal) {
+      var L = b.x + 12, R = b.x + b.w - 12, ys = rowsY(3), ts = stamps(P), pct, r1, right;
+      if (P.showGoal) {
+        var m = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(P.goal || '');
+        pct = m && +m[2] > 0 ? Math.min(100, Math.round(100 * +m[1] / +m[2])) : 100;
+        r1 = [[(P.goalLabel || 'goal') + ': ', FONT_B, pal.text], [P.goal || 'complete', FONT_E, pal.title]]; right = pct + '%';
+      } else {
+        pct = 100;
+        r1 = [['DCC SEND ', FONT_E, pal.acc], [P.xfer || 'thank_you.wav', FONT_E, pal.title]]; right = 'done';
+      }
+      var barInk = P.showGoal ? pal.ok : pal.acc, rightInk = P.showGoal ? pal.ok : pal.dim;   // the gag bar is chrome; only a real goal (and the prompt) gets the green
+      var rw = width2x(right, FONT_E), tsW = width2x('[00:00] ', FONT_D);
+      var r3 = P.cta ? ctaRow(P, pal) : (P.tag ? [[P.tag, FONT_B, pal.text]] : []);
+      var useTs = P.ts && runsWidth(r1) + tsW <= R - L - rw - 16 && (r3.cta || runsWidth(r3) + tsW <= R - L);
+      meta.ts = P.ts ? useTs : null;
+      runs(ctx, (useTs ? [[ts[0] + ' ', FONT_D, pal.dim]] : []).concat(r1), L, ys[0], R - L - rw - 16);
+      text(ctx, right, R, ys[0], FONT_E, rightInk, 'right');
+      var cy = ys[1];
+      text(ctx, '[', L, cy, FONT_B, pal.dim, 'left'); text(ctx, ']', R, cy, FONT_B, pal.dim, 'right');
+      var ix = L + 16, iw = R - 16 - ix, seg = 12, gap = 4, n = Math.floor((iw + gap) / (seg + gap)), fill = Math.round(n * pct / 100);
+      var sx = ix + Math.floor((iw - (n * (seg + gap) - gap)) / 4) * 2;
+      for (var i = 0; i < n; i++) { ctx.fillStyle = i < fill ? barInk : pal.line; ctx.fillRect(sx + i * (seg + gap), cy - 10, seg, 20); }
+      if (r3.length) runs(ctx, (useTs && !r3.cta ? [[ts[2] + ' ', FONT_D, pal.dim]] : []).concat(r3), L, ys[2], R - L);
+    },
+
+    // channel invite: *** nick invites you (shrinks in steps for long nicks), note, then the /join prompt; nick list if room
+    invite: function (ctx, P, b, pal) {
+      var chan = /^#\S+$/.test(P.title || '') ? P.title : '#discord';
+      var budget = b.w - 24 - width2x('[00:00] ', FONT_D);
+      var forms = [' invites you to ' + chan, ' invites you', ''], r1 = null;
+      for (var i = 0; i < forms.length && !r1; i++) {
+        var f = [['*** ', FONT_D, pal.dim], [P.screen, FONT_E, pal.r]];
+        if (forms[i]) f.push([forms[i], FONT_B, pal.text]);
+        if (runsWidth(f) <= budget || i === forms.length - 1) r1 = f;
+      }
+      var Q = P.cta ? P : Object.assign({}, P, { cta: '/join ' + chan });
+      layoutRows(ctx, Q, b, pal, [r1, [[Q.tag, FONT_B, pal.text]], ctaRow(Q, pal)], stamps(Q));
+    },
+
+    // log list: up to 3 lines with an IRC prefix per preset (2 when a prompt line is set); "key - detail" colours the key
+    list: function (ctx, P, b, pal) {
+      var items = (P.lines || []).map(function (t) { return (t || '').trim(); }).filter(Boolean).slice(0, P.cta ? 2 : 3);
+      if (!items.length) items = ['...'];
+      var key = P.preset.key;
+      var rows = items.map(function (it, i) {
+        var segs = [];
+        if (key === 'rules') segs.push([(i + 1) + '. ', FONT_E, pal.acc]);
+        else if (key === 'subscribe') segs.push(['+', FONT_E, pal.ok]);
+        else if (/^custom/.test(key)) segs.push(['* ', FONT_E, pal.acc]);
+        var cut = it.indexOf(' - ');
+        if (cut > 0) {
+          segs.push([it.slice(0, cut) + ' ', FONT_E, key === 'commands' ? pal.ok : pal.title]);
+          segs.push([it.slice(cut + 3), FONT_B, pal.text]);
+        } else segs.push([it, FONT_B, pal.text]);
+        return segs;
+      });
+      if (P.cta) rows.push(ctaRow(P, pal));
+      layoutRows(ctx, P, b, pal, rows, stamps(P));
+    }
+  };
+  function defaultHandle(s, screen) {
+    if (s.key === 'DC') return 'discord.gg/' + screen.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return '@' + screen;
+  }
+
+  /* ───────────────────────── UI wiring ───────────────────────── */
+  var cv = $('cv'), cv1 = $('cv1');
+  function slug(s) { return (s || 'panel').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'panel'; }
+  function fileName(i, P) { return (i < 9 ? '0' : '') + (i + 1) + '_' + slug(P.title) + '.png'; }
+  function downscale(src, dst) {
+    var c = dst.getContext('2d');
+    c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+    c.clearRect(0, 0, dst.width, dst.height); c.drawImage(src, 0, 0, dst.width, dst.height);
+  }
+
+  function draw() {
+    var P = currentPanel();
+    renderPanel(P, cv);
+    var dpr = Math.min(3, Math.max(1, Math.round(window.devicePixelRatio || 1)));   // the true-size preview stays sharp on Retina
+    if (cv1.width !== 320 * dpr) { cv1.width = 320 * dpr; cv1.height = 100 * dpr; }
+    downscale(cv, cv1);
+    $('pvName').textContent = P.preset.label;
+    ['suggText', 'suggText2'].forEach(function (id) { var t = $(id); t.value = suggested(P); t.rows = Math.max(2, Math.ceil(t.value.length / Math.max(30, Math.floor((t.clientWidth || 400) / 7.4)))); });
+    $('stFile').textContent = fileName(Math.max(0, included().indexOf(P.preset)), P);
+    $('stTs').textContent = meta.ts === null ? (P.ts ? 'no timestamps on this layout' : 'timestamps off') : (meta.ts ? 'timestamps on' : 'timestamps dropped: a line is too long');
+    updateCounts();
+    if ($('setBox').classList.contains('on')) drawSet();
+    save();
+  }
+  function sentence(t) { t = (t || '').trim(); return t && !/[.!?]$/.test(t) ? t + '.' : t; }
+  function suggested(P) {
+    var n = P.screen, t = P.time || '7:00 PM', inv = $('invite').value.trim() || 'discord.gg/your-invite', tip = $('tip').value.trim() || ('streamelements.com/' + n.toLowerCase() + '/tip');
+    switch (P.preset.key) {
+      case 'about': return ['Hey, I am ' + n + '.', sentence(P.tag), sentence(P.tag2), 'Say hi in chat!'].filter(Boolean).join(' ');
+      case 'schedule': return 'Live ' + DAYS.filter(function (d) { return P.days[d]; }).join(' / ') + ' at ' + t + '. Follow to get notified when I go live.';
+      case 'rules': return (P.lines || []).filter(Boolean).map(function (l, i) { return (i + 1) + '. ' + l; }).join('  ') + '  Mods have the final say.';
+      case 'socials': return 'Find me on ' + SOCIALS.filter(function (s) { return P.socials[s.key]; }).map(function (s) { var h = (P.handles && P.handles[s.key]) || defaultHandle(s, n); return s.name + ' ' + h; }).join('  -  ') + '.';
+      case 'discord': return '/join ' + inv + ' - ' + sentence(P.tag || 'hang out between streams');
+      case 'subscribe': return 'Subscribe for ' + (P.lines || []).filter(Boolean).join(', ').toLowerCase() + '. twitch.tv/' + n.toLowerCase() + '/subscribe';
+      case 'support': return 'Tips: ' + tip + ' - bits and subs in chat. Every bit helps, never required.';
+      case 'commands': return (P.lines || []).filter(Boolean).join('  ');
+      case 'specs': return (P.lines || []).filter(Boolean).join(' - ');
+      default: return (P.lines || []).filter(Boolean).join(' - ');
+    }
+  }
+  function drawSet() {
+    var col = $('setCol'); col.innerHTML = '';
+    included().forEach(function (p) {
+      var c = document.createElement('canvas'); c.width = 320; c.height = 100;
+      downscale(renderPanel(panelFor(p)), c); col.appendChild(c);
+    });
+  }
+  function updateCounts() {
+    [['sn', 'snCnt'], ['srv', 'srvCnt'], ['nl', 'nlCnt'], ['cta', 'ctaCnt'], ['ctaNote', 'ctaNoteCnt'], ['link', 'linkCnt'], ['title', 'titleCnt'], ['tag', 'tagCnt'], ['tag2', 'tag2Cnt'], ['st', 'stCnt'], ['time', 'timeCnt'], ['goalLabel', 'goalLabelCnt'], ['xfer', 'xferCnt'], ['invite', 'inviteCnt'], ['tip', 'tipCnt']].forEach(function (p) {
+      var el = $(p[0]); $(p[1]).textContent = el.value.length + '/' + el.maxLength;
+    });
+  }
+  function remember() {
+    var e = edits[state.preset] || (edits[state.preset] = {});
+    e.title = $('title').value; e.tag = $('tag').value; e.tag2 = $('tag2').value; e.st = $('st').value;
+    e.lines = [$('li1').value, $('li2').value, $('li3').value];
+    e.nick = $('nickOn').checked;
+    e.cta = $('cta').value; e.ctaNote = $('ctaNote').value; e.link = $('link').value.trim();
+  }
+  function loadPreset(key) {
+    state.preset = key;
+    var p = presetDef(key), P = panelFor(p);
+    $('thisName').textContent = '— ' + p.label;
+    $('title').value = P.title; $('tag').value = P.tag; $('tag2').value = P.tag2; $('st').value = P.st; $('cta').value = P.cta; $('ctaNote').value = P.ctaNote; $('link').value = P.link;
+    $('li1').value = P.lines[0] || ''; $('li2').value = P.lines[1] || ''; $('li3').value = P.lines[2] || '';
+    var L = p.layout;
+    $('tagBlock').style.display  = L === 'list' || L === 'buttons' ? 'none' : '';
+    $('tagLabel').firstChild.nodeValue = L === 'info' ? 'First line ' : 'Small line ';
+    $('tag2Block').style.display = L === 'info' || L === 'days' ? '' : 'none';
+    $('tag2Label').firstChild.nodeValue = L === 'days' ? '--- line (dim) ' : 'Second line ';
+    $('nickBlock').style.display = L === 'list' || L === 'invite' ? '' : 'none';
+    $('ctaBlock').style.display = L === 'list' || L === 'days' || L === 'transfer' || L === 'invite' ? '' : 'none';
+    $('tagBlock').style.display = L === 'list' || L === 'buttons' || L === 'transfer' ? 'none' : '';
+    $('listCnt').textContent = P.cta ? '34 each · 2 lines + the prompt · "key - detail" colours the key' : '34 each · "key - detail" colours the key';
+    $('nickOn').checked = P.nick !== false;
+    $('listBlock').style.display = L === 'list' ? '' : 'none';
+    $('daysBlock').style.display = L === 'days' ? '' : 'none';
+    $('socBlock').style.display  = L === 'buttons' ? '' : 'none';
+    $('goalBlock').style.display = L === 'transfer' ? '' : 'none';
+    $('inviteBlock').style.display = L === 'invite' ? '' : 'none';
+    $('tipBlock').style.display = L === 'transfer' ? '' : 'none';
+    Array.prototype.forEach.call(document.querySelectorAll('#presetRow .pick'), function (b) {
+      var on = b.dataset.key === key; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+    });
+    syncCustomLabels();
+    Array.prototype.forEach.call(document.querySelectorAll('#iconRow button'), function (b) {
+      var on = b.dataset.icon === P.icon; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+    });
+    draw();
+  }
+
+  // presets
+  PRESETS.forEach(function (p) {
+    var b = document.createElement('button'); b.type = 'button'; b.dataset.key = p.key;
+    var ic = document.createElement('canvas'); ic.width = 16; ic.height = 16; ic.className = 'ico';
+    drawPixels(ic.getContext('2d'), p.icon, 0, 0, 1);
+    b.appendChild(ic); b.appendChild(document.createTextNode(p.label));
+    b.className = 'pick';
+    var wrap = document.createElement('span'); wrap.className = 'pickwrap';
+    var inc = document.createElement('input'); inc.type = 'checkbox'; inc.checked = !p.off; inc.className = 'inc';
+    inc.title = 'Include in the .zip'; inc.setAttribute('aria-label', 'Include ' + p.label + ' in the download');
+    inc.addEventListener('change', function () { include[p.key] = inc.checked; refreshCounts(); draw(); });
+    b.addEventListener('click', function () { loadPreset(p.key); });
+    wrap.appendChild(b); wrap.appendChild(inc);
+    $('presetRow').appendChild(wrap);
   });
-  // block cursor
-  ctx.fillStyle = GREEN;
-  ctx.fillRect(px, py - 11, 13, 22);
-}
-
-function preset(t, c, s, socials) {
-  document.getElementById('title').value = t;
-  document.getElementById('cmd').value = c;
-  document.getElementById('subtitle').value = s;
-  document.querySelectorAll('.checks input').forEach(function(cb) {
-    cb.checked = socials.indexOf(cb.value) !== -1;
+  function refreshCounts() {
+    var n = included().length;
+    ['dlAll', 'dlAll2'].forEach(function (id) { $(id).textContent = 'Download set (' + n + ' .zip)'; $(id).disabled = n === 0; });
+    ['showSet', 'showSet2'].forEach(function (id) { $(id).textContent = 'Preview set (' + n + ')'; });
+  }
+  // the custom slots show their current #channel on the picker so the buttons match the preview
+  function syncCustomLabels() {
+    Array.prototype.forEach.call(document.querySelectorAll('#presetRow .pick'), function (b) {
+      var p = presetDef(b.dataset.key), t = panelFor(p).title || p.label;
+      b.lastChild.nodeValue = t.length > 12 ? t.slice(0, 11) + '…' : t;
+    });
+  }
+  refreshCounts();
+  // icon picker
+  ICON_KEYS.forEach(function (k) {
+    var b = document.createElement('button'); b.type = 'button'; b.dataset.icon = k; b.title = k;
+    b.setAttribute('aria-label', k + ' icon');
+    var ic = document.createElement('canvas'); ic.width = 16; ic.height = 16; ic.className = 'ico';
+    drawPixels(ic.getContext('2d'), k, 0, 0, 1);
+    b.appendChild(ic);
+    b.addEventListener('click', function () {
+      (edits[state.preset] || (edits[state.preset] = {})).icon = k;
+      Array.prototype.forEach.call(document.querySelectorAll('#iconRow button'), function (x) {
+        var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on);
+      });
+      draw();
+    });
+    $('iconRow').appendChild(b);
   });
-  draw();
-}
+  // days
+  var dayButtons = {};
+  DAYS.forEach(function (d) {
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = d; dayButtons[d] = b;
+    b.addEventListener('click', function () { state.days[d] = !state.days[d]; syncDays(); draw(); });
+    $('days').appendChild(b);
+  });
+  function syncDays() { DAYS.forEach(function (d) { dayButtons[d].classList.toggle('on', !!state.days[d]); dayButtons[d].setAttribute('aria-pressed', !!state.days[d]); }); }
+  // socials
+  var socBoxes = {}, handleInputs = {};
+  SOCIALS.forEach(function (s) {
+    var l = document.createElement('label'), c = document.createElement('input');
+    c.type = 'checkbox'; socBoxes[s.key] = c;
+    c.addEventListener('change', function () { state.socials[s.key] = c.checked; syncSocials(); draw(); });
+    l.appendChild(c); l.appendChild(document.createTextNode(s.name));
+    $('socials').appendChild(l);
+    var hl = document.createElement('label'), hi = document.createElement('input');
+    hi.type = 'text'; hi.maxLength = 25; hi.autocomplete = 'off'; hi.placeholder = 'same as nick'; handleInputs[s.key] = hi;
+    hi.addEventListener('input', function () { state.handles[s.key] = hi.value.trim(); draw(); });
+    hl.appendChild(document.createTextNode(s.name + ' handle')); hl.appendChild(hi); $('handles').appendChild(hl);
+  });
+  function syncSocials() {
+    SOCIALS.forEach(function (s) {
+      socBoxes[s.key].checked = !!state.socials[s.key];
+      handleInputs[s.key].value = (state.handles && state.handles[s.key]) || '';
+      handleInputs[s.key].parentNode.style.display = state.socials[s.key] ? '' : 'none';
+    });
+  }
+  // themes
+  function applyTheme(t) {
+    $('c1').value = t.bg; $('c2').value = t.acc; $('c3').value = t.chan;
+    state.theme = { bar: t.bar, text: t.text, ok: t.ok, mono: !!t.mono };
+  }
+  THEMES.forEach(function (t) {
+    var b = document.createElement('button'); b.type = 'button';
+    var sw = document.createElement('span'); sw.className = 'sw';
+    sw.style.background = 'linear-gradient(135deg,' + t.bg + ' 50%,' + t.chan + ' 50%)'; sw.style.borderColor = t.acc;
+    b.appendChild(sw); b.appendChild(document.createTextNode(t.name));
+    b.addEventListener('click', function () { applyTheme(t); draw(); });
+    $('themes').appendChild(b);
+  });
+  // text inputs
+  ['title', 'tag', 'tag2', 'st', 'li1', 'li2', 'li3', 'cta', 'ctaNote', 'link'].forEach(function (id) {
+    $(id).addEventListener('input', function () { remember(); if (id === 'title') syncCustomLabels(); if (id === 'cta') $('listCnt').textContent = $('cta').value ? '34 each · 2 lines + the prompt · "key - detail" colours the key' : '34 each · "key - detail" colours the key'; draw(); });
+  });
+  ['sn', 'srv', 'nl', 'time', 'goalLabel', 'goal', 'xfer', 'invite', 'tip', 'c1', 'c2', 'c3'].forEach(function (id) { $(id).addEventListener('input', draw); });
+  $('ts').addEventListener('change', draw);
+  $('nickOn').addEventListener('change', function () { remember(); draw(); });
+  function hideBar() { document.querySelector('.statusbar').classList.add('off'); document.body.style.paddingBottom = '16px'; }
+  $('hideBar').addEventListener('click', function () { hideBar(); try { localStorage.setItem(STORE + '.bar', 'off'); } catch (e) {} });
+  try { if (localStorage.getItem('senergy.panelmaker.irc-minimal.v2.bar') === 'off') hideBar(); } catch (e) {}
+  $('showGoal').addEventListener('change', function () { $('goalFields').style.display = this.checked ? '' : 'none'; $('xferField').style.display = this.checked ? 'none' : ''; draw(); });
+  $('resetOne').addEventListener('click', function () { delete edits[state.preset]; loadPreset(state.preset); });
+  $('resetAll').addEventListener('click', function () {
+    try { localStorage.removeItem(STORE); } catch (e) {}
+    location.reload();
+  });
 
-function download() {
-  var title = (document.getElementById('title').value || 'panel')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  cv.toBlob(function(blob) {
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'panel_' + (title || 'custom') + '.png';
-    a.click();
-    setTimeout(function() { URL.revokeObjectURL(a.href); }, 2000);
-  }, 'image/png');
-}
+  // avatar upload → 32x32 (pixelated) or 64x64 (smooth) offscreen canvas
+  function buildAvatar() {
+    var img = state.avatarSrc; if (!img) { state.avatar = null; return; }
+    var px = $('pixelate').checked, n = px ? 32 : 64, c = document.createElement('canvas'); c.width = n; c.height = n;
+    var x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+    var side = Math.min(img.naturalWidth, img.naturalHeight);   // centre-crop to square
+    x.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, n, n);
+    state.avatar = c;
+  }
+  function setAvatarFromSrc(src) {
+    var img = new Image();
+    img.onload = function () { state.avatarSrc = img; buildAvatar(); $('avatarClear').style.display = ''; draw(); };
+    img.src = src;
+  }
+  $('avatar').addEventListener('change', function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    $('avatarName').textContent = f.name;
+    var r = new FileReader(); r.onload = function () { setAvatarFromSrc(r.result); }; r.readAsDataURL(f);
+  });
+  $('pixelate').addEventListener('change', function () { buildAvatar(); draw(); });
+  $('avatarClear').addEventListener('click', function () {
+    state.avatarSrc = null; state.avatar = null; $('avatar').value = ''; $('avatarName').textContent = ''; this.style.display = 'none'; draw();
+  });
 
-draw();
-if (document.fonts && document.fonts.ready) { document.fonts.ready.then(draw); }
+  // small chrome icons on the page
+  Array.prototype.forEach.call(document.querySelectorAll('canvas.ico[data-icon]'), function (c) {
+    drawPixels(c.getContext('2d'), c.dataset.icon, 0, 0, 1);
+  });
+
+  [['copySugg', 'suggText'], ['copySugg2', 'suggText2']].forEach(function (pair) {
+    $(pair[0]).addEventListener('click', function () {
+      var t = $(pair[1]), b = $(pair[0]); t.select();
+      var done = function () { b.textContent = 'copied'; setTimeout(function () { b.textContent = 'copy'; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t.value).then(done, function () { document.execCommand('copy'); done(); });
+      else { document.execCommand('copy'); done(); }
+    });
+  });
+  // topic line: jump to the section
+  Array.prototype.forEach.call(document.querySelectorAll('.topic .menu'), function (b) {
+    b.addEventListener('click', function () { var el = $(b.dataset.go); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  });
+  // preview-all toggle (both buttons)
+  function toggleSet() {
+    var box = $('setBox'), on = !box.classList.contains('on');
+    // on phones the preview is sticky, so the set goes below the controls instead of inside it
+    var narrow = window.innerWidth <= 860;
+    if (narrow) $('controls').parentNode.appendChild(box); else $('dlRow').insertAdjacentElement('afterend', box);
+    box.classList.toggle('on', on);
+    ['showSet', 'showSet2'].forEach(function (id) { $(id).setAttribute('aria-pressed', on); $(id).classList.toggle('on', on); });
+    if (on) { drawSet(); if (narrow) box.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  }
+  $('showSet').addEventListener('click', toggleSet);
+  $('showSet2').addEventListener('click', toggleSet);
+
+  /* ───────────────────────── persistence (this browser only) ── */
+  var STORE = 'senergy.panelmaker.irc-minimal.v2', saveTimer = null;
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try {
+        var avatarSrc = null;
+        if (state.avatarSrc) {
+          var c = document.createElement('canvas'), side = Math.min(state.avatarSrc.naturalWidth, state.avatarSrc.naturalHeight), n = Math.min(side, 256);
+          c.width = n; c.height = n;
+          c.getContext('2d').drawImage(state.avatarSrc, (state.avatarSrc.naturalWidth - side) / 2, (state.avatarSrc.naturalHeight - side) / 2, side, side, 0, 0, n, n);
+          avatarSrc = c.toDataURL('image/png');
+        }
+        localStorage.setItem(STORE, JSON.stringify({
+          preset: state.preset, edits: edits, include: include, days: state.days, socials: state.socials, handles: state.handles, avatarSrc: avatarSrc, pixelate: $('pixelate').checked,
+          sn: $('sn').value, srv: $('srv').value, nl: $('nl').value, ts: $('ts').checked, time: $('time').value, goalLabel: $('goalLabel').value, goal: $('goal').value, showGoal: $('showGoal').checked, xfer: $('xfer').value, invite: $('invite').value, tip: $('tip').value,
+          c1: $('c1').value, c2: $('c2').value, c3: $('c3').value, theme: state.theme
+        }));
+      } catch (e) { /* private mode / quota — fine, just no persistence */ }
+    }, 250);
+  }
+  function restore() {
+    try {
+      var d = JSON.parse(localStorage.getItem(STORE) || 'null'); if (!d) return;
+      edits = d.edits || {}; include = d.include || {}; if (d.days) state.days = d.days; if (d.socials) state.socials = d.socials; if (d.handles) state.handles = d.handles;
+      Array.prototype.forEach.call(document.querySelectorAll('#presetRow .inc'), function (c, i) { var p = PRESETS[i]; c.checked = include[p.key] != null ? include[p.key] : !p.off; });
+      ['sn', 'srv', 'nl', 'time', 'goalLabel', 'goal', 'xfer', 'invite', 'tip', 'c1', 'c2', 'c3'].forEach(function (k) { if (d[k] != null) $(k).value = d[k]; });
+      if (d.theme && d.theme.bar) state.theme = d.theme;
+      if (d.ts != null) $('ts').checked = d.ts; if (d.pixelate != null) $('pixelate').checked = d.pixelate;
+      if (d.showGoal != null) { $('showGoal').checked = d.showGoal; $('goalFields').style.display = d.showGoal ? '' : 'none'; $('xferField').style.display = d.showGoal ? 'none' : ''; }
+      if (d.preset && presetDef(d.preset).key === d.preset) state.preset = d.preset;
+      if (d.avatarSrc) setAvatarFromSrc(d.avatarSrc);
+    } catch (e) {}
+  }
+
+  /* ───────────────────────── downloads ───────────────────────── */
+  function saveBlob(blob, name) {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  }
+  function toBlob(canvas) { return new Promise(function (res) { canvas.toBlob(res, 'image/png'); }); }
+  function dlOne() {
+    var P = currentPanel();
+    toBlob(renderPanel(P)).then(function (b) { saveBlob(b, fileName(Math.max(0, included().indexOf(P.preset)), P)); });
+  }
+  $('dlOne').addEventListener('click', dlOne);
+  $('dlOne2').addEventListener('click', dlOne);
+
+  // store-only .zip writer (no libraries)
+  var CRC = (function () { var t = [], c; for (var n = 0; n < 256; n++) { c = n; for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
+  function crc32(u8) { var c = 0xFFFFFFFF; for (var i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function zip(files) {
+    var parts = [], central = [], offset = 0, enc = new TextEncoder();
+    var d = new Date(), dosT = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dosD = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    function u16(v) { return [v & 255, (v >> 8) & 255]; }
+    function u32(v) { return [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255]; }
+    files.forEach(function (f) {
+      var name = enc.encode(f.name), crc = crc32(f.data), n = f.data.length;
+      var lh = new Uint8Array([].concat(u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(dosT), u16(dosD), u32(crc), u32(n), u32(n), u16(name.length), u16(0)));
+      parts.push(lh, name, f.data);
+      central.push(new Uint8Array([].concat(u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(dosT), u16(dosD), u32(crc), u32(n), u32(n), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset))), name);
+      offset += lh.length + name.length + n;
+    });
+    var cdSize = central.reduce(function (a, c) { return a + c.length; }, 0);
+    var end = new Uint8Array([].concat(u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length), u32(cdSize), u32(offset), u16(0)));
+    return new Blob(parts.concat(central, [end]), { type: 'application/zip' });
+  }
+  function readme() {
+    var lines = [
+      'IRC MINIMAL TWITCH PANELS  -  made with the Senergy Group panel maker',
+      '',
+      'HOW TO UPLOAD (Twitch, desktop):',
+      '  1. Open your channel  >  About  >  Edit Panels (toggle at the top).',
+      '  2. Click the big "+"  >  Add a Text or Image Panel.',
+      '  3. Add Image  >  pick the PNG. Leave the title blank (the banner IS the title).',
+      '  4. "Image Links To": paste the link this panel should open.',
+      '  5. Description: the details below. Save. Repeat per panel, then toggle Edit Panels off.',
+      '',
+      'Panels are 640x200 (2x). Twitch shows them 320 wide, so they stay crisp on any screen.',
+      'The [hh:mm] stamps count up from your go-live time, so they never go stale.',
+      '',
+      'WHAT TO PUT IN EACH DESCRIPTION:'
+    ];
+    included().forEach(function (p, i) {
+      var P = panelFor(p);
+      lines.push('  ' + fileName(i, P) + '  -  ' + p.readme, '      Image Links To: ' + (P.link || '(paste the link this panel should open)'), '      description: ' + suggested(P));
+    });
+    lines.push('', 'Part of the IRC Minimal Stream Kit by Senergy Group  -  https://www.etsy.com/shop/SenergyGroup', '');
+    return lines.join('\r\n');
+  }
+  function dlAll() {
+    var set = included(), btns = [$('dlAll'), $('dlAll2')], notes = [$('dlNote'), $('dlNote2')];
+    var note = function (t) { notes.forEach(function (n) { n.textContent = t; }); };
+    btns.forEach(function (b) { b.disabled = true; }); note('Rendering ' + set.length + ' panels...');
+    var jobs = set.map(function (p, i) {
+      var P = panelFor(p);
+      return toBlob(renderPanel(P)).then(function (b) { return b.arrayBuffer(); }).then(function (ab) {
+        return { name: fileName(i, P), data: new Uint8Array(ab) };
+      });
+    });
+    Promise.all(jobs).then(function (files) {
+      files.push({ name: 'README.txt', data: new TextEncoder().encode(readme()) });
+      saveBlob(zip(files), 'irc_minimal_panels_' + slug($('sn').value || 'set') + '.zip');
+      note(set.length + ' PNGs + README saved.'); btns.forEach(function (b) { b.disabled = false; });
+      setTimeout(function () { note(''); }, 4000);
+    }).catch(function () { note('Something went wrong - try the single download.'); btns.forEach(function (b) { b.disabled = false; }); });
+  }
+  $('dlAll').addEventListener('click', dlAll);
+  $('dlAll2').addEventListener('click', dlAll);
+
+  // exposed for automated capture (harmless in normal use)
+  window.__panelMaker = {
+    render: function (key) { return renderPanel(panelFor(presetDef(key))).toDataURL('image/png'); },
+    presets: PRESETS.map(function (p) { return p.key; }),
+    load: loadPreset,
+    setTheme: function (i) { applyTheme(THEMES[i] || THEMES[0]); draw(); },
+    setNick: function (s) { $('sn').value = s; draw(); },
+    setAvatar: setAvatarFromSrc,
+    setNickList: function (s) { $('nl').value = s; draw(); },
+    include: function (key, on) { include[key] = on; refreshCounts(); draw(); },
+    themes: THEMES.map(function (t) { return t.name; }),
+    palette: function () { return palette(currentPanel()); }
+  };
+
+  /* ───────────────────────── boot ────────────────────────────── */
+  restore(); syncDays(); syncSocials(); refreshCounts();
+  $('goalFields').style.display = $('showGoal').checked ? '' : 'none'; $('xferField').style.display = $('showGoal').checked ? 'none' : '';
+  function boot() { glyphCache = {}; loadPreset(state.preset); }
+  boot();
+})();
 </script>
 </body>
 </html>
