@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<!-- WINDOWS XP PANEL MAKER v2 — self-serve Twitch panel generator.
+     Each panel is a Luna-era window rendered in <canvas>: rounded blue title bar with
+     the glass band, 16px icon, min/max/red-close cluster, a File/Edit/View/Help menu
+     bar with a status gag, and a white client area whose layout changes per panel
+     (user tile, sign-on day buttons, social rows, file-copy progress, chat invite,
+     lists with the panel's icon in a task-pane tile). Buyers type their name + text,
+     pick colours, upload a picture, and download PNGs — one at a time or the set as a .zip.
+
+     Text is pre-rendered and packed into a glyph atlas inside this file. The caption face is
+     anti-aliased like a Luna title bar (Fira Sans Bold 13 — splayed M, tailed l, the open face
+     closest to Trebuchet MS; (c) Mozilla Foundation / Telefonica, SIL Open Font License 1.1).
+     Dialog and menu text is 1-bit Tahoma 8pt: the hand-drawn 11px bitmap strikes of Wine's
+     Tahoma clone (Wine Tahoma / Tahoma Bold, (c) 2004 Larry Snyder, based on Bitstream Vera;
+     LGPL 2.1+, source: wine fonts/tahoma.sfd + tahomabd.sfd). Names and times use DejaVu Sans
+     Condensed Bold 14 (Bitstream Vera licence). Every string is drawn from the atlas at 1x and
+     blitted at exactly 2x, so Twitch's 2:1 downscale lands each text pixel on one screen pixel,
+     identically on every OS — no web fonts, nothing to load. Icons: 16px shaded pixel art in
+     the title bar, 32-bit-style canvas art (rendered at 1x, blitted at 2x) in the tiles.
+     No libraries, works offline. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Windows XP Panel Maker — Senergy Group</title>
+<style>
+  /* Page chrome is CSS Luna; the panel PNGs come from the glyph atlas in the script below. */
+  :root {
+    --beige: #ece9d8;
+    --frame: #0831d9;
+    --luna: #245edb;
+    --band: #3f8cf3;
+    --ink: #000;
+    --ui: Tahoma, "Segoe UI", "DejaVu Sans Condensed", Verdana, sans-serif;
+    --ttl: "Trebuchet MS", Carlito, "DejaVu Sans", "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: #3a6ea5;
+    background-image: linear-gradient(180deg, #6aa5ea 0%, #3a6ea5 55%, #2d5f96 100%);
+    background-attachment: fixed;
+    font-family: var(--ui);
+    font-size: 12px;
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 24px 16px 84px;
+  }
+  .desk {
+    display: grid;
+    grid-template-columns: minmax(300px, 440px) minmax(320px, 700px);
+    gap: 18px;
+    justify-content: center;
+    align-items: start;
+  }
+  .desk > * { min-width: 0; }
+
+  /* ── Luna window chrome ─────────────────────────────── */
+  .win {
+    background: var(--beige);
+    border: 3px solid var(--frame);
+    border-top: 0;
+    border-radius: 8px 8px 0 0;
+  }
+  .tb {
+    display: flex; align-items: center; gap: 6px;
+    height: 29px; margin: 0 -3px; padding: 0 5px 0 7px;
+    border-radius: 8px 8px 0 0;
+    background: linear-gradient(180deg, var(--luna) 0%, var(--band) 9%, var(--luna) 18%, var(--luna) 90%, #1b4ec0 100%);
+    color: #fff; font: bold 13px/1 var(--ttl); letter-spacing: .2px;
+    text-shadow: 1px 1px 0 #0f1a5c;
+  }
+  .tb .ico { width: 16px; height: 16px; image-rendering: pixelated; flex: 0 0 auto; }
+  .tb .ttl { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tb .btns { display: flex; gap: 2px; }
+  .tb .wb {
+    width: 21px; height: 21px; border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, .7);
+    background: linear-gradient(180deg, #53a3ff, #0054e3);
+    box-shadow: inset 0 0 3px rgba(255, 255, 255, .8);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tb .wb.close { background: linear-gradient(180deg, #ff8e81, #e8462f); border-color: #fff; }
+  .wb svg { width: 11px; height: 11px; }
+  .menubar { display: flex; gap: 14px; padding: 4px 8px 3px; font-size: 12px; border-bottom: 1px solid #fff; box-shadow: 0 1px 0 #aca899; margin-bottom: 1px; }
+  .menubar .sp { flex: 1; }
+  .menubar .menu, .menubar .menu:active, .menubar .menu:hover { background: none; border: none; box-shadow: none; padding: 0 2px; font-weight: normal; border-radius: 0; color: #000; }
+  .menubar .menu:hover { background: #316ac5; color: #fff; }
+  .menubar .st { color: #3b3b33; }
+  .body { padding: 10px 12px 12px; }
+
+  /* ── Controls ─────────────────────────────────────────── */
+  fieldset { border: none; margin: 0 0 10px; padding: 0; min-width: 0; }
+  .grp {
+    margin: 0 0 10px; padding: 8px 10px 10px;
+    border: 1px solid #d0d0bf; border-radius: 4px;
+    background: #f2f0e6;
+  }
+  .grp .lg { font-weight: bold; font-size: 12px; color: #0046d5; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px solid #e1dfd4; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .grp .lg small { font-weight: normal; color: #3b3b33; }
+  label { display: block; font-size: 12px; margin: 8px 0 3px; }
+  label .cnt { float: right; color: #606060; font-weight: normal; }
+  #socMax { font-weight: normal; color: #606060; transition: color .2s; }
+  #socMax.flash { color: #c00000; font-weight: bold; }
+  .warn { margin: 6px 0 0; padding: 4px 6px; background: #fff7d6; border: 1px solid #e0b64a; color: #5a4300; font-size: 11px; line-height: 1.35; }
+  input[type=text], input[type=number] {
+    width: 100%; padding: 4px 6px; font: 13px var(--ui); background: #fff; color: #000;
+    border: 1px solid #7f9db9; border-radius: 0; outline: none;
+  }
+  input[type=text]:focus, input[type=number]:focus { border-color: #316ac5; box-shadow: 0 0 0 1px #c1d2ee; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row.tight { gap: 4px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .list3 { display: grid; gap: 4px; }
+  button, .btn {
+    font: 12px var(--ui); color: #000; cursor: pointer; padding: 4px 10px;
+    border: 1px solid #003c74; border-radius: 3px;
+    background: linear-gradient(180deg, #fff 0%, #ecebe5 82%, #d6d1c4 100%);
+    box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #e6e3da;
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none; line-height: 1.2;
+  }
+  button:hover, .btn:hover { box-shadow: inset 0 0 0 1px #fff, inset 0 0 0 2px #fbd77f, inset 0 0 0 3px #f0a83a; }
+  button:active, .btn:active {
+    background: linear-gradient(180deg, #d6d3ca, #e4e2da);
+    box-shadow: inset 1px 1px 2px rgba(0, 0, 0, .25);
+  }
+  button.on, button.on:hover { background: #c1d2ee; border-color: #316ac5; box-shadow: inset 0 0 0 1px #fff; }
+  button:disabled { color: #808080; background: #f0efe8; box-shadow: none; border-color: #c9c7ba; cursor: default; }
+  button .ico { width: 16px; height: 16px; image-rendering: pixelated; }
+  button:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+  .pickwrap { display: inline-flex; align-items: center; gap: 3px; margin-right: 6px; }
+  .pickwrap .pick { flex: 1 1 auto; }
+  .pickwrap .inc { width: 14px; height: 14px; margin: 0; }
+  #iconRow { display: grid; grid-template-columns: repeat(6, 1fr); }
+  .icons button { padding: 4px 5px; justify-content: center; }
+  .icons button .ico { width: 32px; height: 32px; }
+  .checks { display: flex; gap: 4px 12px; flex-wrap: wrap; }
+  .checks label { display: inline-flex; align-items: center; gap: 5px; margin: 4px 0 0; }
+  #handles { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; margin-top: 6px; }
+  #handles label { margin: 0; font-size: 11px; }
+  #handles input { padding: 3px 6px; font-size: 12px; }
+  .days { display: flex; gap: 4px; flex-wrap: wrap; }
+  .days button { min-width: 36px; justify-content: center; padding: 5px 0; }
+  .colors { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; }
+  .colors label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+  input[type=color] { width: 30px; height: 22px; padding: 1px; border: 1px solid #7f9db9; border-radius: 2px; background: #fff; cursor: pointer; }
+  input[type=file] { font: 12px var(--ui); max-width: 100%; }
+  .themes { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+  .themes button { padding: 4px 8px; }
+  .sw { width: 14px; height: 12px; border: 1px solid #00138c; border-radius: 2px; display: inline-block; }
+  .hint { font-size: 11px; color: #3b3b33; line-height: 1.55; margin-top: 8px; }
+  .hint b { color: #000; }
+  .avatarRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .avatarRow label { margin: 0; display: inline-flex; align-items: center; gap: 5px; }
+  .linkish, .linkish:active, .linkish:hover { background: none; border: none; box-shadow: none; padding: 0; font: 11px var(--ui); color: #0046d5; text-decoration: underline; cursor: pointer; border-radius: 0; }
+
+  /* ── Preview ──────────────────────────────────────────── */
+  .pv-wrap { position: sticky; top: 16px; }
+  .pvbox { padding: 14px; background: #0e0e10; border: 1px solid #7f9db9; }   /* Twitch's channel-page ground (dark theme) */
+  canvas { display: block; }
+  #cv { width: 100%; max-width: 640px; height: auto; image-rendering: auto; }
+  .actual { margin-top: 14px; display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .actual .lab { font-size: 11px; color: #c8c8cc; line-height: 1.5; max-width: 250px; }
+  .actual .lab b { color: #fff; }
+  .twitchcol { width: 320px; flex: 0 0 auto; }
+  #cv1 { width: 320px; max-width: 100%; height: auto; image-rendering: auto; }
+  .fakedesc { font: 13px/1.4 Inter, "Helvetica Neue", Arial, sans-serif; color: #adadb8; padding: 6px 0 0; }
+  .fakedesc a { color: #bf94ff; text-decoration: none; }
+  #setBox { display: none; margin-top: 10px; padding: 12px; background: #0e0e10; border: 1px solid #7f9db9; }
+  #setBox.on { display: block; }
+  #setBox .lab { font-size: 11px; color: #c8c8cc; margin-bottom: 8px; }
+  #setBox .lab b { color: #fff; }
+  #setCol { display: grid; grid-template-columns: repeat(auto-fill, 320px); gap: 10px; }
+  #setCol canvas { width: 320px; height: 100px; }
+  .sugg { margin-top: 8px; }
+  .sugg summary { font-size: 12px; cursor: pointer; margin: 0 0 3px; color: #000; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); margin: 0; }
+  .sugg textarea { width: 100%; font: 12px var(--ui); padding: 5px 7px; background: #fff; resize: vertical; border: 1px solid #7f9db9; }
+  .status { display: flex; gap: 3px; margin: 8px 0 0; }
+  .status span { flex: 1; padding: 3px 6px; font-size: 11px; color: #202020; border: 1px solid #aca899; box-shadow: inset 1px 1px 0 #fff; background: #ece9d8; }
+  .dl-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+  .dl-row .primary { font-weight: bold; box-shadow: inset 0 0 0 1px #fff, inset 0 0 0 2px #a8c4ee, inset 0 0 0 3px #5b8fd9; }
+  .dl-row .note { font-size: 11px; color: #3b3b33; }
+
+  /* ── Taskbar CTA ──────────────────────────────────────── */
+  .taskbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; height: 32px;
+    background: linear-gradient(180deg, #3168d5 0%, #4a94e8 4%, #245edb 10%, #245edb 90%, #1a44a8 100%);
+    border-top: 1px solid #0a3aa4; display: flex; align-items: stretch; gap: 8px; font-size: 12px;
+  }
+  .taskbar .start {
+    font: bold italic 15px var(--ttl); color: #fff; text-shadow: 1px 1px 0 rgba(0, 0, 0, .45);
+    padding: 0 16px 0 12px; border: none; border-radius: 0 12px 12px 0;
+    background: linear-gradient(180deg, #3c9e33 0%, #5bc146 35%, #2f8226 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 2px 0 3px rgba(0, 0, 0, .3);
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  }
+  .taskbar .start:hover { background: linear-gradient(180deg, #4db43f 0%, #6fd558 35%, #3a9a2f 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 2px 0 3px rgba(0, 0, 0, .3); }
+  .taskbar .start .ico { width: 16px; height: 16px; image-rendering: pixelated; }
+  .taskbar .task {
+    flex: 1 1 auto; min-width: 0; margin: 4px 0; padding: 0 10px; display: block; line-height: 24px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; border-radius: 3px;
+    background: linear-gradient(180deg, #3c81f3, #3169c6); box-shadow: inset 1px 1px 0 rgba(255, 255, 255, .35);
+  }
+  .taskbar .task b { color: #fff; }
+  .taskbar .tray {
+    padding: 0 12px; display: flex; align-items: center; font-size: 11px; color: #fff; white-space: nowrap;
+    background: linear-gradient(180deg, #0c8dee 0%, #1ba1fc 30%, #0b78d6 100%);
+    border-left: 1px solid #0a5fbf; box-shadow: inset 1px 0 0 #3ab0ff;
+  }
+
+  /* ── Phones (kept at the END so nothing above overrides them) ── */
+  @media (max-width: 860px) {
+    .desk { grid-template-columns: minmax(280px, 700px); }
+    .pv-wrap { order: -1; position: sticky; top: 0; z-index: 4; }
+    .pv-wrap .actual, .pv-wrap .status, .pv-wrap .note { display: none; }
+    .pv-wrap .sugg { margin-top: 6px; }
+    #phoneHome #help { margin-top: 10px; }
+    body.typing .pv-wrap .dl-row, body.typing .pv-wrap .sugg { display: none; }
+    .pv-wrap .dl-row button { white-space: nowrap; font-size: 11px; padding: 5px 4px; flex: 1 1 0; justify-content: center; }
+    #setBox { margin: 0 0 12px; }
+    .pv-wrap .body { padding: 6px; }
+    .pv-wrap .pvbox { padding: 6px; }
+    .pv-wrap .dl-row { margin-top: 6px; }
+  }
+  @media (max-width: 600px) {
+    #presetRow .pickwrap { flex: 1 1 45%; }
+    .taskbar .task { display: none; }
+  }
+  @media (max-width: 480px) {
+    .pv-wrap #cv { display: none; }
+    .pv-wrap .actual { display: flex; margin-top: 0; }
+    .pv-wrap .actual .lab { display: none; }
+    .taskbar { position: static; margin-top: 16px; height: auto; min-height: 32px; }
+    body { padding-bottom: 16px; }
+    .two { grid-template-columns: 1fr; }
+    #handles { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="desk">
+
+  <!-- ── Window 1: controls ───────────────────────────────────────── -->
+  <div class="win" id="controls">
+    <div class="tb">
+      <canvas class="ico" data-icon="about" width="16" height="16" aria-hidden="true"></canvas>
+      <span class="ttl">Windows XP Panel Maker</span>
+      <span class="btns" aria-hidden="true">
+        <span class="wb"><svg viewBox="0 0 11 11"><rect x="2" y="7" width="6" height="2" fill="#fff"/></svg></span>
+        <span class="wb"><svg viewBox="0 0 11 11"><rect x="1.5" y="1.5" width="8" height="8" fill="none" stroke="#fff" stroke-width="1.5"/><rect x="1" y="1" width="9" height="2.5" fill="#fff"/></svg></span>
+        <span class="wb close"><svg viewBox="0 0 11 11"><path d="M2,2 L9,9 M9,2 L2,9" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>
+      </span>
+    </div>
+    <div class="menubar"><button type="button" class="menu" data-go="presetRow">Panels</button><button type="button" class="menu" data-go="controls">This panel</button><button type="button" class="menu" data-go="help">Help</button><span class="sp"></span><span class="st" id="topStatus">Ready</span></div>
+    <div class="body">
+
+      <fieldset class="grp">
+        <div class="lg"><span>1. Pick a panel</span><small>click to edit · tick to include</small></div>
+        <div class="row tight" id="presetRow" role="group" aria-label="Panel presets"></div>
+      </fieldset>
+
+      <fieldset class="grp">
+        <div class="lg"><span>2. About you</span><small>About Me, Socials, Discord &amp; Support</small></div>
+        <label for="sn">Your name <span class="cnt" id="snCnt"></span></label>
+        <input type="text" id="sn" value="RetroStreamer" maxlength="25" autocomplete="off" spellcheck="false">
+        <label>Your picture (shown on About Me)</label>
+        <div class="avatarRow">
+          <input type="file" id="avatar" accept="image/png,image/jpeg,image/gif,image/webp">
+          <label id="pixelateRow" style="display:none"><input type="checkbox" id="pixelate"> Pixelate</label>
+          <button type="button" id="avatarClear" style="display:none">Use the default picture</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="grp">
+        <div class="lg"><span>3. This panel <small id="thisName"></small></span><button type="button" class="linkish" id="resetOne">Reset this panel</button></div>
+        <label for="title">Panel title <span class="cnt" id="titleCnt"></span></label>
+        <input type="text" id="title" value="" maxlength="22" autocomplete="off">
+        <div class="warn" id="glyphWarn" role="status" hidden></div>
+
+        <label>Title icon</label>
+        <div class="row tight icons" id="iconRow" role="group" aria-label="Title icon"></div>
+
+        <div id="tagBlock">
+          <label for="tag" id="tagLabel">Tagline <span class="cnt" id="tagCnt"></span></label>
+          <input type="text" id="tag" value="" maxlength="38" autocomplete="off">
+        </div>
+
+        <div id="tag2Block">
+          <label for="tag2">Second line <span class="cnt" id="tag2Cnt"></span></label>
+          <input type="text" id="tag2" value="" maxlength="38" autocomplete="off">
+        </div>
+
+        <div id="listBlock">
+          <label>Up to 3 lines <span class="cnt" id="listHint">38 each · &quot;key - detail&quot; colours the key</span></label>
+          <div class="list3">
+            <input type="text" id="li1" maxlength="38" autocomplete="off" placeholder="Line 1">
+            <input type="text" id="li2" maxlength="38" autocomplete="off" placeholder="Line 2">
+            <input type="text" id="li3" maxlength="38" autocomplete="off" placeholder="Line 3">
+          </div>
+          <label style="display:inline-flex;align-items:center;gap:6px;margin-top:8px"><input type="checkbox" id="showTile" checked> Show the panel's icon on the right when the lines leave room</label>
+        </div>
+
+        <div id="daysBlock">
+          <label>Sign-on days</label>
+          <div class="days" id="days" role="group" aria-label="Days of the week"></div>
+          <label for="time">Time <span class="cnt" id="timeCnt"></span></label>
+          <input type="text" id="time" value="7:00 PM CT" maxlength="24" autocomplete="off">
+        </div>
+
+        <div id="socBlock">
+          <label>Platforms <span id="socMax">(up to 6 — one row each)</span></label>
+          <div class="checks" id="socials"></div>
+          <div id="handles"></div>
+        </div>
+
+        <div id="goalBlock">
+          <label style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="showGoal"> Show a numeric goal instead (numbers go stale — re-export when they change)</label>
+          <div id="xferField"><label for="xfer">File name (the gag) <span class="cnt" id="xferCnt"></span></label><input type="text" id="xfer" value="thank_you.wav" maxlength="18" autocomplete="off"></div>
+          <div class="two" id="goalFields">
+            <div><label for="goalLabel">Goal label <span class="cnt" id="goalLabelCnt"></span></label><input type="text" id="goalLabel" value="Sub goal" maxlength="14" autocomplete="off"></div>
+            <div><label for="goal">Progress <span class="cnt">e.g. 31 / 50</span></label><input type="text" id="goal" value="31 / 50" maxlength="11" autocomplete="off"></div>
+          </div>
+        </div>
+
+        <div id="inviteBlock"><label for="invite">Discord invite link (for the description text) <span class="cnt" id="inviteCnt"></span></label><input type="text" id="invite" value="" maxlength="32" placeholder="discord.gg/…" autocomplete="off"></div>
+        <div id="tipBlock"><label for="tip">Tip link (for the description text) <span class="cnt" id="tipCnt"></span></label><input type="text" id="tip" value="" maxlength="80" placeholder="streamelements.com/you/tip" autocomplete="off"></div>
+
+        <label for="st">Status (top-right corner) <span class="cnt" id="stCnt"></span></label>
+        <input type="text" id="st" value="" maxlength="20" autocomplete="off">
+        <label for="link">Image Links To — the one link this panel opens on Twitch (goes in the README) <span class="cnt" id="linkCnt"></span></label>
+        <input type="text" id="link" value="" maxlength="80" placeholder="https://…" autocomplete="off">
+      </fieldset>
+
+      <fieldset class="grp">
+        <div class="lg"><span>4. Colors</span><small>used on every panel</small></div>
+        <div class="themes" id="themes" role="group" aria-label="Color themes"></div>
+        <div class="colors">
+          <label>Title bar <input type="color" id="c1" value="#245edb"></label>
+          <label>Glass band <input type="color" id="c2" value="#3f8cf3"></label>
+          <label>Window <input type="color" id="c3" value="#ece9d8"></label>
+          <label>Accent <input type="color" id="c4" value="#245edb"></label>
+          <label><input type="checkbox" id="grad" checked> Glass highlight on the title bar</label>
+        </div>
+      </fieldset>
+
+      <div class="hint">
+        Presets are starting points — change any text. Your edits are kept in this browser until you
+        <button type="button" class="linkish" id="resetAll">start over</button>.
+      </div>
+      <div id="phoneHome"></div>   <!-- on phones the suggested text + how-to move here, out of the pinned preview -->
+    </div>
+  </div>
+
+  <!-- ── Window 2: preview + download ─────────────────────────────── -->
+  <div class="pv-wrap">
+    <div class="win">
+      <div class="tb">
+        <canvas class="ico" data-icon="pc" width="16" height="16" aria-hidden="true"></canvas>
+        <span class="ttl">Preview — <span id="pvName">About Me</span></span>
+        <span class="btns" aria-hidden="true">
+          <span class="wb"><svg viewBox="0 0 11 11"><rect x="2" y="7" width="6" height="2" fill="#fff"/></svg></span>
+          <span class="wb"><svg viewBox="0 0 11 11"><rect x="1.5" y="1.5" width="8" height="8" fill="none" stroke="#fff" stroke-width="1.5"/><rect x="1" y="1" width="9" height="2.5" fill="#fff"/></svg></span>
+          <span class="wb close"><svg viewBox="0 0 11 11"><path d="M2,2 L9,9 M9,2 L2,9" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>
+        </span>
+      </div>
+      <div class="body">
+        <div class="pvbox">
+          <canvas id="cv" width="640" height="200" aria-label="Panel preview at 2x"></canvas>
+          <div class="actual">
+            <div class="twitchcol">
+              <canvas id="cv1" width="320" height="100" aria-label="Panel preview at actual Twitch size"></canvas>
+              <div class="fakedesc">Your links &amp; details go here — <a href="#" onclick="return false">Twitch's text field</a></div>
+            </div>
+            <div class="lab"><b>Actual size on Twitch</b> (320 px wide, dark theme). The banner carries the title; the gray text is where your own links live. Downloads are 2× so they stay crisp on high-DPI screens.</div>
+          </div>
+        </div>
+        <div class="status"><span id="stDims">640 × 200 PNG</span><span id="stFile">01_about_me.png</span></div>
+        <details class="sugg" id="sugg" open>
+          <summary>Suggested text for this panel's Twitch description</summary>
+          <label for="suggText" class="vh">Suggested description</label>
+          <textarea id="suggText" rows="4" readonly></textarea>
+          <div class="hint" style="margin-top:4px"><button type="button" class="linkish" id="copySugg">copy the text</button> · Twitch gives each image <b>one</b> link ("Image Links To") — put the rest in the description.</div>
+        </details>
+        <div class="dl-row" id="dlRow">
+          <button class="primary" id="dlOne">Download this panel</button>
+          <button id="dlAll">Download all (.zip)</button>
+          <button id="showSet" aria-pressed="false">Preview all</button>
+          <span class="note" id="dlNote"></span>
+        </div>
+        <div id="setBox">
+          <div class="lab"><b>The whole set</b> at Twitch size — exactly what the .zip contains, in upload order.</div>
+          <div id="setCol"></div>
+        </div>
+        <div class="hint" id="help">
+          <b>On Twitch:</b> About &rarr; Edit Panels &rarr; Add a Text or Image Panel &rarr; Add Image. Put your links and
+          details in the panel's <b>Image Links To</b> and description fields underneath the banner.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Taskbar: kit CTA ─────────────────────────────────────────────── -->
+<div class="taskbar">
+  <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
+  <a class="start" href="https://www.etsy.com/listing/4429737565/windows-xp-twitch-chat-widget-overlay?utm_source=panel-maker&utm_medium=web&utm_campaign=windows-xp" target="_blank" rel="noopener noreferrer">
+    <canvas class="ico" data-icon="star" width="16" height="16" aria-hidden="true"></canvas> View on Etsy &#8594;
+  </a>
+  <span class="task">Part of the <b>Windows XP Stream Kit</b> — chat, alerts, scenes, goal bars &amp; game frame</span>
+  <span class="tray">Senergy Group</span>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+__ICONS__
+
+  // 8x8 glyphs for the social chips — plain shapes, deliberately not brand logos
+  var GLYPH = {
+    TW: ['wwwwwwww', 'w......w', 'w......w', 'w......w', 'wwwwwwww', '...ww...', '..wwww..', '........'],   // screen
+    YT: ['........', '..w.....', '..ww....', '..www...', '..wwww..', '..www...', '..ww....', '..w.....'],   // play
+    DC: ['.wwwwww.', 'wwwwwwww', 'ww.w.w.w', 'wwwwwwww', 'wwwwwwww', '.wwwwww.', '..ww....', '.w......'],   // speech bubble
+    TT: ['.....ww.', '....w.w.', '....w...', '....w...', '....w...', '..www...', '.wwww...', '..ww....'],   // note
+    IG: ['wwwwwwww', 'w......w', 'w..ww..w', 'w.w..w.w', 'w.w..w.w', 'w..ww..w', 'w......w', 'wwwwwwww'],   // camera
+    X:  ['w......w', '.w....w.', '..w..w..', '...ww...', '...ww...', '..w..w..', '.w....w.', 'w......w'],   // x
+    BS: ['w......w', 'ww....ww', 'www..www', '.wwwwww.', '.wwwwww.', '..wwww..', '..w..w..', '.w....w.']    // butterfly
+  };
+
+  function drawSmall(ctx, key, x, y, s) {   // a shaded 16px icon (title bar, buttons) at s x
+    var ic = smallIcon(key); if (!ic) return;
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(ic, 0, 0, 16, 16, x, y, 16 * s, 16 * s);
+  }
+  function drawPixels(ctx, key, x, y, s, rows) {
+    rows = rows || ICONS[key];
+    if (!rows) return;
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      for (var c = 0; c < row.length; c++) {
+        var ch = row[c];
+        if (ch === '.') continue;
+        ctx.fillStyle = PAL[ch] || '#f0f';
+        ctx.fillRect(x + c * s, y + r * s, s, s);
+      }
+    }
+  }
+
+  /* ───────────────────────── presets ─────────────────────────── */
+  var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var SOCIALS = [
+    { key: 'TW', name: 'Twitch',    sw: '#9146ff' },
+    { key: 'YT', name: 'YouTube',   sw: '#e02020' },
+    { key: 'DC', name: 'Discord',   sw: '#5865f2' },
+    { key: 'TT', name: 'TikTok',    sw: '#00b4b4' },
+    { key: 'IG', name: 'Instagram', sw: '#e0407a' },
+    { key: 'X',  name: 'X',         sw: '#222222' },
+    { key: 'BS', name: 'Bluesky',   sw: '#1185fe' }
+  ];
+  var PRESETS = [
+    { key: 'about',     label: 'About Me',  icon: 'about',    layout: 'info',
+      title: 'About Me', tag: 'Retro games, cozy vibes.', tag2: 'Live Tue / Thu / Sat since 2019', st: 'Online',
+      readme: 'Who you are, what you stream, when you started. Keep it to 3 lines.' },
+    { key: 'schedule',  label: 'Schedule',  icon: 'schedule', layout: 'days',
+      title: 'Schedule', tag: 'Follow to get notified', st: 'Reminder: ON',
+      readme: 'Tue / Thu / Sat - 7:00 PM CT (your time zone). Mention if it changes.' },
+    { key: 'rules',     label: 'Rules',     icon: 'rules',    layout: 'list', prose: true,
+      title: 'Chat Rules', lines: ['Be cool', 'No spoilers', 'Mods are final'], st: 'Security: OK',
+      readme: 'Your full rules list. Short numbered lines read best.' },
+    { key: 'socials',   label: 'Socials',   icon: 'socials',  layout: 'buttons',
+      title: 'Socials', tag: '', st: 'See links below',
+      readme: 'One link per line: YouTube, Discord, TikTok... Set "Image Links To" to the one that matters most.' },
+    { key: 'discord',   label: 'Discord',   icon: 'chat',     layout: 'invite',
+      title: 'Discord', tag: 'Hang out between streams', st: '3 friends online',
+      readme: 'Paste your permanent invite link in "Image Links To" so the whole banner is clickable.' },
+    { key: 'subscribe', label: 'Subscribe', icon: 'star',     layout: 'list', prose: true,
+      title: 'Subscribe', lines: ['Ad-free viewing', 'Custom emotes', 'Sub badge in chat'], st: 'Sub Alert: ON',
+      readme: 'What subs get. Link "Image Links To" to your subscribe page.' },
+    { key: 'support',   label: 'Support',   icon: 'donate',   layout: 'transfer',
+      title: 'Support the Stream', tag: 'Bits, tips & subs keep the lights on', st: 'Speed: 56 kbps',
+      readme: 'Your tip / Ko-fi / StreamElements link. (If you switch on the numeric goal, re-export when it changes.)' },
+    { key: 'commands',  label: 'Commands',  icon: 'cmd',      layout: 'list',
+      title: 'Commands', lines: ['!discord - join the server', '!specs - my PC build', '!schedule - when I am live'], st: 'Uptime: 0 min',
+      readme: 'List every chat command and what it does.' },
+    { key: 'specs',     label: 'Specs',     icon: 'pc',       layout: 'list',
+      title: 'PC Specs', lines: ['CPU - Ryzen 7 7800X3D', 'GPU - RTX 4070', 'RAM - 32 GB'], st: 'Ping: 12 ms',
+      readme: 'Full build: CPU, GPU, RAM, mic, camera, capture card.' },
+    { key: 'custom',    label: 'Custom',    icon: 'folder',   layout: 'list',
+      title: 'Giveaways', lines: ['Every 100 followers', 'Winners picked live', 'Must be in chat'], st: 'Online',
+      readme: 'Anything else: giveaways, merch, sponsors, emotes. Retitle it and change the three lines.' },
+    // two spare slots, off by default — Twitch gives one link per image, so merch / a sponsor / an FAQ want their own panel
+    { key: 'custom2',   label: 'Merch',     icon: 'cart',     layout: 'list', off: true,
+      title: 'Merch', lines: ['Hoodies, tees & mugs', 'Ships worldwide', 'Link below'], st: 'Cart: 0 items',
+      readme: 'Your merch store. Put the shop link in "Image Links To".' },
+    { key: 'custom3',   label: 'Spare',     icon: 'help',     layout: 'list', off: true,
+      title: 'FAQ', lines: ['Mic - Shure SM7B', 'Camera - Sony a6400', 'Chair - Secretlab'], st: 'Help: F1',
+      readme: 'A spare panel: FAQ, sponsors, emotes, a second game. Retitle it and change the three lines.' }
+  ];
+  // Luna Blue, Olive Green and Silver are the three looks the era shipped with (and the kit's own
+  // altThemes); Royale is the media-centre blue; Noir is the black-and-orange look of the era's music player
+  // (dark chrome, the same beige client — XP never went dark inside a window; pick a dark Window colour for that).
+  // c4 = the accent used for names, keys, bullets and the lit days (the title colour on the light themes).
+  var THEMES = [
+    { name: 'Luna Blue',   c1: '#245edb', c2: '#3f8cf3', c3: '#ece9d8', c4: '#245edb', grad: true },
+    { name: 'Olive Green', c1: '#7e9153', c2: '#a9bc7a', c3: '#ece9d8', c4: '#6f8442', grad: true },
+    { name: 'Silver',      c1: '#8b8ea4', c2: '#cdd1e0', c3: '#f1f1f4', c4: '#3b64c7', grad: true },
+    { name: 'Royale',      c1: '#2c5fc9', c2: '#6aa3ff', c3: '#eef2f9', c4: '#2c5fc9', grad: true },
+    { name: 'Noir',        c1: '#33353b', c2: '#6c6f78', c3: '#ece9d8', c4: '#e6791a', grad: true }
+  ];
+
+  /* ───────────────────────── state ───────────────────────────── */
+  var $ = function (id) { return document.getElementById(id); };
+  var state = {
+    preset: 'about',
+    days: { Mon: false, Tue: true, Wed: false, Thu: true, Fri: false, Sat: true, Sun: false },
+    socials: { TW: false, YT: true, DC: true, TT: true, IG: false, X: false, BS: false },   // Twitch off: the panel sits on your Twitch page
+    handles: {},
+    avatar: null,        // 32x32 / 64x64 canvas when the buyer uploads a picture
+    avatarSrc: null      // original Image (re-pixelated when the checkbox toggles)
+  };
+  var edits = {};   // per-preset edits: {title, tag, tag2, st, lines, icon, tile}
+  var include = {};  // preset key → in the zip / preview-all (default: on, unless the preset says `off`)
+  function isIn(p) { return include[p.key] != null ? include[p.key] : !p.off; }
+  function included() { return PRESETS.filter(isIn); }
+
+  function presetDef(key) {
+    for (var i = 0; i < PRESETS.length; i++) if (PRESETS[i].key === key) return PRESETS[i];
+    return PRESETS[0];
+  }
+  function shared() {
+    return {
+      screen: $('sn').value.trim() || 'RetroStreamer',
+      time: $('time').value.trim(), days: state.days, socials: state.socials, handles: state.handles,
+      goalLabel: $('goalLabel').value.trim(), goal: $('goal').value.trim(), showGoal: $('showGoal').checked, xfer: $('xfer').value.trim(),
+      avatar: state.avatar,
+      c1: $('c1').value, c2: $('c2').value, c3: $('c3').value, c4: $('c4').value, grad: $('grad').checked
+    };
+  }
+  function panelFor(p) {   // preset defaults + saved edits + shared personalization
+    var e = edits[p.key] || {}, s = shared();
+    s.preset = p;
+    s.title = e.title != null ? e.title : p.title;
+    s.tag = e.tag != null ? e.tag : (p.tag || '');
+    s.tag2 = e.tag2 != null ? e.tag2 : (p.tag2 || '');
+    s.st = e.st != null ? e.st : p.st;
+    s.lines = e.lines || p.lines || [];
+    s.icon = e.icon || p.icon;
+    s.tile = e.tile != null ? e.tile : true;
+    s.link = e.link || '';
+    return s;
+  }
+  function currentPanel() { return panelFor(presetDef(state.preset)); }
+
+  /* ───────────────────────── colour helpers ──────────────────── */
+  function hexToRgb(h) {
+    h = h.replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    var n = parseInt(h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function rgbToHex(c) { return '#' + c.map(function (v) { return ('0' + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2); }).join(''); }
+  function lin(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+  function lum(h) { var c = hexToRgb(h); return 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]); }   // WCAG relative luminance
+  function contrast(a, b) { var la = lum(a), lb = lum(b); return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05); }
+  function mix(a, b, t) { var x = hexToRgb(a), y = hexToRgb(b); return rgbToHex([x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t]); }
+  function shade(h, f) { return mix(h, f >= 1 ? '#ffffff' : '#000000', f >= 1 ? f - 1 : 1 - f); }
+  function inkFor(bg) { return lum(bg) > 0.4 ? '#000000' : '#ffffff'; }
+  function readable(hex, field, min) {   // move a colour away from the field until it reads
+    var toward = lum(field) > 0.4 ? '#000000' : '#ffffff', t = 0, out = hex;
+    while (contrast(out, field) < min && t < 1) { t += 0.05; out = mix(hex, toward, t); }
+    return out;
+  }
+  function palette(P) {   // client-area colours follow the window colour: dark chrome → dark client area
+    var dark = lum(P.c3) < 0.25, field = dark ? '#1e1f23' : '#ffffff';
+    return {
+      dark: dark,
+      field: field,
+      edge: dark ? '#5a5d66' : '#7f9db9',                 // the flat 1px control border XP draws around list views
+      ink: dark ? '#f0f0f0' : '#000000',
+      sub: dark ? '#d2d2d6' : '#3b3b33',
+      acc: readable(P.c4, field, dark ? 5 : 4.5),         // accent used for text (names, keys, labels)
+      chip: P.c4,                                          // accent used for fills
+      btnA: mix(P.c4, '#ffffff', 0.32), btnB: shade(P.c4, 0.82),               // lit days + bullets: Luna gloss from the accent
+      chipInk: contrast('#ffffff', mix(mix(P.c4, '#ffffff', 0.32), shade(P.c4, 0.82), 0.5)) >= 4.5 ? '#ffffff' : '#141414',   // label on a lit chip
+      chipMid: mix(mix(P.c4, '#ffffff', 0.32), shade(P.c4, 0.82), 0.5),
+      capA: dark ? mix(P.c2, '#ffffff', 0.15) : mix(P.c1, '#ffffff', 0.32),   // caption buttons follow the title bar
+      capB: dark ? shade(P.c2, 0.7) : shade(P.c1, 0.82),
+      frame: lum(P.c1) < 0.06 ? readable(P.c2, '#0e0e10', 2.6) : shade(P.c1, 0.42),   // window outline: #0f275c on Luna Blue (the kit's #00138c family); lifted for near-black bars so the silhouette survives Twitch's ground
+      titleInk: contrast('#ffffff', P.c1) >= 2.2 ? '#ffffff' : '#101a3c',   // white caption with a shadow, like Luna, unless the bar is pastel
+      tile: dark ? '#2a2b30' : '#ffffff',
+      tileTo: dark ? '#35363c' : mix('#ffffff', P.c2, 0.22),
+      menuInk: inkFor(P.c3),
+      green: '#2fb52f'
+    };
+  }
+
+  /* ───────────────────────── bitmap text engine ──────────────── */
+  // Glyph atlas: four faces at 1x — two rasterised through FreeType, two copied from bitmap strikes (see make_atlas.py).
+  // Each glyph = [advance, left, top(rel. baseline), w, h, rows]; rows are hex bit-masks for
+  // 1-bit faces and one hex digit (0-15) per pixel for the anti-aliased caption face.
+  var ATLAS = __ATLAS__;
+  function mkFont(key) {
+    var a = ATLAS[key], H = a.g['H'];
+    return { key: key, g: a.g, cap: H[4], asc: a.asc, desc: a.desc, size: a.size, aa: !!a.aa };
+  }
+  var FONT_T = mkFont('T');   // caption: anti-aliased Fira Sans Bold 13, the Luna title-bar face
+  var FONT_H = mkFont('H');   // headline: bold 14 for names and times
+  var FONT_E = mkFont('E');   // emphasis: Tahoma Bold 8pt (11px strike) for keys and labels
+  var FONT_B = mkFont('B');   // body + menu bar: Tahoma 8pt (11px strike), the XP dialog face
+  var glyphCache = {};
+  function glyphOf(font, ch) { return font.g[ch] || font.g['?']; }
+  function measure1x(s, font) { var w = 0; for (var i = 0; i < s.length; i++) w += glyphOf(font, s[i])[0]; return w; }
+  function parseColor(c) {   // '#rrggbb' or 'rgba(r,g,b,a)' → [r,g,b,a]
+    if (c[0] === '#') { var x = hexToRgb(c); return [x[0], x[1], x[2], 1]; }
+    var m = /rgba?\(([^)]+)\)/.exec(c), p = m ? m[1].split(',').map(parseFloat) : [0, 0, 0, 1];
+    return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1];
+  }
+  function rasterise(s, font, color, bold) {
+    var key = font.key + '|' + color + '|' + (bold ? 1 : 0) + '|' + s;
+    if (glyphCache[key]) return glyphCache[key];
+    var bo = bold ? 1 : 0;
+    var w = measure1x(s, font) + bo + 2, h = font.asc + font.desc + 2, base = font.asc + 1;
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var x = c.getContext('2d');
+    var pen = 1, i, g, rows, r, q, gw;
+    if (font.aa) {   // anti-aliased face: alpha per pixel
+      var id = x.createImageData(w, h), d = id.data, col = parseColor(color);
+      for (i = 0; i < s.length; i++) {
+        g = glyphOf(font, s[i]); rows = g[5]; gw = g[3];
+        for (r = 0; r < rows.length; r++) {
+          var row = rows[r], py = base + g[2] + r;
+          for (q = 0; q < gw; q++) {
+            var lv = parseInt(row[q], 16); if (!lv) continue;
+            var px = pen + g[1] + q, o = (py * w + px) * 4, a = Math.min(255, Math.round(lv * 17 * col[3]));
+            if (a > d[o + 3]) { d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = a; }
+          }
+        }
+        pen += g[0];
+      }
+      x.putImageData(id, 0, 0);
+    } else {
+      x.fillStyle = color;
+      for (i = 0; i < s.length; i++) {
+        g = glyphOf(font, s[i]); rows = g[5];
+        for (r = 0; r < rows.length; r++) {
+          var bits = parseInt(rows[r], 16); gw = g[3];
+          for (q = 0; q < gw; q++) if (bits & (1 << (gw - 1 - q))) {
+            x.fillRect(pen + g[1] + q, base + g[2] + r, 1 + bo, 1);
+          }
+        }
+        pen += g[0];
+      }
+    }
+    var out = { c: c, w: w - 2, base: base, cap: font.cap, lb: s.length ? glyphOf(font, s[0])[1] : 0 };
+    if (Object.keys(glyphCache).length > 600) glyphCache = {};
+    glyphCache[key] = out;
+    return out;
+  }
+  // truncate with an ellipsis to fit maxW (1x units)
+  function fit(s, font, maxW, bold) {
+    var extra = bold ? 1 : 0;
+    if (!maxW || measure1x(s, font) + extra <= maxW) return s;
+    while (s.length > 1 && measure1x(s + '...', font) + extra > maxW) s = s.slice(0, -1);
+    return s + '...';
+  }
+  // draw text on the 2x canvas: (x, cy) in 2x px — cy is the vertical centre of the cap height.
+  // Left-aligned runs are bearing-compensated so every row starts on one ink edge; `noComp` keeps
+  // the pen position for grid-critical chips.
+  function text(ctx, s, x, cy, font, color, align, maxW, bold, noComp) {
+    if (!s) return 0;
+    s = s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '?');   // an emoji is one missing glyph, not two
+    s = fit(s, font, maxW ? maxW / 2 : 0, bold);
+    var g = rasterise(s, font, color, bold), sc = 2;
+    var w2 = g.w * sc;
+    var px = align === 'right' ? x - w2 : align === 'center' ? x - w2 / 2 : x;
+    if (align !== 'right' && align !== 'center' && !noComp) px -= g.lb * sc;
+    px = Math.round(px / 2) * 2 - sc;                      // the bitmap has 1px (1x) left padding
+    var top = Math.round((cy - g.cap * sc / 2) / 2) * 2;    // cap box centred on cy
+    var py = top - (g.base - g.cap) * sc;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(g.c, 0, 0, g.c.width, g.c.height, px, py, g.c.width * sc, g.c.height * sc);
+    return w2;
+  }
+  function width2x(s, font, bold) { return (measure1x(s, font) + (bold ? 1 : 0)) * 2; }
+
+  /* ───────────────────────── Luna chrome helpers ─────────────── */
+  function rr(ctx, x, y, w, h, tl, tr, br, bl) {   // rounded-rect path (corner radii clockwise from top-left)
+    if (tr == null) { tr = tl; br = tl; bl = tl; }
+    ctx.beginPath();
+    ctx.moveTo(x + tl, y);
+    ctx.lineTo(x + w - tr, y); if (tr) ctx.arcTo(x + w, y, x + w, y + tr, tr);
+    ctx.lineTo(x + w, y + h - br); if (br) ctx.arcTo(x + w, y + h, x + w - br, y + h, br);
+    ctx.lineTo(x + bl, y + h); if (bl) ctx.arcTo(x, y + h, x, y + h - bl, bl);
+    ctx.lineTo(x, y + tl); if (tl) ctx.arcTo(x, y, x + tl, y, tl);
+    ctx.closePath();
+  }
+  function vgrad(ctx, y, h, stops) {
+    var g = ctx.createLinearGradient(0, y, 0, y + h);
+    for (var i = 0; i < stops.length; i += 2) g.addColorStop(stops[i], stops[i + 1]);
+    return g;
+  }
+  // caption buttons: 42x42 at 2x, Luna gloss, white rim, red close
+  function capBtn(ctx, x, y, kind, pal) {
+    var s = 42, red = kind === 'close';
+    rr(ctx, x, y, s, s, 6); ctx.fillStyle = red ? '#ffffff' : 'rgba(255,255,255,0.7)'; ctx.fill();
+    rr(ctx, x + 2, y + 2, s - 4, s - 4, 5);
+    ctx.fillStyle = red ? vgrad(ctx, y, s, [0, '#ff9c90', 0.5, '#f0533b', 1, '#d8351f']) : vgrad(ctx, y, s, [0, pal.capA, 0.5, pal.capB, 1, shade(pal.capB, 0.85)]);
+    ctx.fill();
+    rr(ctx, x + 4, y + 4, s - 8, 12, 3); ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fill();   // the gloss
+    ctx.fillStyle = '#ffffff';
+    if (kind === 'min') { ctx.fillRect(x + 10, y + 27, 12, 4); }
+    if (kind === 'max') { ctx.fillRect(x + 11, y + 11, 20, 6); ctx.fillRect(x + 11, y + 17, 4, 14); ctx.fillRect(x + 27, y + 17, 4, 14); ctx.fillRect(x + 11, y + 28, 20, 3); }
+    if (kind === 'close') {
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x + 13, y + 13); ctx.lineTo(x + 29, y + 29); ctx.moveTo(x + 29, y + 13); ctx.lineTo(x + 13, y + 29); ctx.stroke();
+    }
+  }
+  // Luna push button: 1px #003c74 rim, 3px corners, white→beige face; `on` = the blue toggled look; `def` = default-button ring
+  function xpBtn(ctx, x, y, w, h, pal, on, def) {
+    rr(ctx, x, y, w, h, 6); ctx.fillStyle = pal.dark ? '#111214' : '#003c74'; ctx.fill();
+    rr(ctx, x + 2, y + 2, w - 4, h - 4, 4);
+    ctx.fillStyle = on ? vgrad(ctx, y, h, [0, pal.btnA, 1, pal.btnB]) : (pal.dark ? vgrad(ctx, y, h, [0, '#5a5c63', 1, '#3c3e44']) : vgrad(ctx, y, h, [0, '#ffffff', 0.82, '#ecebe5', 1, '#d6d1c4']));
+    ctx.fill();
+    if (def && !on) { rr(ctx, x + 3, y + 3, w - 6, h - 6, 3); ctx.lineWidth = 2; ctx.strokeStyle = pal.dark ? pal.chip : '#8cb1e8'; ctx.stroke(); }
+    if (on) { rr(ctx, x + 4, y + 4, w - 8, 6, 3); ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fill(); }   // a thin gloss that stays clear of the label
+  }
+  // flat XP control border (the 1px #7f9db9 line around list views and edit boxes)
+  function fieldBox(ctx, x, y, w, h, pal) {
+    ctx.fillStyle = pal.edge; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = pal.field; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  }
+  function drawPicture(ctx, P, x, y, s) {   // the user tile: the uploaded picture, or the stock silhouette
+    if (P.avatar) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(P.avatar, x, y, 16 * s, 16 * s);
+    } else drawIcon(ctx, 'user', x, y, 16 * s);
+  }
+
+  /* ───────────────────────── the panel ───────────────────────── */
+  var W = 640, H = 200;
+  function renderPanel(P, canvas) {
+    var cv = canvas || document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    var ctx = cv.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, W, H);
+
+    var pal = palette(P), win = P.c3;
+    // window: a 1px outline, then the Luna frame — the caption colour wraps the client area on
+    // three sides (4px at 1x) and the title bar spans the full width with rounded top corners
+    var tx = 2, ty = 2, tw = W - 4, th = 56, fr = 8;
+    rr(ctx, 0, 0, W, H, 16, 16, 0, 0); ctx.fillStyle = pal.frame; ctx.fill();
+    rr(ctx, tx, ty, tw, H - 4, 14, 14, 0, 0); ctx.fillStyle = P.c1; ctx.fill();
+    // title bar: base → glass band at 9% → base (the hero formula); pastel bars get a darker lower half
+    var soft = pal.titleInk === '#ffffff' && contrast('#ffffff', P.c1) < 3.5;
+    rr(ctx, tx, ty, tw, th, 14, 14, 0, 0);
+    ctx.fillStyle = P.grad ? vgrad(ctx, ty, th, soft ? [0, P.c1, 0.09, P.c2, 0.18, P.c1, 0.5, P.c1, 1, shade(P.c1, 0.8)] : [0, P.c1, 0.09, P.c2, 0.18, P.c1, 0.92, P.c1, 1, shade(P.c1, 0.86)]) : P.c1;
+    ctx.fill();
+    // the window colour fills everything inside the frame
+    ctx.fillStyle = win; ctx.fillRect(fr, ty + th, W - fr * 2, H - fr - (ty + th));
+
+    drawSmall(ctx, P.icon, tx + 16, ty + 12, 2);
+    var bs = 42, by = ty + 6;   // even: the white rims land on whole pixels at Twitch's 1x
+    var xClose = tx + tw - 10 - bs, xMax = xClose - 6 - bs, xMin = xMax - 6 - bs;
+    capBtn(ctx, xMin, by, 'min', pal); capBtn(ctx, xMax, by, 'max', pal); capBtn(ctx, xClose, by, 'close', pal);
+    var titleX = tx + 16 + 32 + 14, titleMax = xMin - titleX - 12, cy = ty + th / 2;
+    text(ctx, P.title || ' ', titleX + 2, cy + 2, FONT_T, pal.titleInk === '#ffffff' ? (soft ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.55)') : 'rgba(255,255,255,0.5)', 'left', titleMax);   // the caption's drop shadow
+    text(ctx, P.title || ' ', titleX, cy, FONT_T, pal.titleInk, 'left', titleMax);
+
+    // menu bar on the window colour — XP hides the mnemonic underlines until Alt is pressed
+    tx = fr; tw = W - fr * 2;
+    var my = ty + th, mh = 32, mid = my + mh / 2, mx = tx + 8, mInk = pal.menuInk;
+    ['File', 'Edit', 'View', 'Help'].forEach(function (m) { mx += text(ctx, m, mx, mid, FONT_B, mInk, 'left') + 18; });
+    if (P.st) {
+      var right = tx + tw - 14, avail = right - mx, i = P.st.indexOf(':');   // shares the client column's right edge
+      var labInk = readable(P.c4, win, 4.5);
+      if (i > 0 && i < P.st.length - 1 && width2x(P.st, FONT_B) <= avail) {
+        var lab = P.st.slice(0, i + 1), val = P.st.slice(i + 1);
+        var vw = text(ctx, val, right, mid, FONT_B, mInk, 'right');
+        text(ctx, lab, right - vw, mid, FONT_B, labInk, 'right');   // coloured but not bold: a gag, not content
+      } else text(ctx, P.st, right, mid, FONT_B, mInk, 'right', avail);
+    }
+
+    // client area + content
+    var fx = fr, fy = my + mh, fw = W - fr * 2, fh = H - fy - fr;
+    fieldBox(ctx, fx, fy, fw, fh, pal);
+    var box = { x: fx + 6, y: fy + 4, w: fw - 12, h: fh - 8 };   // 612 x 94
+    LAYOUTS[P.preset.layout](ctx, P, box, win, pal);
+    return cv;
+  }
+
+  var LAYOUTS = {
+    // user tile: framed picture, name in the accent, two lines
+    info: function (ctx, P, b, win, pal) {
+      var s = 4, L = b.x + 8, well = 16 * s + 12, iy = b.y + Math.floor((b.h - well) / 4) * 2;
+      ctx.fillStyle = pal.edge; ctx.fillRect(L, iy, well, well);
+      ctx.fillStyle = pal.dark ? '#2a2b30' : '#ffffff'; ctx.fillRect(L + 2, iy + 2, well - 4, well - 4);
+      if (!pal.dark) { ctx.fillStyle = mix('#ffffff', P.c2, 0.25); ctx.fillRect(L + 2, iy + 2, well - 4, well - 4); }
+      drawPicture(ctx, P, L + 6, iy + 6, s);
+      var lx = L + well + 16, maxW = b.x + b.w - 8 - lx;
+      text(ctx, P.screen, lx, b.y + 20, FONT_H, pal.acc, 'left', maxW);
+      text(ctx, P.tag, lx, b.y + 46, FONT_B, pal.sub, 'left', maxW);
+      text(ctx, P.tag2, lx, b.y + 72, FONT_B, pal.sub, 'left', maxW);
+    },
+
+    // sign-on days: a row of Luna buttons (live days toggled blue) + time + note
+    days: function (ctx, P, b, win, pal) {
+      var chipW = 80, chipH = 36, gap = 6, L = b.x + 8, y0 = b.y + 10;   // 7 x 80 + 6 x 6 = 596 = the box minus its margins
+      for (var i = 0; i < 7; i++) {
+        var d = DAYS[i], on = !!P.days[d], x = L + i * (chipW + gap);
+        xpBtn(ctx, x, y0, chipW, chipH, pal, on);
+        text(ctx, d, x + chipW / 2, y0 + chipH / 2, on ? FONT_E : FONT_B, on ? pal.chipInk : pal.ink, 'center', 0, false, true);
+      }
+      var ly = y0 + chipH + 26;
+      var tw = P.time ? text(ctx, P.time, L, ly, FONT_H, pal.acc, 'left', b.w - 16) : 0;   // two time zones fit; the note takes what is left
+      var room = b.w - 16 - (tw ? tw + 18 : 0);
+      if (P.tag && room >= 120) text(ctx, P.tag, L + (tw ? tw + 18 : 0), ly, FONT_B, pal.sub, 'left', room);
+    },
+
+    // socials: one row per platform — coloured mark, platform name, that platform's handle
+    buttons: function (ctx, P, b, win, pal) {
+      var list = SOCIALS.filter(function (s) { return P.socials[s.key]; }).slice(0, 6);
+      if (!list.length) list = SOCIALS.slice(0, 3);
+      var L = b.x + 8, cols = list.length > 3 ? 2 : 1, rows = Math.ceil(list.length / cols);
+      var colW = Math.floor((b.w - 16 - (cols - 1) * 16) / cols / 2) * 2, lh = 28;
+      var y0 = b.y + Math.floor((b.h - lh * rows) / 4) * 2 + lh / 2;
+      var nameW = 0, handleW = 0;
+      list.forEach(function (s) {
+        nameW = Math.max(nameW, width2x(s.name, FONT_E));
+        var h = (P.handles && P.handles[s.key]) || P.screen; handleW = Math.max(handleW, width2x((h[0] === '@' ? '' : '@') + h, FONT_B));
+      });
+      var names = 34 + nameW + 14 + handleW <= colW;   // the platform-name column goes before any handle is ever trimmed
+      list.forEach(function (s, i) {
+        var col = Math.floor(i / rows), x = L + col * (colW + 16), y = y0 + (i % rows) * lh;
+        rr(ctx, x, y - 12, 24, 24, 4); ctx.fillStyle = shade(s.sw, 0.6); ctx.fill();
+        rr(ctx, x + 2, y - 10, 20, 20, 3); ctx.fillStyle = vgrad(ctx, y - 10, 20, [0, mix(s.sw, '#ffffff', 0.25), 1, s.sw]); ctx.fill();
+        drawPixels(ctx, null, x + 4, y - 8, 2, GLYPH[s.key]);
+        var h = (P.handles && P.handles[s.key]) || P.screen, hx = names ? x + 34 + nameW + 14 : x + 34;
+        if (names) text(ctx, s.name, x + 34, y, FONT_E, pal.acc, 'left', 200);
+        text(ctx, (h[0] === '@' ? '' : '@') + h, hx, y, names ? FONT_B : FONT_E, names ? pal.sub : pal.acc, 'left', colW - (hx - x));
+      });
+    },
+
+    // file-copy dialog: goal line (or the copy gag), the green chunked progress bar, note
+    transfer: function (ctx, P, b, win, pal) {
+      var L = b.x + 8, y1 = b.y + 16, pct, lw;
+      if (P.showGoal) {
+        var m = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(P.goal || '');
+        pct = m && +m[2] > 0 ? Math.min(100, Math.round(100 * +m[1] / +m[2])) : 100;
+        lw = text(ctx, (P.goalLabel || 'Goal') + ':', L, y1, FONT_B, pal.sub, 'left', 240);
+        text(ctx, P.goal || 'complete', L + lw + 12, y1, FONT_E, pal.acc, 'left', 260);
+        text(ctx, pct + '%', b.x + b.w - 8, y1, FONT_E, pal.acc, 'right');
+      } else {   // the file-copy gag (the estimate that never finishes) — quiet, so the ask below stays the hero
+        pct = 68;
+        lw = text(ctx, 'Copying:', L, y1, FONT_B, pal.sub, 'left', 240);
+        text(ctx, P.xfer || 'thank_you.wav', L + lw + 12, y1, FONT_B, pal.sub, 'left', 320);
+        text(ctx, '3 sec left', b.x + b.w - 8, y1, FONT_B, pal.sub, 'right');
+      }
+      var px = L, py = y1 + 14, pw = b.w - 16, ph = 20;
+      rr(ctx, px, py, pw, ph, 4); ctx.fillStyle = pal.dark ? '#5a5d66' : '#686868'; ctx.fill();
+      rr(ctx, px + 2, py + 2, pw - 4, ph - 4, 3); ctx.fillStyle = pal.dark ? '#141518' : '#ffffff'; ctx.fill();
+      var seg = 16, sg = 4, inner = pw - 12, nSeg = Math.floor((inner + sg) / (seg + sg)), fill = Math.round(nSeg * pct / 100);
+      var cg = vgrad(ctx, py + 6, ph - 12, [0, '#8cf08c', 0.45, '#36d436', 1, '#21ab21']);
+      for (var i = 0; i < fill; i++) { ctx.fillStyle = cg; ctx.fillRect(px + 6 + i * (seg + sg), py + 6, seg, ph - 12); }
+      if (P.tag) text(ctx, P.tag, L, py + ph + 24, FONT_E, pal.ink, 'left', b.w - 16);   // the ask, in the emphasis face
+    },
+
+    // chat invite: icon, lines on one left edge, a default Join button; long names get their own line
+    invite: function (ctx, P, b, win, pal) {
+      var s = 4, L = b.x + 8, tileW = 76, iy = b.y + Math.floor((b.h - tileW) / 4) * 2;
+      rr(ctx, L, iy, tileW, tileW, 6); ctx.fillStyle = pal.edge; ctx.fill();
+      rr(ctx, L + 2, iy + 2, tileW - 4, tileW - 4, 5); ctx.fillStyle = vgrad(ctx, iy, tileW, [0, pal.tile, 1, pal.tileTo]); ctx.fill();
+      drawIcon(ctx, 'chat', L + 6, iy + 6, 16 * s);
+      var jw = 132, jh = 44, jx = b.x + b.w - jw - 8, jy = b.y + Math.floor((b.h - jh) / 4) * 2;
+      var lx = L + tileW + 16, maxW = jx - lx - 14;
+      var line2 = P.screen + "'s chat room";   // shrinks in two steps before the name gets its own line
+      if (width2x(line2, FONT_H) <= maxW || width2x(line2, FONT_E) <= maxW) {
+        text(ctx, "You're invited to", lx, b.y + 16, FONT_B, pal.sub, 'left', maxW);
+        text(ctx, line2, lx, b.y + 44, width2x(line2, FONT_H) <= maxW ? FONT_H : FONT_E, pal.acc, 'left', maxW);
+      } else {
+        text(ctx, 'Chat invite from', lx, b.y + 16, FONT_B, pal.sub, 'left', maxW);
+        text(ctx, P.screen, lx, b.y + 44, FONT_H, pal.acc, 'left', maxW);
+      }
+      if (P.tag) text(ctx, P.tag, lx, b.y + 70, FONT_B, pal.sub, 'left', maxW);
+      xpBtn(ctx, jx, jy, jw, jh, pal, false, true);
+      text(ctx, 'Join', jx + jw / 2, jy + jh / 2, FONT_B, pal.ink, 'center', 0, false, true);
+    },
+
+    // list: up to 3 lines with Luna bullets, "key - detail" colours the key; the panel's icon sits in a
+    // task-pane tile on the right whenever the lines leave room
+    list: function (ctx, P, b, win, pal) {
+      var items = (P.lines || []).map(function (t) { return (t || '').trim(); }).filter(Boolean).slice(0, 3);
+      if (!items.length) items = ['...'];
+      var L = b.x + 8, lh = 26, y0 = b.y + Math.floor((b.h - lh * items.length) / 4) * 2 + lh / 2;
+      var tileW = 80, textMax = b.w - 40, longest = 0, keyW = 0;   // details share one column: the widest key sets it
+      var keyed = !P.preset.prose;   // rules and perks are prose: "Be kind - no hate" is not a key/value pair
+      items.forEach(function (it) { var cut = keyed ? it.indexOf(' - ') : -1; if (cut > 0) keyW = Math.max(keyW, width2x(it.slice(0, cut), FONT_E)); });
+      items.forEach(function (it) {
+        var cut = keyed ? it.indexOf(' - ') : -1, w = cut > 0 ? keyW + 14 + width2x(it.slice(cut + 3), FONT_B) : width2x(it, FONT_B);
+        longest = Math.max(longest, w);
+      });
+      var tile = P.tile && longest <= b.w - 40 - tileW - 20;
+      if (tile) {
+        var tx0 = b.x + b.w - 8 - tileW, ty0 = b.y + Math.floor((b.h - tileW) / 4) * 2;
+        rr(ctx, tx0, ty0, tileW, tileW, 6); ctx.fillStyle = pal.edge; ctx.fill();
+        rr(ctx, tx0 + 2, ty0 + 2, tileW - 4, tileW - 4, 5); ctx.fillStyle = vgrad(ctx, ty0, tileW, [0, pal.tile, 1, pal.tileTo]); ctx.fill();
+        drawIcon(ctx, P.icon, tx0 + 8, ty0 + 8, 64);
+        textMax = tx0 - 16 - (L + 28);
+      }
+      items.forEach(function (it, i) {
+        var y = y0 + i * lh;
+        // task-pane chevron: a small accent triangle with a darker rim
+        ctx.fillStyle = pal.dark ? '#111214' : shade(pal.chip, 0.6); ctx.beginPath(); ctx.moveTo(L + 4, y - 8); ctx.lineTo(L + 16, y); ctx.lineTo(L + 4, y + 8); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = pal.chip; ctx.beginPath(); ctx.moveTo(L + 6, y - 5); ctx.lineTo(L + 13, y); ctx.lineTo(L + 6, y + 5); ctx.closePath(); ctx.fill();
+        var tx0 = L + 28, cut = keyed ? it.indexOf(' - ') : -1;
+        if (cut > 0) {
+          var left = it.slice(0, cut), rgt = it.slice(cut + 3);
+          text(ctx, left, tx0, y, FONT_E, pal.acc, 'left', textMax);
+          text(ctx, rgt, tx0 + keyW + 14, y, FONT_B, pal.sub, 'left', textMax - keyW - 14);
+        } else text(ctx, it, tx0, y, FONT_B, pal.ink, 'left', textMax);
+      });
+    }
+  };
+
+  /* ───────────────────────── UI wiring ───────────────────────── */
+  var cv = $('cv'), cv1 = $('cv1');
+  function slug(s) { return (s || 'panel').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'panel'; }
+  function fileName(i, P) { return (i < 9 ? '0' : '') + (i + 1) + '_' + slug(P.title) + '.png'; }
+  function downscale(src, dst) {
+    var c = dst.getContext('2d');
+    c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+    c.clearRect(0, 0, dst.width, dst.height); c.drawImage(src, 0, 0, dst.width, dst.height);
+  }
+  // true-size preview: on a 2x screen the 320px column has 640 device pixels, so show the 2x render there
+  function fitTrueSize() {
+    var dpr = Math.min(2, Math.max(1, Math.round(window.devicePixelRatio || 1)));
+    cv1.width = 320 * dpr; cv1.height = 100 * dpr;
+    Array.prototype.forEach.call(document.querySelectorAll('#setCol canvas'), function (c) { c.width = 320 * dpr; c.height = 100 * dpr; });
+  }
+
+  // the panel's pixel fonts cover Latin letters (ASCII + Latin-1 + curly quotes): name anything else before it turns into '?'
+  function missingGlyphs(P) {
+    var parts = [P.screen, P.title, P.tag, P.tag2, P.st, P.time, P.xfer, P.goal, P.goalLabel].concat(P.lines || []), miss = [];
+    if (P.preset.layout === 'buttons') SOCIALS.forEach(function (x) { if (P.socials[x.key]) parts.push((P.handles || {})[x.key] || ''); });
+    Array.from(parts.join('').replace(/\s/g, '')).forEach(function (ch) {
+      if (!(FONT_B.g[ch] && FONT_T.g[ch] && FONT_H.g[ch] && FONT_E.g[ch]) && miss.indexOf(ch) < 0) miss.push(ch);
+    });
+    return miss;
+  }
+  function draw() {
+    var P = currentPanel();
+    var miss = missingGlyphs(P);
+    $('glyphWarn').hidden = !miss.length;
+    if (miss.length) $('glyphWarn').textContent = 'The pixel font can\u2019t draw ' + miss.join(' ') + ' \u2014 ' + (miss.length > 1 ? 'they show' : 'it shows') + ' as ? on the panel. Letters with accents are fine; emoji and symbols aren\u2019t.';
+    renderPanel(P, cv);
+    downscale(cv, cv1);
+    $('pvName').textContent = P.preset.label;
+    $('suggText').value = suggested(P);
+    var idx = included().indexOf(P.preset);
+    $('stFile').textContent = idx < 0 ? slug(P.title) + '.png (not in the set)' : fileName(idx, P);
+    updateCounts();
+    if ($('setBox').classList.contains('on')) drawSet();
+    save();
+  }
+  function sentence(t) { t = (t || '').trim(); return t && !/[.!?]$/.test(t) ? t + '.' : t; }
+  // Twitch panel descriptions are Markdown: one item per line, links as [text](url).
+  function handleOf(P, key) { return ((P.handles && P.handles[key]) || P.screen || '').replace(/^@/, '').trim(); }
+  function urlFor(key, h, inv) {
+    var u = urlSafe(h);
+    switch (key) {
+      case 'TW': return 'https://twitch.tv/' + u.toLowerCase();
+      case 'YT': return 'https://youtube.com/@' + u;
+      case 'TT': return 'https://tiktok.com/@' + u;
+      case 'IG': return 'https://instagram.com/' + u;
+      case 'X':  return 'https://x.com/' + u;
+      case 'BS': return 'https://bsky.app/profile/' + (h.indexOf('.') > 0 ? u : u.toLowerCase() + '.bsky.social');
+      case 'DC': return inv ? (/^https?:/.test(inv) ? inv : 'https://' + inv) : '';
+    }
+    return '';
+  }
+  function urlSafe(h) { return (h || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9._-]/g, ''); }   // "José Peña" -> JosePena (a guess the buyer can fix)
+  function twitchLogin(P) { return urlSafe(handleOf(P, 'TW')).toLowerCase(); }
+  function bullets(P, numbered) { return (P.lines || []).filter(Boolean).map(function (l, i) { return (numbered ? (i + 1) + '. ' : '- ') + l; }).join('\n'); }
+  function suggested(P) {
+    var n = P.screen, t = P.time || '7:00 PM', inv = $('invite').value.trim(), tip = $('tip').value.trim();
+    switch (P.preset.key) {
+      case 'about': return ["Hey, I'm " + n + '!', sentence(P.tag), sentence(P.tag2), 'Say hi in chat!'].filter(Boolean).join(' ');
+      case 'schedule': return 'Live ' + DAYS.filter(function (d) { return P.days[d]; }).join(' / ') + ' at ' + t + '.\nFollow to get notified when I go live.';
+      case 'rules': return bullets(P, true);
+      case 'socials': return SOCIALS.filter(function (s) { return P.socials[s.key]; }).map(function (s) {
+          var h = handleOf(P, s.key), u = urlFor(s.key, h, inv);
+          return '- ' + (u ? '[' + s.name + '](' + u + ')' : s.name + ': ' + h);
+        }).join('\n') + '\n\nOne link per image, so the rest are here.';
+      case 'discord': return 'Join the Discord: ' + (inv ? '[' + inv.replace(/^https?:\/\//, '') + '](' + urlFor('DC', '', inv) + ')' : 'discord.gg/your-invite') + '\n' + sentence(P.tag || 'Hang out between streams');
+      case 'subscribe': return 'Subscribe for:\n' + bullets(P) + '\n\n[Subscribe here](https://twitch.tv/' + (twitchLogin(P) || 'yourname') + '/subscribe) or hit the button up top!';
+      case 'support': return (tip ? '[Leave a tip](' + (/^https?:/.test(tip) ? tip : 'https://' + tip) + ')' : 'Tips: (your tip link)') + ' - bits and subs in chat too.\nEvery bit helps, never required.';
+      default: return bullets(P);
+    }
+  }
+  function drawSet() {
+    var col = $('setCol'); col.innerHTML = '';
+    var dpr = cv1.width / 320;
+    included().forEach(function (p) {
+      var c = document.createElement('canvas'); c.width = 320 * dpr; c.height = 100 * dpr;
+      downscale(renderPanel(panelFor(p)), c); col.appendChild(c);
+    });
+  }
+  function updateCounts() {
+    [['sn', 'snCnt'], ['title', 'titleCnt'], ['tag', 'tagCnt'], ['tag2', 'tag2Cnt'], ['st', 'stCnt'], ['time', 'timeCnt'], ['goalLabel', 'goalLabelCnt'], ['xfer', 'xferCnt'], ['invite', 'inviteCnt'], ['tip', 'tipCnt'], ['link', 'linkCnt']].forEach(function (p) {
+      var el = $(p[0]); $(p[1]).textContent = el.value.length + '/' + el.maxLength;
+    });
+  }
+  function remember() {
+    var e = edits[state.preset] || (edits[state.preset] = {});
+    e.title = $('title').value; e.tag = $('tag').value; e.tag2 = $('tag2').value; e.st = $('st').value;
+    e.lines = [$('li1').value, $('li2').value, $('li3').value];
+    e.tile = $('showTile').checked; e.link = $('link').value.trim();
+  }
+  function loadPreset(key) {
+    state.preset = key;
+    var p = presetDef(key), P = panelFor(p);
+    $('thisName').textContent = '— ' + p.label;
+    $('title').value = P.title; $('tag').value = P.tag; $('tag2').value = P.tag2; $('st').value = P.st;
+    $('li1').value = P.lines[0] || ''; $('li2').value = P.lines[1] || ''; $('li3').value = P.lines[2] || '';
+    $('showTile').checked = P.tile; $('link').value = P.link;
+    var L = p.layout;
+    $('tagBlock').style.display  = L === 'list' || L === 'buttons' ? 'none' : '';
+    $('tag2Block').style.display = L === 'info' ? '' : 'none';
+    $('listBlock').style.display = L === 'list' ? '' : 'none';
+    $('listHint').textContent = p.prose ? '38 each' : '38 each · "key - detail" colours the key';
+    $('daysBlock').style.display = L === 'days' ? '' : 'none';
+    $('socBlock').style.display  = L === 'buttons' ? '' : 'none';
+    $('goalBlock').style.display = L === 'transfer' ? '' : 'none';
+    $('inviteBlock').style.display = L === 'invite' ? '' : 'none';
+    $('tipBlock').style.display = L === 'transfer' ? '' : 'none';
+    Array.prototype.forEach.call(document.querySelectorAll('#presetRow .pick'), function (b) {
+      var on = b.dataset.key === key; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('#iconRow button'), function (b) {
+      var on = b.dataset.icon === P.icon; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+    });
+    draw();
+  }
+
+  // presets
+  PRESETS.forEach(function (p) {
+    var b = document.createElement('button'); b.type = 'button'; b.dataset.key = p.key;
+    var ic = document.createElement('canvas'); ic.width = 16; ic.height = 16; ic.className = 'ico';
+    drawSmall(ic.getContext('2d'), p.icon, 0, 0, 1);
+    b.appendChild(ic); b.appendChild(document.createTextNode(p.label));
+    b.className = 'pick';
+    var wrap = document.createElement('span'); wrap.className = 'pickwrap';
+    var inc = document.createElement('input'); inc.type = 'checkbox'; inc.checked = !p.off; inc.className = 'inc';
+    inc.title = 'Include in the .zip'; inc.setAttribute('aria-label', 'Include ' + p.label + ' in the download');
+    inc.addEventListener('change', function () { include[p.key] = inc.checked; refreshCounts(); draw(); });
+    b.addEventListener('click', function () { loadPreset(p.key); });
+    wrap.appendChild(inc); wrap.appendChild(b);
+    $('presetRow').appendChild(wrap);
+  });
+  function refreshCounts() {
+    var n = included().length;
+    $('dlAll').textContent = 'Download all ' + n + ' (.zip)';
+    $('showSet').textContent = 'Preview all ' + n;
+    $('dlAll').disabled = n === 0;
+  }
+  refreshCounts();
+  // icon picker
+  ICON_KEYS.forEach(function (k) {
+    var b = document.createElement('button'); b.type = 'button'; b.dataset.icon = k; b.title = ICON_NAMES[k] || k;
+    b.setAttribute('aria-label', (ICON_NAMES[k] || k) + ' icon');
+    var ic = document.createElement('canvas'); ic.width = 32; ic.height = 32; ic.className = 'ico';   // the picker shows the tile-size art
+    ic.getContext('2d').drawImage(iconCanvas(k, 32), 0, 0);
+    b.appendChild(ic);
+    b.addEventListener('click', function () {
+      (edits[state.preset] || (edits[state.preset] = {})).icon = k;
+      Array.prototype.forEach.call(document.querySelectorAll('#iconRow button'), function (x) {
+        var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on);
+      });
+      draw();
+    });
+    $('iconRow').appendChild(b);
+  });
+  // days
+  var dayButtons = {};
+  DAYS.forEach(function (d) {
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = d; dayButtons[d] = b;
+    b.addEventListener('click', function () { state.days[d] = !state.days[d]; syncDays(); draw(); });
+    $('days').appendChild(b);
+  });
+  function syncDays() { DAYS.forEach(function (d) { dayButtons[d].classList.toggle('on', !!state.days[d]); dayButtons[d].setAttribute('aria-pressed', !!state.days[d]); }); }
+  // socials
+  var socBoxes = {}, handleInputs = {};
+  SOCIALS.forEach(function (s) {
+    var l = document.createElement('label'), c = document.createElement('input');
+    c.type = 'checkbox'; socBoxes[s.key] = c;
+    c.addEventListener('change', function () {
+      var n = SOCIALS.filter(function (x) { return state.socials[x.key]; }).length;
+      if (c.checked && n >= 6) { c.checked = false; $('socMax').classList.add('flash'); setTimeout(function () { $('socMax').classList.remove('flash'); }, 1200); return; }   // six rows fill the panel
+      state.socials[s.key] = c.checked; syncSocials(); draw();
+    });
+    l.appendChild(c); l.appendChild(document.createTextNode(s.name));
+    $('socials').appendChild(l);
+    var hl = document.createElement('label'), hi = document.createElement('input');
+    hi.type = 'text'; hi.maxLength = 25; hi.autocomplete = 'off'; hi.placeholder = 'same as your name'; handleInputs[s.key] = hi;
+    hi.addEventListener('input', function () { state.handles[s.key] = hi.value.trim(); draw(); });
+    hl.appendChild(document.createTextNode(s.name + ' handle')); hl.appendChild(hi); $('handles').appendChild(hl);
+  });
+  function syncSocials() {
+    SOCIALS.forEach(function (s) {
+      socBoxes[s.key].checked = !!state.socials[s.key];
+      handleInputs[s.key].value = (state.handles && state.handles[s.key]) || '';
+      handleInputs[s.key].parentNode.style.display = state.socials[s.key] ? '' : 'none';
+    });
+  }
+  // themes
+  function applyTheme(t) { $('c1').value = t.c1; $('c2').value = t.c2; $('c3').value = t.c3; $('c4').value = t.c4; $('grad').checked = t.grad; draw(); }
+  THEMES.forEach(function (t) {
+    var b = document.createElement('button'); b.type = 'button';
+    var sw = document.createElement('span'); sw.className = 'sw';
+    sw.style.background = 'linear-gradient(180deg,' + t.c1 + ' 0%,' + t.c2 + ' 30%,' + t.c1 + ' 60%,' + t.c3 + ' 60%)'; sw.style.boxShadow = 'inset 0 -3px 0 ' + t.c4;
+    b.appendChild(sw); b.appendChild(document.createTextNode(t.name));
+    b.addEventListener('click', function () { applyTheme(t); });
+    $('themes').appendChild(b);
+  });
+  // text inputs
+  ['title', 'tag', 'tag2', 'st', 'link', 'li1', 'li2', 'li3'].forEach(function (id) {
+    $(id).addEventListener('input', function () { remember(); draw(); });
+  });
+  $('showTile').addEventListener('change', function () { remember(); draw(); });
+  ['sn', 'time', 'goalLabel', 'goal', 'xfer', 'invite', 'tip', 'c1', 'c2', 'c3', 'c4'].forEach(function (id) { $(id).addEventListener('input', draw); });
+  $('grad').addEventListener('change', draw);
+  $('showGoal').addEventListener('change', function () { $('goalFields').style.display = this.checked ? '' : 'none'; $('xferField').style.display = this.checked ? 'none' : ''; draw(); });
+  $('resetOne').addEventListener('click', function () { delete edits[state.preset]; loadPreset(state.preset); });
+  $('resetAll').addEventListener('click', function () {
+    try { localStorage.removeItem(STORE); } catch (e) {}
+    location.reload();
+  });
+
+  // picture upload → 32x32 (pixelated) or 64x64 (smooth, the XP default) offscreen canvas
+  function buildAvatar() {
+    var img = state.avatarSrc; if (!img) { state.avatar = null; return; }
+    var px = $('pixelate').checked, n = px ? 32 : 64, c = document.createElement('canvas'); c.width = n; c.height = n;
+    var x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+    var side = Math.min(img.naturalWidth, img.naturalHeight);   // centre-crop to square
+    x.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, n, n);
+    state.avatar = c;
+  }
+  function setAvatarFromSrc(src) {
+    var img = new Image();
+    img.onload = function () { state.avatarSrc = img; buildAvatar(); $('avatarClear').style.display = ''; $('pixelateRow').style.display = ''; draw(); };
+    img.src = src;
+  }
+  $('avatar').addEventListener('change', function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    var r = new FileReader(); r.onload = function () { setAvatarFromSrc(r.result); }; r.readAsDataURL(f);
+  });
+  $('pixelate').addEventListener('change', function () { buildAvatar(); draw(); });
+  $('avatarClear').addEventListener('click', function () {
+    state.avatarSrc = null; state.avatar = null; $('avatar').value = ''; this.style.display = 'none'; $('pixelateRow').style.display = 'none'; draw();
+  });
+
+  // small chrome icons on the page
+  Array.prototype.forEach.call(document.querySelectorAll('canvas.ico[data-icon]'), function (c) {
+    drawSmall(c.getContext('2d'), c.dataset.icon, 0, 0, 1);
+  });
+
+  $('copySugg').addEventListener('click', function () {
+    var t = $('suggText'); t.select();
+    var done = function () { $('copySugg').textContent = 'copied!'; setTimeout(function () { $('copySugg').textContent = 'copy the text'; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t.value).then(done, function () { document.execCommand('copy'); done(); });
+    else { document.execCommand('copy'); done(); }
+  });
+  // menu bar: jump to the section
+  Array.prototype.forEach.call(document.querySelectorAll('.menubar .menu'), function (b) {
+    b.addEventListener('click', function () { var el = $(b.dataset.go); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  });
+  // phones: the preview window is pinned, so the suggested text and the how-to live under the controls there
+  var phoneBits = false;
+  function placePhoneBits() {
+    var narrow = window.innerWidth <= 860;
+    if (narrow === phoneBits) return;
+    phoneBits = narrow;
+    if (narrow) { $('sugg').open = false; $('dlRow').insertAdjacentElement('afterend', $('sugg')); $('phoneHome').appendChild($('help')); }
+    else { $('sugg').open = true; $('dlRow').insertAdjacentElement('beforebegin', $('sugg')); $('setBox').insertAdjacentElement('afterend', $('help')); }
+  }
+  placePhoneBits();
+  window.addEventListener('resize', placePhoneBits);
+  // while a phone keyboard is up, the pinned preview keeps only the panel itself
+  $('controls').addEventListener('focusin', function (e) { if (e.target.matches('input[type=text]')) document.body.classList.add('typing'); });
+  $('controls').addEventListener('focusout', function () { document.body.classList.remove('typing'); });
+  // preview-all toggle
+  $('showSet').addEventListener('click', function () {
+    var on = !$('setBox').classList.contains('on'), box = $('setBox');
+    // on phones the preview is sticky, so the set goes below the controls instead of inside it
+    var narrow = window.innerWidth <= 860, home = narrow ? $('controls').parentNode : $('dlRow').parentNode;
+    if (narrow) home.appendChild(box); else $('dlRow').insertAdjacentElement('afterend', box);
+    box.classList.toggle('on', on); this.setAttribute('aria-pressed', on); this.classList.toggle('on', on);
+    if (on) { drawSet(); if (narrow) box.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+
+  /* ───────────────────────── persistence (this browser only) ── */
+  var STORE = 'senergy.panelmaker.windows-xp.v2', saveTimer = null;
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try {
+        var avatarSrc = null;
+        if (state.avatarSrc) {
+          var c = document.createElement('canvas'), side = Math.min(state.avatarSrc.naturalWidth, state.avatarSrc.naturalHeight), n = Math.min(side, 256);
+          c.width = n; c.height = n;
+          c.getContext('2d').drawImage(state.avatarSrc, (state.avatarSrc.naturalWidth - side) / 2, (state.avatarSrc.naturalHeight - side) / 2, side, side, 0, 0, n, n);
+          avatarSrc = c.toDataURL('image/png');
+        }
+        localStorage.setItem(STORE, JSON.stringify({
+          preset: state.preset, edits: edits, include: include, days: state.days, socials: state.socials, handles: state.handles, avatarSrc: avatarSrc, pixelate: $('pixelate').checked,
+          sn: $('sn').value, time: $('time').value, goalLabel: $('goalLabel').value, goal: $('goal').value, showGoal: $('showGoal').checked, xfer: $('xfer').value, invite: $('invite').value, tip: $('tip').value,
+          c1: $('c1').value, c2: $('c2').value, c3: $('c3').value, c4: $('c4').value, grad: $('grad').checked
+        }));
+      } catch (e) { /* private mode / quota — fine, just no persistence */ }
+    }, 250);
+  }
+  function restore() {
+    try {
+      var d = JSON.parse(localStorage.getItem(STORE) || 'null'); if (!d) return;
+      edits = d.edits || {}; include = d.include || {}; if (d.days) state.days = d.days; if (d.socials) state.socials = d.socials; if (d.handles) state.handles = d.handles;
+      Array.prototype.forEach.call(document.querySelectorAll('#presetRow .inc'), function (c, i) { c.checked = isIn(PRESETS[i]); });
+      ['sn', 'time', 'goalLabel', 'goal', 'xfer', 'invite', 'tip', 'c1', 'c2', 'c3', 'c4'].forEach(function (k) { if (d[k] != null) $(k).value = d[k]; });
+      if (d.grad != null) $('grad').checked = d.grad; if (d.pixelate != null) $('pixelate').checked = d.pixelate;
+      if (d.showGoal != null) { $('showGoal').checked = d.showGoal; $('goalFields').style.display = d.showGoal ? '' : 'none'; $('xferField').style.display = d.showGoal ? 'none' : ''; }
+      if (d.preset && presetDef(d.preset).key === d.preset) state.preset = d.preset;
+      if (d.avatarSrc) setAvatarFromSrc(d.avatarSrc);
+    } catch (e) {}
+  }
+
+  /* ───────────────────────── downloads ───────────────────────── */
+  function saveBlob(blob, name) {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+  }
+  function toBlob(canvas) { return new Promise(function (res) { canvas.toBlob(res, 'image/png'); }); }
+  $('dlOne').addEventListener('click', function () {
+    var P = currentPanel();
+    var i = included().indexOf(P.preset);
+    toBlob(renderPanel(P)).then(function (b) { saveBlob(b, i < 0 ? slug(P.title) + '.png' : fileName(i, P)); });
+  });
+
+  // store-only .zip writer (no libraries)
+  var CRC = (function () { var t = [], c; for (var n = 0; n < 256; n++) { c = n; for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
+  function crc32(u8) { var c = 0xFFFFFFFF; for (var i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function zip(files) {
+    var parts = [], central = [], offset = 0, enc = new TextEncoder();
+    var d = new Date(), dosT = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dosD = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    function u16(v) { return [v & 255, (v >> 8) & 255]; }
+    function u32(v) { return [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255]; }
+    files.forEach(function (f) {
+      var name = enc.encode(f.name), crc = crc32(f.data), n = f.data.length;
+      var lh = new Uint8Array([].concat(u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(dosT), u16(dosD), u32(crc), u32(n), u32(n), u16(name.length), u16(0)));
+      parts.push(lh, name, f.data);
+      central.push(new Uint8Array([].concat(u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(dosT), u16(dosD), u32(crc), u32(n), u32(n), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset))), name);
+      offset += lh.length + name.length + n;
+    });
+    var cdSize = central.reduce(function (a, c) { return a + c.length; }, 0);
+    var end = new Uint8Array([].concat(u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length), u32(cdSize), u32(offset), u16(0)));
+    return new Blob(parts.concat(central, [end]), { type: 'application/zip' });
+  }
+  function readme() {
+    var lines = [
+      'WINDOWS XP TWITCH PANELS  -  made with the Senergy Group panel maker',
+      '',
+      'HOW TO UPLOAD (Twitch, desktop):',
+      '  1. Open your channel  >  About  >  Edit Panels (toggle at the top).',
+      '  2. Click the big "+"  >  Add a Text or Image Panel.',
+      '  3. Add Image  >  pick the PNG. Leave the title blank (the banner IS the title).',
+      '  4. "Image Links To": paste the link this panel should open.',
+      '  5. Description: the details below. Save. Repeat per panel, then toggle Edit Panels off.',
+      '',
+      'Panels are 640x200 (2x). Twitch shows them 320 wide, so they stay crisp on any screen.',
+      '(On Windows display scaling other than 100% / 200% the text can look slightly uneven - that is the browser resize, not the PNG.)',
+      '',
+      'WHAT TO PUT IN EACH DESCRIPTION (Twitch descriptions accept Markdown, so [text](https://link) works):'
+    ];
+    var inv = $('invite').value.trim(), tip = $('tip').value.trim(), n = $('sn').value.trim() || 'RetroStreamer';
+    function linkFor(p) {
+      var own = (edits[p.key] && edits[p.key].link) || '';
+      if (own) return own;
+      switch (p.key) {
+        case 'discord': return inv || 'your Discord invite link';
+        case 'support': return tip || 'your tip page';
+        case 'subscribe': return 'https://twitch.tv/' + (twitchLogin(panelFor(p)) || '<your login>') + '/subscribe';
+        case 'socials': return 'the one platform that matters most';
+        case 'schedule': return 'your channel, or a calendar link';
+        default: return '(optional)';
+      }
+    }
+    included().forEach(function (p, i) {
+      var P = panelFor(p);
+      lines.push('  ' + fileName(i, P) + '  -  ' + p.readme, '      Image Links To: ' + linkFor(p), '      suggested text (paste as-is):');
+      suggested(P).split('\n').forEach(function (l) { lines.push(l ? '        ' + l : ''); });
+      lines.push('');
+    });
+    lines.push('', 'Part of the Windows XP Stream Kit by Senergy Group  -  https://www.etsy.com/shop/SenergyGroup', '');
+    return lines.join('\r\n');
+  }
+  $('dlAll').addEventListener('click', function () {
+    var set = included(), btn = this; btn.disabled = true; $('dlNote').textContent = 'Rendering ' + set.length + ' panels...';
+    var jobs = set.map(function (p, i) {
+      var P = panelFor(p);
+      return toBlob(renderPanel(P)).then(function (b) { return b.arrayBuffer(); }).then(function (ab) {
+        return { name: fileName(i, P), data: new Uint8Array(ab) };
+      });
+    });
+    Promise.all(jobs).then(function (files) {
+      files.push({ name: 'README.txt', data: new TextEncoder().encode(readme()) });
+      saveBlob(zip(files), 'windows_xp_panels_' + slug($('sn').value || 'set') + '.zip');
+      $('dlNote').textContent = set.length + ' PNGs + README saved.'; btn.disabled = false;
+      setTimeout(function () { $('dlNote').textContent = ''; }, 4000);
+    }).catch(function () { $('dlNote').textContent = 'Something went wrong - try the single download.'; btn.disabled = false; });
+  });
+
+  // exposed for automated capture (harmless in normal use)
+  window.__panelMaker = {
+    render: function (key) { return renderPanel(panelFor(presetDef(key))).toDataURL('image/png'); },
+    presets: PRESETS.map(function (p) { return p.key; }),
+    load: loadPreset,
+    setAvatar: setAvatarFromSrc,
+    setNick: function (s) { $('sn').value = s; draw(); },
+    setTheme: function (i) { applyTheme(THEMES[i]); },
+    themes: THEMES.map(function (t) { return t.name; }),
+    palette: function () { var P = currentPanel(), p = palette(P); p.bar = P.c1; p.band = P.c2; p.win = P.c3; p.accent = P.c4; p.labInk = readable(P.c4, P.c3, 4.5); return p; }
+  };
+
+  /* ───────────────────────── boot ────────────────────────────── */
+  restore(); syncDays(); syncSocials(); refreshCounts(); fitTrueSize();
+  $('goalFields').style.display = $('showGoal').checked ? '' : 'none'; $('xferField').style.display = $('showGoal').checked ? 'none' : '';
+  function boot() { glyphCache = {}; loadPreset(state.preset); }
+  boot();
+  window.addEventListener('resize', function () { var dpr = Math.min(2, Math.max(1, Math.round(window.devicePixelRatio || 1))); if (cv1.width !== 320 * dpr) { fitTrueSize(); draw(); } });
+})();
+</script>
+</body>
+</html>

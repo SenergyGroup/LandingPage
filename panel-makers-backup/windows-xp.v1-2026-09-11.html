@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<!-- WINDOWS XP PANEL MAKER - self-serve Twitch panel generator.
+     Buyers type their own info, pick a Luna icon, toggle socials, and download PNGs.
+     Everything renders in a <canvas> (no libraries, works offline).
+     Chrome matches the Windows XP kit: Luna blue title bar with the 9% glass band,
+     min/max/red-close cluster, beige #ECE9D8 body strip, Trebuchet titles.
+     Ship this file with the kit and/or host it on the landing page. -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Windows XP Panel Maker - Senergy Group</title>
+<style>
+  body { background: #3a6ea5; font-family: Tahoma, 'Segoe UI', Geneva, Verdana, sans-serif;
+         margin: 0; padding: 28px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  /* Luna window card */
+  .win { width: 700px; max-width: 96vw; background: #ECE9D8;
+         border: 2px solid #00138C; border-radius: 8px 8px 3px 3px;
+         box-shadow: 3px 3px 10px rgba(0,0,0,.35); padding: 3px; }
+  .tb { color: #fff; font-weight: bold; font-size: 13px; padding: 6px 10px;
+        text-shadow: 1px 1px 1px rgba(0,0,0,.5); border-radius: 5px 5px 0 0;
+        background: linear-gradient(180deg,#245edb 0%,#3f8cf3 9%,#245edb 18%,#245edb 100%); }
+  .body { padding: 14px; }
+  label { display: block; font-size: 12px; font-weight: bold; margin: 10px 0 3px; color: #10316b; }
+  input[type=text], select { width: 100%; box-sizing: border-box; padding: 5px 7px; font-family: Tahoma, sans-serif;
+         font-size: 13px; background: #fff; color: #000; border: 1px solid #7F9DB9; border-radius: 2px; }
+  input[type=text]:focus, select:focus { outline: none; border-color: #245edb; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .preset, .dl { font-family: Tahoma, sans-serif; font-size: 12px; font-weight: bold; padding: 6px 14px; cursor: pointer;
+         color: #10316b; border: 1px solid #10316b; border-radius: 4px;
+         background: linear-gradient(180deg,#fdffff 0%,#e3ecf7 45%,#c9dcf2 100%); }
+  .preset:hover, .dl:hover { background: linear-gradient(180deg,#ffffff 0%,#eaf3ff 45%,#d5e7ff 100%); border-color: #245edb; }
+  .preset:active, .dl:active { background: linear-gradient(180deg,#c9dcf2 0%,#e3ecf7 100%); }
+  .checks { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin-top: 6px; }
+  .checks label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-weight: normal; color: #1a1a1a; }
+  canvas { display: block; width: 100%; margin-top: 4px; border: 1px solid #7F9DB9; border-radius: 4px; }
+  .hint { font-size: 11px; color: #3B3B33; margin-top: 8px; line-height: 1.5; }
+  .colors { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 12px; margin-top: 6px; color: #10316b; }
+  .colors label { margin: 0; }
+  a.dl { text-decoration: none; }
+</style>
+</head>
+<body>
+  <div class="win">
+    <div class="tb">Windows XP Panel Maker - make YOUR panels</div>
+    <div class="body">
+      <label>Quick presets</label>
+      <div class="row">
+        <button class="preset" onclick="preset('About Me','Welcome! Get to know the streamer','about',[])">About Me</button>
+        <button class="preset" onclick="preset('Schedule','Sign-on times, updated weekly','schedule',[])">Schedule</button>
+        <button class="preset" onclick="preset('Chat Rules','Keep the chat friendly and secure','rules',[])">Chat Rules</button>
+        <button class="preset" onclick="preset('Socials','Find me across the network','socials',['YT','IG','X','DC'])">Socials</button>
+        <button class="preset" onclick="preset('Support the Stream','Transferring your support to the stream','donate',[])">Support</button>
+      </div>
+
+      <label for="title">Panel title</label>
+      <input type="text" id="title" value="About Me" maxlength="22" oninput="draw()">
+
+      <label for="subtitle">Small line (optional)</label>
+      <input type="text" id="subtitle" value="Welcome! Get to know the streamer" maxlength="42" oninput="draw()">
+
+      <label for="icon">Title icon</label>
+      <select id="icon" onchange="draw()">
+        <option value="about">Document (About)</option>
+        <option value="schedule">Calendar (Schedule)</option>
+        <option value="rules">Shield (Rules)</option>
+        <option value="socials">Monitors (Socials)</option>
+        <option value="donate">Transfer (Donate)</option>
+      </select>
+
+      <label>Social buttons (shown on the beige strip)</label>
+      <div class="checks">
+        <label><input type="checkbox" value="YT" onchange="draw()"> YouTube</label>
+        <label><input type="checkbox" value="IG" onchange="draw()"> Instagram</label>
+        <label><input type="checkbox" value="X"  onchange="draw()"> X</label>
+        <label><input type="checkbox" value="TT" onchange="draw()"> TikTok</label>
+        <label><input type="checkbox" value="DC" onchange="draw()"> Discord</label>
+        <label><input type="checkbox" value="TW" onchange="draw()"> Twitch</label>
+      </div>
+
+      <div class="colors">
+        <label style="display:inline-flex;align-items:center;gap:6px;">Title base
+          <input type="color" id="accent" value="#245edb" oninput="draw()"></label>
+        <label style="display:inline-flex;align-items:center;gap:6px;">Glass band
+          <input type="color" id="band" value="#3f8cf3" oninput="draw()"></label>
+        <label style="display:inline-flex;align-items:center;gap:6px;">Window
+          <input type="color" id="winbg" value="#ECE9D8" oninput="draw()"></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="win">
+    <div class="tb">Preview (640 x 200 - Twitch shows it at 320 wide)</div>
+    <div class="body">
+      <canvas id="cv" width="640" height="200"></canvas>
+      <div class="row" style="margin-top:12px;">
+        <button class="dl" onclick="download()">&#11015; Download PNG</button>
+      </div>
+      <div class="hint">
+        Make as many as you like: set the text, click Download, repeat.
+        Upload on Twitch under <b>About &rarr; Edit Panels &rarr; Add a Text or Image Panel &rarr; Add Image</b>.
+        Put your links in the panel's "Image Links To" / description fields on Twitch.
+      </div>
+    </div>
+  </div>
+
+  <div class="win" style="width:700px;">
+    <div class="body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <span style="font-size:12px;">Part of the <b>Windows XP Stream Kit</b> - chat, alerts, scenes, goal bars &amp; game frame.</span>
+      <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
+      <a class="dl" href="https://www.etsy.com/listing/4429737565/windows-xp-twitch-chat-widget-overlay?utm_source=panel-maker&utm_medium=web&utm_campaign=windows-xp">View on Etsy &#8594;</a>
+    </div>
+  </div>
+
+<script>
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+
+// Constant Luna button palettes (hero design system).
+var BTN_A = '#53a3ff', BTN_B = '#0054e3';
+var CLOSE_A = '#ff8e81', CLOSE_B = '#e8462f';
+var TEXT = '#3B3B33';
+
+// Pixel icons lifted straight from the XP panels product (panels.json), rasterized to canvas.
+var ICON_SVG = {
+  about: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='1' y='1' width='14' height='13' fill='#00138C'/><rect x='2' y='2' width='12' height='11' fill='#FFFFFF'/><rect x='2' y='2' width='12' height='1' fill='#3f8cf3'/><rect x='2' y='3' width='12' height='2' fill='#245edb'/><rect x='12' y='3' width='1' height='1' fill='#e8462f'/><rect x='4' y='7' width='8' height='1' fill='#7F9DB9'/><rect x='4' y='9' width='6' height='1' fill='#7F9DB9'/><rect x='4' y='11' width='4' height='1' fill='#7F9DB9'/></svg>",
+  schedule: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='4' y='1' width='2' height='3' fill='#7F9DB9'/><rect x='10' y='1' width='2' height='3' fill='#7F9DB9'/><rect x='2' y='3' width='12' height='11' fill='#00138C'/><rect x='3' y='4' width='10' height='9' fill='#FFFFFF'/><rect x='3' y='4' width='10' height='1' fill='#3f8cf3'/><rect x='3' y='5' width='10' height='2' fill='#245edb'/><rect x='4' y='8' width='2' height='2' fill='#7F9DB9'/><rect x='7' y='8' width='2' height='2' fill='#7F9DB9'/><rect x='10' y='8' width='2' height='2' fill='#e8462f'/><rect x='4' y='11' width='2' height='2' fill='#7F9DB9'/><rect x='7' y='11' width='2' height='2' fill='#3C9E33'/></svg>",
+  rules: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='4' y='2' width='8' height='2' fill='#3f8cf3'/><rect x='3' y='4' width='10' height='4' fill='#245edb'/><rect x='4' y='8' width='8' height='2' fill='#245edb'/><rect x='5' y='10' width='6' height='2' fill='#245edb'/><rect x='6' y='12' width='4' height='1' fill='#00138C'/><rect x='7' y='13' width='2' height='1' fill='#00138C'/><rect x='5' y='6' width='1' height='1' fill='#FFFFFF'/><rect x='6' y='7' width='1' height='1' fill='#FFFFFF'/><rect x='7' y='8' width='1' height='1' fill='#FFFFFF'/><rect x='8' y='7' width='1' height='1' fill='#FFFFFF'/><rect x='9' y='6' width='1' height='1' fill='#FFFFFF'/><rect x='10' y='5' width='1' height='1' fill='#FFFFFF'/></svg>",
+  socials: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='1' y='1' width='8' height='7' fill='#00138C'/><rect x='2' y='2' width='6' height='5' fill='#3f8cf3'/><rect x='3' y='3' width='1' height='1' fill='#FFFFFF'/><rect x='4' y='8' width='2' height='1' fill='#7F9DB9'/><rect x='3' y='9' width='4' height='1' fill='#7F9DB9'/><rect x='7' y='5' width='8' height='7' fill='#00138C'/><rect x='8' y='6' width='6' height='5' fill='#5BC146'/><rect x='9' y='7' width='1' height='1' fill='#FFFFFF'/><rect x='10' y='12' width='2' height='1' fill='#7F9DB9'/><rect x='9' y='13' width='4' height='1' fill='#7F9DB9'/></svg>",
+  donate: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='1' y='4' width='2' height='1' fill='#7F9DB9'/><rect x='0' y='7' width='3' height='1' fill='#7F9DB9'/><rect x='1' y='10' width='2' height='1' fill='#7F9DB9'/><rect x='5' y='1' width='9' height='14' fill='#00138C'/><rect x='6' y='2' width='7' height='12' fill='#FFFFFF'/><rect x='11' y='2' width='2' height='2' fill='#C8D4E8'/><rect x='7' y='4' width='4' height='1' fill='#7F9DB9'/><rect x='7' y='6' width='5' height='1' fill='#7F9DB9'/><rect x='7' y='8' width='3' height='1' fill='#7F9DB9'/><rect x='7' y='10' width='2' height='1' fill='#e8462f'/><rect x='10' y='10' width='2' height='1' fill='#e8462f'/><rect x='7' y='11' width='5' height='1' fill='#e8462f'/><rect x='8' y='12' width='3' height='1' fill='#e8462f'/><rect x='9' y='13' width='1' height='1' fill='#e8462f'/></svg>"
+};
+var iconCache = {};
+function getIcon(key) {
+  if (iconCache[key]) return iconCache[key];
+  var img = new Image();
+  img.onload = draw;
+  img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(ICON_SVG[key]);
+  iconCache[key] = img;
+  return img;
+}
+
+function roundRectPath(x, y, w, h, tl, tr, br, bl) {
+  ctx.beginPath();
+  ctx.moveTo(x + tl, y);
+  ctx.lineTo(x + w - tr, y);
+  ctx.arcTo(x + w, y, x + w, y + tr, tr);
+  ctx.lineTo(x + w, y + h - br);
+  ctx.arcTo(x + w, y + h, x + w - br, y + h, br);
+  ctx.lineTo(x + bl, y + h);
+  ctx.arcTo(x, y + h, x, y + h - bl, bl);
+  ctx.lineTo(x, y + tl);
+  ctx.arcTo(x, y, x + tl, y, tl);
+  ctx.closePath();
+}
+
+function winButton(x, y, kind) {
+  var g = ctx.createLinearGradient(0, y, 0, y + 42);
+  if (kind === 'close') { g.addColorStop(0, CLOSE_A); g.addColorStop(1, CLOSE_B); }
+  else { g.addColorStop(0, BTN_A); g.addColorStop(1, BTN_B); }
+  roundRectPath(x, y, 42, 42, 6, 6, 6, 6);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = kind === 'close' ? '#ffffff' : 'rgba(255,255,255,0.65)';
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  var cx = x + 21, cy = y + 21;
+  if (kind === 'min') { ctx.fillRect(cx - 9, cy + 8, 18, 4); }
+  else if (kind === 'max') { ctx.fillRect(cx - 11, cy - 11, 22, 6); ctx.fillRect(cx - 11, cy - 5, 4, 16); ctx.fillRect(cx + 7, cy - 5, 4, 16); ctx.fillRect(cx - 7, cy + 7, 14, 4); }
+  else { ctx.font = 'bold 30px Tahoma, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+         ctx.fillText('×', cx, cy + 1); }
+}
+
+function socialButton(x, y, label) {
+  var g = ctx.createLinearGradient(0, y, 0, y + 30);
+  g.addColorStop(0, BTN_A); g.addColorStop(1, BTN_B);
+  roundRectPath(x, y, 46, 30, 5, 5, 5, 5);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Tahoma, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(label, x + 23, y + 16);
+}
+
+function draw() {
+  var title = document.getElementById('title').value || ' ';
+  var subtitle = document.getElementById('subtitle').value || '';
+  var accent = document.getElementById('accent').value;
+  var band = document.getElementById('band').value;
+  var winbg = document.getElementById('winbg').value;
+  var iconKey = document.getElementById('icon').value;
+  var socials = Array.prototype.slice.call(document.querySelectorAll('.checks input:checked')).map(function(c) { return c.value; });
+
+  ctx.clearRect(0, 0, 640, 200);
+
+  // Outer dark-blue border + beige body (rounded top).
+  roundRectPath(0, 0, 640, 200, 16, 16, 4, 4);
+  ctx.fillStyle = '#00138C'; ctx.fill();
+  roundRectPath(4, 4, 632, 192, 13, 13, 2, 2);
+  ctx.fillStyle = winbg; ctx.fill();
+
+  // Title bar with the 9% glass band.
+  var tbX = 10, tbY = 10, tbW = 620, tbH = 116;
+  var g = ctx.createLinearGradient(0, tbY, 0, tbY + tbH);
+  g.addColorStop(0, accent); g.addColorStop(0.09, band); g.addColorStop(0.18, accent); g.addColorStop(1, accent);
+  roundRectPath(tbX, tbY, tbW, tbH, 12, 12, 0, 0);
+  ctx.fillStyle = g; ctx.fill();
+  var tbMid = tbY + tbH / 2;
+
+  // Icon (pixel-crisp).
+  var img = getIcon(iconKey);
+  if (img.complete && img.naturalWidth) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 26, Math.round(tbMid - 26), 52, 52);
+    ctx.imageSmoothingEnabled = true;
+  }
+
+  // Window buttons: min / max / close (right aligned).
+  var closeX = 618 - 42, maxX = closeX - 48, minX = maxX - 48;
+  var btnY = Math.round(tbMid - 21);
+  winButton(minX, btnY, 'min');
+  winButton(maxX, btnY, 'max');
+  winButton(closeX, btnY, 'close');
+
+  // Title text.
+  ctx.fillStyle = '#fff';
+  ctx.font = "bold 40px 'Trebuchet MS', Tahoma, 'Segoe UI', sans-serif";
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 2; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+  ctx.fillText(title, 92, tbMid, minX - 92 - 16);
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+
+  // Beige strip: tagline (left) + social buttons (right).
+  var stripMid = 126 + (190 - 126) / 2;
+  var socialsStartX = 618;
+  if (socials.length) {
+    var total = socials.length * 46 + (socials.length - 1) * 8;
+    socialsStartX = 618 - total;
+    var sx = socialsStartX;
+    var sy = Math.round(stripMid - 15);
+    socials.forEach(function(s) { socialButton(sx, sy, s); sx += 54; });
+  }
+  if (subtitle) {
+    ctx.fillStyle = TEXT;
+    ctx.font = "22px Tahoma, 'Segoe UI', sans-serif";
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    var taglineMax = (socials.length ? socialsStartX - 14 : 618) - 24;
+    ctx.fillText(subtitle, 24, stripMid + 1, taglineMax);
+  }
+}
+
+function preset(t, s, icon, socials) {
+  document.getElementById('title').value = t;
+  document.getElementById('subtitle').value = s;
+  document.getElementById('icon').value = icon;
+  document.querySelectorAll('.checks input').forEach(function(c) {
+    c.checked = socials.indexOf(c.value) !== -1;
+  });
+  draw();
+}
+
+function download() {
+  var title = (document.getElementById('title').value || 'panel')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  cv.toBlob(function(blob) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'panel_' + (title || 'custom') + '.png';
+    a.click();
+    setTimeout(function() { URL.revokeObjectURL(a.href); }, 2000);
+  }, 'image/png');
+}
+
+draw();
+if (document.fonts && document.fonts.ready) { document.fonts.ready.then(draw); }
+</script>
+</body>
+</html>
