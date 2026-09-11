@@ -1,5 +1,29 @@
 [
   {
+    "id": "sku-xp-kit-full",
+    "name": "Windows XP Full Stream Kit",
+    "description": "A full XP desktop for your stream: chat, alerts, Starting Soon, BRB, Ending, goal bars, a game frame, and Twitch panels. Includes an XP-styled setup guide and website Panel Maker. Etsy listing coming soon.",
+    "category": "bundle",
+    "productType": "bundle",
+    "badgeText": "8-Piece Stream Kit",
+    "aesthetic": "windows",
+    "etsyUrl": "https://www.etsy.com/shop/SenergyGroup",
+    "etsyLinkType": "shop",
+    "freebie": false
+  },
+  {
+    "id": "sku-w95-kit-full",
+    "name": "Win95 Full Stream Kit",
+    "description": "Windows 95 chat with seven coordinated retro pieces: alerts, three scenes, goal bar, game frame, and Twitch panels. Chat supports Streamlabs or StreamElements; the other live overlays use StreamElements with OBS. Includes the setup PDF.",
+    "category": "bundle",
+    "productType": "bundle",
+    "badgeText": "8-Piece Stream Kit",
+    "aesthetic": "windows",
+    "price": 29.99,
+    "etsyUrl": "https://www.etsy.com/listing/4572959296/win95-retro-stream-kit-overlays-for",
+    "freebie": false
+  },
+  {
     "id": "sku-mk-kit-full",
     "name": "Retro Messenger Full Stream Kit",
     "description": "One matching retro desktop: chat, alerts, three scenes, goal bar, game frame, and Twitch panels. Chat supports Streamlabs or StreamElements; alerts, scenes, and goals use StreamElements with OBS. Includes the setup PDF.",

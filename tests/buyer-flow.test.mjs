@@ -164,13 +164,25 @@ test('local PDF access survives repeat downloads, confirmation return, and inter
     assert.ok(store.includes(kitListing + '?utm_source=senergy-landing'));
     assert.match(store, /Chat supports Streamlabs or StreamElements/);
     assert.match(store, /type=bundle&amp;aesthetic=y2k/);
-    assert.equal((store.match(/class="widget-card store-card"/g) || []).length, 1);
+    assert.equal((store.match(/class="widget-card store-card kit-store-card"/g) || []).length, 3);
+    assert.ok(store.includes('https://www.etsy.com/listing/4572959296/win95-retro-stream-kit-overlays-for?utm_source=senergy-landing'));
+    const xpCard = store.slice(store.indexOf('id="sku-xp-kit-full"'), store.indexOf('id="sku-w95-kit-full"'));
+    assert.match(xpCard, /https:\/\/www\.etsy\.com\/shop\/SenergyGroup\?utm_source=senergy-landing/);
+    assert.match(xpCard, /Visit Etsy shop/);
+    assert.match(xpCard, /Etsy listing coming soon/);
+    assert.doesNotMatch(xpCard, /Buy on Etsy|\$44\.99/);
     const claim = await (await fetch(`${fixture.base}/claim`)).text();
     assert.ok(!claim.includes(`value="${kitId}"`));
+    assert.ok(!claim.includes('value="sku-xp-kit-full"'));
+    assert.ok(!claim.includes('value="sku-w95-kit-full"'));
     const chat = await (await fetch(`${fixture.base}/store?type=chat`)).text();
     assert.ok(!chat.includes(`id="${kitId}"`));
-    const noMatch = await (await fetch(`${fixture.base}/store?type=bundle&aesthetic=windows`)).text();
-    assert.match(noMatch, /No products in this style yet/);
+    assert.ok(!chat.includes('id="sku-xp-kit-full"'));
+    assert.ok(!chat.includes('id="sku-w95-kit-full"'));
+    const windows = await (await fetch(`${fixture.base}/store?type=bundle&aesthetic=windows`)).text();
+    assert.ok(windows.includes('id="sku-xp-kit-full"'));
+    assert.ok(windows.includes('id="sku-w95-kit-full"'));
+    assert.ok(!windows.includes(`id="${kitId}"`));
   });
 });
 

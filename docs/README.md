@@ -63,6 +63,7 @@ Widget definitions live in `config/widgets.json`:
 Field semantics:
 
 - `etsyUrl` set → the widget appears in `/store` (and gets a "View on Etsy" link on its claim card).
+- `etsyLinkType: "shop"` → use "Visit Etsy shop" for an upcoming product whose direct listing is not available yet. Keep it paid-only and omit an unconfirmed price. Replace the destination and remove this flag when the direct Etsy listing is supplied.
 - `freebie: false` → store-only paid listing; never shown in the claim form. Entries default to freebie when the field is missing.
 - `price` → shown on store cards. Missing price renders without a tag (not an error).
 - `productType: "bundle"` → gets a Bundle badge and sorts first in the store.
@@ -75,6 +76,13 @@ PNG/JPG/WEBP/SVG) and `assets/zips/{id}/` (first PDF/ZIP). No explicit
 
 The main repo's `/published` skill upserts entries here after an Etsy listing
 goes live.
+
+The kit category contains three paid-only entries: Windows XP (`sku-xp-kit-full`),
+Win95 (`sku-w95-kit-full`), and Retro Messenger (`sku-mk-kit-full`). XP links to
+the Etsy shop at the user's request until its listing is published. Win95 links
+to listing 4572959296, verified on the live shop on September 11, 2026 at $29.99.
+Both new cards use local approved listing previews. No paid kit guides are
+exposed through the public image directory or the free-widget picker.
 
 The Retro Messenger Full Stream Kit is a paid-only entry (`sku-mk-kit-full`). Its
 $29.99 price, Etsy listing 4533131913, and platform wording were verified against

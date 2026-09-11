@@ -164,7 +164,7 @@ const loadWidgets = () => {
 // explicitly marked `"freebie": false` (store-only paid listings).
 const freebieWidgets = (widgets) => widgets.filter((w) => w.freebie !== false);
 
-// Published catalog for /store and homepage: anything with a live Etsy URL.
+// Curated catalog for /store and homepage. Upcoming kits may link to the shop.
 // Bundles surface first, then newest publish date.
 const publishedWidgets = (widgets) =>
   widgets
@@ -296,7 +296,7 @@ const addLandingUtm = (rawUrl, { slug, content }) => {
 
 // Store-style product card (non-selectable; buy CTA goes to Etsy).
 const renderStoreCard = (widget, utmContent) => `
-  <div class="widget-card store-card" id="${escapeHtml(widget.id)}">
+  <div class="widget-card store-card${widget.productType === "bundle" ? " kit-store-card" : ""}" id="${escapeHtml(widget.id)}">
     <div class="widget-thumbnail" style="background-image: url('${widget.image || widget.thumbnail}')"></div>
     <div class="store-card-head">
       <div class="widget-name">${widget.name}</div>
@@ -309,7 +309,7 @@ const renderStoreCard = (widget, utmContent) => `
       <a class="buy-button"
          href="${addLandingUtm(widget.etsyUrl, { slug: widget.id, content: utmContent })}"
          target="_blank"
-         rel="noopener noreferrer">Buy on Etsy &rarr;</a>
+         rel="noopener noreferrer">${widget.etsyLinkType === "shop" ? "Visit Etsy shop" : "Buy on Etsy"} &rarr;</a>
     </div>
   </div>
 `;
@@ -360,12 +360,12 @@ const renderHomePage = (widgets) => {
         <a class="type-card" href="/store?type=bundle">
           <div class="type-icon">🔔</div>
           <div class="type-name">Alert Widgets</div>
-          <div class="type-desc">Follow, sub, tip, cheer, and raid pop-ups with retro chimes. Included in the Retro Messenger kit.</div>
+          <div class="type-desc">Follow, sub, tip, cheer, and raid pop-ups with retro chimes. Explore the ready-made kits to find your theme.</div>
         </a>
         <a class="type-card" href="/store?type=bundle">
           <div class="type-icon">🖥️</div>
           <div class="type-name">Scenes &amp; Goals</div>
-          <div class="type-desc">Starting Soon, BRB, and Ending screens plus a themed goal bar. Included in the Retro Messenger kit.</div>
+          <div class="type-desc">Starting Soon, BRB, and Ending screens plus a themed goal bar. Explore the ready-made kits to find your theme.</div>
         </a>
         <a class="type-card" href="/store?type=bundle">
           <div class="type-icon">📦</div>
