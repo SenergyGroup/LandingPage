@@ -9,7 +9,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Windows XP Panel Maker — Senergy Group</title>
+<title>Windows XP Panel Maker - Senergy Group</title>
 <style>
   body { background: #3a6ea5; font-family: Tahoma, 'Segoe UI', Geneva, Verdana, sans-serif;
          margin: 0; padding: 28px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
@@ -42,7 +42,7 @@
 </head>
 <body>
   <div class="win">
-    <div class="tb">Windows XP Panel Maker — make YOUR panels</div>
+    <div class="tb">Windows XP Panel Maker - make YOUR panels</div>
     <div class="body">
       <label>Quick presets</label>
       <div class="row">
@@ -90,7 +90,7 @@
   </div>
 
   <div class="win">
-    <div class="tb">Preview (640 x 200 — Twitch shows it at 320 wide)</div>
+    <div class="tb">Preview (640 x 200 - Twitch shows it at 320 wide)</div>
     <div class="body">
       <canvas id="cv" width="640" height="200"></canvas>
       <div class="row" style="margin-top:12px;">
@@ -106,7 +106,7 @@
 
   <div class="win" style="width:700px;">
     <div class="body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-      <span style="font-size:12px;">Part of the <b>Windows XP Stream Kit</b> — chat, alerts, scenes, goal bars &amp; game frame.</span>
+      <span style="font-size:12px;">Part of the <b>Windows XP Stream Kit</b> - chat, alerts, scenes, goal bars &amp; game frame.</span>
       <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
       <a class="dl" href="https://www.etsy.com/listing/4429737565/windows-xp-twitch-chat-widget-overlay?utm_source=panel-maker&utm_medium=web&utm_campaign=windows-xp">View on Etsy &#8594;</a>
     </div>
@@ -164,7 +164,7 @@ function winButton(x, y, kind) {
   ctx.fillStyle = '#fff';
   var cx = x + 21, cy = y + 21;
   if (kind === 'min') { ctx.fillRect(cx - 9, cy + 8, 18, 4); }
-  else if (kind === 'max') { ctx.fillRect(cx - 11, cy - 11, 22, 22); ctx.clearRect(cx - 7, cy - 5, 14, 14); }
+  else if (kind === 'max') { ctx.fillRect(cx - 11, cy - 11, 22, 6); ctx.fillRect(cx - 11, cy - 5, 4, 16); ctx.fillRect(cx + 7, cy - 5, 4, 16); ctx.fillRect(cx - 7, cy + 7, 14, 4); }
   else { ctx.font = 'bold 30px Tahoma, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
          ctx.fillText('×', cx, cy + 1); }
 }
