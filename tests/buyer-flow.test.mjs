@@ -167,10 +167,9 @@ test('local PDF access survives repeat downloads, confirmation return, and inter
     assert.equal((store.match(/class="widget-card store-card kit-store-card"/g) || []).length, 3);
     assert.ok(store.includes('https://www.etsy.com/listing/4572959296/win95-retro-stream-kit-overlays-for?utm_source=senergy-landing'));
     const xpCard = store.slice(store.indexOf('id="sku-xp-kit-full"'), store.indexOf('id="sku-w95-kit-full"'));
-    assert.match(xpCard, /https:\/\/www\.etsy\.com\/shop\/SenergyGroup\?utm_source=senergy-landing/);
-    assert.match(xpCard, /Visit Etsy shop/);
-    assert.match(xpCard, /Etsy listing coming soon/);
-    assert.doesNotMatch(xpCard, /Buy on Etsy|\$44\.99/);
+    assert.ok(xpCard.includes('https://www.etsy.com/listing/4573470064/xp-inspired-stream-kit-for-twitch-8?utm_source=senergy-landing'));
+    assert.match(xpCard, /Buy on Etsy/);
+    assert.doesNotMatch(xpCard, /Visit Etsy shop|Etsy listing coming soon/);
     const claim = await (await fetch(`${fixture.base}/claim`)).text();
     assert.ok(!claim.includes(`value="${kitId}"`));
     assert.ok(!claim.includes('value="sku-xp-kit-full"'));

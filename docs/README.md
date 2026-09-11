@@ -79,8 +79,9 @@ goes live.
 
 The kit category contains three paid-only entries: Windows XP (`sku-xp-kit-full`),
 Win95 (`sku-w95-kit-full`), and Retro Messenger (`sku-mk-kit-full`). XP links to
-the Etsy shop at the user's request until its listing is published. Win95 links
-to listing 4572959296, verified on the live shop on September 11, 2026 at $29.99.
+listing 4573470064, supplied by the user on September 11, 2026. Its price remains
+omitted until the live listing price is confirmed. Win95 links to listing
+4572959296, verified on the live shop on September 11, 2026 at $29.99.
 Both new cards use local approved listing previews. No paid kit guides are
 exposed through the public image directory or the free-widget picker.
 
