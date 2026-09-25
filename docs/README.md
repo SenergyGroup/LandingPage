@@ -7,6 +7,7 @@ This app is the SenergyGroup web presence:
 | --- | --- |
 | `/` | Homepage — hero, product-type overview, featured widgets, custom-orders teaser, free-widget teaser, about strip |
 | `/store` | Full catalog of published widgets (anything in `config/widgets.json` with an `etsyUrl`). Purchases link out to Etsy with UTM tags |
+| `/panels` | Shareable Stream Panels catalog with preview cards linking to every available Panel Maker |
 | `/claim` | Free widget picker — choose one freebie, confirm email via Kit (ConvertKit), download unlocks |
 | `/custom` | Custom commission page — intro pricing table + request form (saved to SQLite `custom_requests`) |
 | `/custom/thanks` | Post-submission confirmation |
@@ -90,6 +91,19 @@ $29.99 price, Etsy listing 4533131913, and platform wording were verified agains
 the live Etsy listing on September 10, 2026. The parent registry still has older
 kit metadata; reconcile that record before running a later `/published` sync so
 it does not replace the verified price with the old $44.99 planning price.
+
+## Stream Panels catalog
+
+Share `/panels` to show all available panel styles. The page uses the store's
+card grid and site navigation; each card opens its Panel Maker, which links back
+to the catalog. Current styles are Retro Messenger, IRC Minimal, and Windows XP.
+
+`config/panels.json` is the single source for catalog cards and the Panel Maker
+route allowlist. To add a style, add its `family`, `name`, `description`, and
+`aesthetic`; supply `public/panel-makers/{family}.html` and actual About/Schedule
+PNG previews at `public/images/panels/{family}/about.png` and `schedule.png`.
+Restart the server after changing the catalog. This catalog is independent of
+Etsy listings and the email-gated free-widget picker.
 
 ## Download access and regression checks
 

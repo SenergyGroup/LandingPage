@@ -513,6 +513,31 @@ a {
   box-shadow: var(--bevel-in);
 }
 
+/* Panel cards reuse the store chrome, with uncropped samples of the PNG output. */
+.panel-thumbnail {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 1rem;
+  background-color: #18181b;
+}
+
+.panel-thumbnail img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.panel-card h2,
+.panel-card p {
+  margin: 0;
+}
+
+.panel-card .buy-button {
+  min-height: 44px;
+}
+
 /* "View on Etsy" link on claim-page cards. Anchors are interactive
    descendants of <label>, so clicks follow the link without toggling
    the radio. */

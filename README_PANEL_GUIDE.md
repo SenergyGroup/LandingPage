@@ -137,7 +137,9 @@ It has three stacked "windows" styled in the kit's chrome:
 - [ ] Social toggles + at least an accent color picker, but **not** enough to break the theme.
 - [ ] Twitch upload hint present; explains banner-image vs. text-field split.
 - [ ] Kit CTA window with a UTM-tagged **View on Etsy →** link.
-- [ ] `family` added to `PANEL_MAKER_FAMILIES` in `server.js`.
+- [ ] Entry added to `config/panels.json` (family, name, description, aesthetic).
+- [ ] Actual About and Schedule previews saved to `public/images/panels/{family}/` as `about.png` and `schedule.png`.
+- [ ] Maker links back to `/panels` with an All Stream Panels link.
 - [ ] Route verified: `/panel-maker/{family}` → 200 and serves the right page; unknown → 404.
 - [ ] Embedded `<script>` passes a syntax check.
 
@@ -145,11 +147,13 @@ It has three stacked "windows" styled in the kit's chrome:
 
 ## 7. Wiring it into the landing page
 
-The route is a small whitelist in `server.js` — this keeps the URL space tight and blocks path
-tricks. Add the new family to the set; the handler serves `public/panel-makers/{family}.html`:
+The `/panels` catalog and the route whitelist both use `config/panels.json`.
+Add the new family's metadata there and supply its preview images. The whitelist
+keeps the URL space tight and blocks path tricks; the handler serves
+`public/panel-makers/{family}.html`:
 
 ```js
-const PANEL_MAKER_FAMILIES = new Set(["retro-messenger", "irc-minimal", "windows-xp"]);
+const PANEL_MAKER_FAMILIES = new Set(PANEL_MAKERS.map((panel) => panel.family));
 app.get("/panel-maker/:family", (req, res) => {
   const family = String(req.params.family || "").toLowerCase();
   if (!PANEL_MAKER_FAMILIES.has(family)) { res.status(404).send(renderErrorPage("Page not found.")); return; }
@@ -157,7 +161,7 @@ app.get("/panel-maker/:family", (req, res) => {
 });
 ```
 
-Naming: use the kit's `stack.family` slug for both the filename and the whitelist entry
+Naming: use the kit's `stack.family` slug for both the filename and the catalog entry
 (`windows-xp.html` ↔ `"windows-xp"`).
 
 ---

@@ -20,6 +20,9 @@ const ASSETS_DIR = path.join(__dirname, "public");
 const ZIPS_ROOT = path.join(__dirname, "assets", "zips");
 const IMAGES_ROOT = path.join(__dirname, "public", "images");
 const PLACEHOLDER_THUMB = "/public/images/_placeholder.svg";
+// One catalog drives both /panels and the allowed /panel-maker/:family routes.
+const PANEL_MAKERS = JSON.parse(fs.readFileSync(path.join(__dirname, "config", "panels.json"), "utf8"));
+const PANEL_MAKER_FAMILIES = new Set(PANEL_MAKERS.map((panel) => panel.family));
 
 const KIT_API_KEY = process.env.KIT_API_KEY;
 const KIT_FORM_ID = process.env.KIT_FORM_ID;
@@ -226,6 +229,7 @@ const formatHtml = (title, body, metaDescription = "") => `<!doctype html>
 const NAV_ITEMS = [
   { key: "home", href: "/", label: "Home" },
   { key: "store", href: "/store", label: "Store" },
+  { key: "panels", href: "/panels", label: "Stream Panels" },
   { key: "claim", href: "/claim", label: "Free Widget" },
   { key: "custom", href: "/custom", label: "Custom Orders" },
   { key: "about", href: "/about", label: "About" },
@@ -250,6 +254,7 @@ const renderFooter = () => `
       <div class="footer-col">
         <div class="footer-heading">Shop</div>
         <a href="/store">Widget Store</a>
+        <a href="/panels">Stream Panels</a>
         <a href="${addLandingUtm(ETSY_SHOP_URL, { slug: "shop", content: "footer" })}" target="_blank" rel="noopener noreferrer">Our Etsy Shop</a>
         <a href="/custom">Custom Orders</a>
       </div>
@@ -456,6 +461,73 @@ const renderHomePage = (widgets) => {
 /* ---------------------------------------------------------------------------
  * Store
  * ------------------------------------------------------------------------ */
+
+const renderPanelsPage = () => formatHtml(
+  `Stream Panels | ${BRAND_NAME}`,
+  `
+    ${renderHeader("panels")}
+    <main class="container">
+      ${win(
+        "stream_panels.exe",
+        `
+        <p class="eyebrow">A little retro for your About section</p>
+        <h1>Stream Panels</h1>
+        <p class="subhead">Give your Twitch channel a matching set of panels. Pick your style,
+          make it yours in the Panel Maker, and download your finished PNGs.</p>
+        <p class="microcopy">About &middot; Schedule &middot; Rules &middot; Socials &middot; Support &amp; more</p>
+        `,
+        "hero-win"
+      )}
+      <section aria-label="Available panel styles">
+        <p class="filter-count">${PANEL_MAKERS.length} panel ${PANEL_MAKERS.length === 1 ? "style" : "styles"} available</p>
+        <div class="widget-grid">
+          ${PANEL_MAKERS.map((panel) => `
+            <article class="widget-card store-card panel-card" id="${escapeHtml(panel.family)}">
+              <div class="widget-thumbnail panel-thumbnail">
+                <img src="/public/images/panels/${escapeHtml(panel.family)}/about.png"
+                     alt="${escapeHtml(panel.name)} About panel preview" width="640" height="200" />
+                <img src="/public/images/panels/${escapeHtml(panel.family)}/schedule.png"
+                     alt="${escapeHtml(panel.name)} Schedule panel preview" width="640" height="200" />
+              </div>
+              <h2 class="widget-name">${escapeHtml(panel.name)}</h2>
+              <p class="widget-desc">${escapeHtml(panel.description)}</p>
+              <div class="store-card-foot">
+                <span class="aesthetic-tag">${escapeHtml(aestheticLabel(panel.aesthetic))}</span>
+                <a class="buy-button" href="/panel-maker/${escapeHtml(panel.family)}"
+                   aria-label="Open ${escapeHtml(panel.name)} Panel Maker">Open Panel Maker &rarr;</a>
+              </div>
+            </article>
+          `).join("\n")}
+        </div>
+      </section>
+      ${win(
+        "make_it_yours.txt",
+        `
+        <h2>From preview to your channel</h2>
+        <ol class="steps">
+          <li><strong>Choose a style.</strong> Open a Panel Maker and pick the panels you need.</li>
+          <li><strong>Add your personality.</strong> Edit the text, colors, and details with a live preview.</li>
+          <li><strong>Download and upload.</strong> Save your PNGs, then add them to your Twitch About section.</li>
+        </ol>
+        `
+      )}
+      ${win(
+        "complete_your_stream.dir",
+        `
+        <div class="split-row">
+          <div>
+            <h2>Bring the look on stream.</h2>
+            <p>Explore ready-made stream kits with coordinated chat, alerts, scenes, and more.</p>
+          </div>
+          <a class="secondary-button" href="/store?type=bundle">Browse Stream Kits &rarr;</a>
+        </div>
+        `
+      )}
+    </main>
+    ${renderFooter()}
+  `,
+  "Browse retro Twitch panel styles. Personalize About, Schedule, Rules, Socials, and Support panels in your browser, then download your PNGs."
+);
 
 const renderStorePage = (widgets, activeAesthetic, activeType) => {
   const published = publishedWidgets(widgets);
@@ -980,6 +1052,10 @@ app.get("/store", (req, res) => {
   res.send(renderStorePage(loadWidgets(), aesthetic, type));
 });
 
+app.get("/panels", (req, res) => {
+  res.send(renderPanelsPage());
+});
+
 app.get("/about", (req, res) => {
   res.send(renderAboutPage(loadWidgets()));
 });
@@ -1253,8 +1329,7 @@ app.get("/download/:token", (req, res) => {
 
 // Panel Makers: self-serve Twitch panel generators for kit buyers.
 // Static pages live in public/panel-makers/{family}.html; the whitelist keeps
-// the URL space tight and prevents path tricks. Add new kit families here.
-const PANEL_MAKER_FAMILIES = new Set(["retro-messenger", "irc-minimal", "windows-xp"]);
+// the URL space tight and prevents path tricks. Register families in config/panels.json.
 app.get("/panel-maker/:family", (req, res) => {
   const family = String(req.params.family || "").toLowerCase();
   if (!PANEL_MAKER_FAMILIES.has(family)) {

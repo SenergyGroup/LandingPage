@@ -1,0 +1,20 @@
+[
+  {
+    "family": "retro-messenger",
+    "name": "Retro Messenger",
+    "description": "Buddy-list nostalgia for your channel. Classic gray windows, blue title bars, and playful messenger details.",
+    "aesthetic": "y2k"
+  },
+  {
+    "family": "irc-minimal",
+    "name": "IRC Minimal",
+    "description": "Make your channel feel like your favorite chat room. Dark terminal windows, pixel text, and colorful IRC accents.",
+    "aesthetic": "irc"
+  },
+  {
+    "family": "windows-xp",
+    "name": "Windows XP",
+    "description": "Bring the blue desktop era to your stream. Rounded Luna windows, familiar icons, and bright XP colors.",
+    "aesthetic": "windows"
+  }
+]
