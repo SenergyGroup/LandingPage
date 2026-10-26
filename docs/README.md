@@ -291,6 +291,9 @@ again before a separately authorized live release.
 The user approved publishing the reviewed Windows desktop storefront. Release
 preflight reconfirmed all 31 active Etsy listing IDs and USD prices against the
 authenticated listing manager with no differences. All 13 regression checks pass.
+Render's build surfaced existing dependency advisories; compatible updates to
+Express 4.22.3, body-parser 1.20.9, proxy-addr 2.0.8 and qs 6.16.1 resolve them.
+The dependency audit reports zero known vulnerabilities and all 13 checks still pass.
 The shared Stream Preview now keeps chat and goal stills visible while paused,
 after scene changes, and after minimizing/reopening; completed goals retain 50/50.
 
