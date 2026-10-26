@@ -17,7 +17,7 @@ const widgetId = 'sku-legacy-02-windowsxp';
 const kitId = 'sku-mk-kit-full';
 const kitListing = 'https://www.etsy.com/listing/4533131913/retro-bundle-streamelements-y2k-early';
 
-async function startFixture(external = false, preview = false) {
+async function startFixture(external = false, preview = false, kitMock = '') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'senergy-buyer-flow-'));
   const zips = path.join(dir, 'zips');
   fs.mkdirSync(path.join(zips, widgetId), { recursive: true });
@@ -25,7 +25,7 @@ async function startFixture(external = false, preview = false) {
   pdf.write('%PDF-1.4\n');
   fs.writeFileSync(path.join(zips, widgetId, 'guide.pdf'), pdf);
   const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/widgets.json'), 'utf8'));
-  catalog.push({ id: 'missing-file', name: 'Missing fixture', zip: 'missing.pdf' });
+  catalog.push({ id: 'missing-file', name: 'Missing fixture', zip: 'missing.pdf', freebie: false });
   fs.writeFileSync(path.join(dir, 'widgets.json'), JSON.stringify(catalog));
   let source = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
   assert.ok(source.includes('dotenv.config();'));
@@ -40,7 +40,12 @@ async function startFixture(external = false, preview = false) {
   const start = /app\.listen\(PORT, LOCAL_PREVIEW \? "127\.0\.0\.1" : undefined, \(\) => \{[\s\S]*?\}\);\s*$/;
   assert.match(source, start);
   source = source.replace(start, `
-    globalThis.fetch = () => { throw new Error('External requests blocked in tests'); };
+    const requests = [];
+    globalThis.fetch = async (url, options) => {
+      if (!${JSON.stringify(kitMock)} || url !== 'https://api.kit.com/v3/forms/fixture-form/subscribe') throw new Error('External requests blocked in tests');
+      requests.push({url, method: options.method, body: JSON.parse(options.body)});
+      return new Response(JSON.stringify(${JSON.stringify(kitMock === 'success' ? { subscription: { subscriber: { id: 12345 } } } : {})}), {status:${kitMock === 'failure' ? 503 : 200}});
+    };
     const rows = [
       ['repeat', '${widgetId}', 'confirmed'], ['abort', '${widgetId}', 'confirmed'],
       ['pending', '${widgetId}', 'pending'], ['head', '${widgetId}', 'confirmed'],
@@ -50,13 +55,13 @@ async function startFixture(external = false, preview = false) {
       db.prepare('INSERT INTO widget_claims (id,email,widget_id,status,claim_token,created_at) VALUES (?,?,?,?,?,?)')
         .run(id, 'fixture@example.invalid', widget, status, 'test-' + id, '2026-09-10T00:00:00Z');
     }
-    process.on('message', ({ id }) => process.send({ id, claim: db.prepare('SELECT status, delivered_at FROM widget_claims WHERE id = ?').get(id) }));
+    process.on('message', ({ id }) => process.send({ id, claim: id === '__requests' ? requests : id === '__claims' ? db.prepare('SELECT email, widget_id, status FROM widget_claims').all() : db.prepare('SELECT status, delivered_at FROM widget_claims WHERE id = ?').get(id) }));
     app.listen(0, '127.0.0.1', function () { process.send({ port: this.address().port }); });
   `);
   const file = path.join(dir, 'server.mjs');
   fs.writeFileSync(file, source);
   const child = fork(file, [], {
-    env: { ...process.env, LOCAL_PREVIEW: preview ? '1' : '0', DB_PATH: ':memory:', DOWNLOAD_BASE_URL: external ? 'https://downloads.example.invalid/files/' : '', KIT_API_KEY: '', KIT_FORM_ID: '', ADMIN_KEY: '' },
+    env: { ...process.env, LOCAL_PREVIEW: preview ? '1' : '0', DB_PATH: ':memory:', DOWNLOAD_BASE_URL: external ? 'https://downloads.example.invalid/files/' : '', KIT_API_KEY: kitMock ? 'fixture-key' : '', KIT_FORM_ID: kitMock ? 'fixture-form' : '', KIT_TAG_ID: '', KIT_CUSTOM_TOKEN_FIELD:'widget_claim_token', KIT_CUSTOM_WIDGET_FIELD:'widget_id', ADMIN_KEY: '' },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc']
   });
   let logs = '';
@@ -319,12 +324,108 @@ test('paid catalog matches all 31 active Etsy listings and preserves free-widget
     const response=await fetch(fixture.base+added.localImage,{method:'HEAD'});assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/^image\//);
   }
   const claim=await(await fetch(fixture.base+'/claim?embedded=1')).text();
-  assert.match(claim,/Streamlabs &amp; StreamElements/);assert.match(claim,/name="widget_id"/);assert.match(claim,/name="email"/);
+  assert.match(claim,/Works with Streamlabs or StreamElements/);assert.match(claim,/name="widget_id"/);assert.match(claim,/name="email"/);
   for(const added of audit.added)assert.ok(!claim.includes(`value="${added.sku}"`));
   for(const [route,app] of [['/claim?aesthetic=windows','free'],['/custom','custom'],['/about','about'],['/panels','panels']]){
     const shell=await(await fetch(fixture.base+route)).text();assert.ok(shell.includes(`data-initial-app="${app}"`));
     const inner=await(await fetch(fixture.base+route+(route.includes('?')?'&':'?')+'embedded=1')).text();
     assert.match(inner,/class="classic-page"/);assert.ok(!inner.includes('class="desktop-shell"'));
+  }
+});
+
+test('audit routes keep their requested tool and query parameters, with an initial iframe and no-script fallback', async t => {
+  const fixture = await startFixture(false, true); t.after(() => fixture.close());
+  const cases = [
+    ['/claim?aesthetic=windows&utm_source=audit', 'free'],
+    ['/store?type=bundle&aesthetic=windows&view=listings&utm_source=audit', 'store'],
+    ...['retro-messenger','irc-minimal','windows-xp'].map(family => [`/panel-maker/${family}?utm_source=audit`, 'panels'])
+  ];
+  for (const [route, app] of cases) {
+    const response = await fetch(fixture.base + route);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.ok(html.includes(`data-initial-app="${app}"`));
+    const inner = route.replaceAll('&','&amp;') + '&amp;embedded=1';
+    assert.ok(html.includes(`src="${inner}"`), `${route} should load the actual requested tool`);
+    assert.ok(html.includes(`href="${inner}">Open`), 'no-script link must reach content, not another shell');
+    const embedded = await fetch(fixture.base + route + '&embedded=1');
+    const content = await embedded.text();
+    assert.equal(embedded.status, 200);
+    assert.doesNotMatch(content, /class="desktop-shell"/);
+    if (app === 'free') assert.match(content, /Showing 5 of 25 widgets/);
+    if (app === 'panels') assert.match(content, /<canvas/);
+    if (app === 'store') assert.match(content, /Stream Kits & Chat Bundles/);
+  }
+  assert.equal((await fetch(fixture.base + '/panel-maker/unknown')).status, 404);
+  assert.equal((await fetch(fixture.base + '/missing-page')).status, 404);
+});
+
+test('claim cards expose verified platform metadata, primary choice controls and email selection summary', async t => {
+  const fixture = await startFixture(); t.after(() => fixture.close());
+  const html = await (await fetch(fixture.base + '/claim?embedded=1')).text();
+  const catalog = JSON.parse(fs.readFileSync(path.join(root,'config/widgets.json'),'utf8'));
+  const freebies = catalog.filter(w => w.freebie !== false);
+  assert.equal(freebies.length, 25);
+  for (const widget of freebies) {
+    assert.deepEqual(widget.claimPlatforms, ['streamlabs','streamelements']);
+    assert.ok(html.includes(`data-choose-widget="${widget.id}"`));
+    assert.ok(html.includes(`data-widget-name="${widget.name}"`));
+  }
+  assert.equal((html.match(/Works with Streamlabs or StreamElements/g)||[]).length, 25);
+  assert.match(html, /Preview on Etsy/);
+  assert.match(html, /id="claim-selection"[^>]*role="status"/);
+  assert.match(html, /Email my free widget setup guide/);
+  assert.match(html, /additional chat theme as a thank-you/);
+  assert.match(html, /src="\/public\/claim.js"/);
+  assert.match(await (await fetch(fixture.base + '/store?embedded=1')).text(), /No coding needed/);
+});
+
+const submitClaim = (fixture, body) => fetch(fixture.base + '/claim', {
+  method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+  body:new URLSearchParams(body), redirect:'manual'
+});
+
+test('claim validation rejects invalid emails and paid or missing downloads before contacting Kit', async t => {
+  const fixture = await startFixture(false, false, 'success'); t.after(() => fixture.close());
+  for (const body of [
+    {email:'',widget_id:widgetId}, {email:'invalid-email',widget_id:widgetId},
+    {email:'fixture@example.invalid',widget_id:kitId},
+    {email:'fixture@example.invalid',widget_id:'unknown'},
+    {email:'fixture@example.invalid',widget_id:'sku-legacy-01-windows95'} // no fixture PDF for this ID
+  ]) {
+    const response=await submitClaim(fixture,body);
+    assert.equal(response.status,400);
+    const html=await response.text();
+    assert.match(html,/Please choose an available free widget and enter a valid email address/);
+    if(body.widget_id===widgetId) assert.match(html, /Selected: <strong>Windows XP/);
+  }
+  assert.deepEqual(await fixture.state('__requests'),[]);
+  assert.equal((await fixture.state('__claims')).length,6);
+});
+
+test('mock Kit submission sends the selected free widget and stores a pending claim without real email', async t => {
+  const fixture = await startFixture(false,false,'success'); t.after(() => fixture.close());
+  const response=await submitClaim(fixture,{email:' fixture@example.invalid ',widget_id:widgetId});
+  assert.equal(response.status,302);
+  assert.equal(response.headers.get('location'),'/check-email?email=fixture%40example.invalid');
+  const requests=await fixture.state('__requests');
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].method,'POST');
+  assert.equal(requests[0].body.email,'fixture@example.invalid');
+  assert.equal(requests[0].body.fields.widget_id,widgetId);
+  assert.equal(requests[0].body.fields.widget_claim_token.length,24);
+  const claims=await fixture.state('__claims');
+  assert.equal(claims.length,7);
+  assert.deepEqual(claims.at(-1),{email:'fixture@example.invalid',widget_id:widgetId,status:'submitted'});
+});
+
+test('missing Kit settings and unsuccessful Kit replies never claim an email was sent', async t => {
+  for (const mode of ['', 'failure', 'empty']) {
+    const fixture=await startFixture(false,false,mode); t.after(() => fixture.close());
+    const response=await submitClaim(fixture,{email:'fixture@example.invalid',widget_id:widgetId});
+    assert.equal(response.status,502);
+    assert.match(await response.text(),/We could not send your confirmation email/);
+    assert.equal((await fixture.state('__claims')).length,6);
   }
 });
 

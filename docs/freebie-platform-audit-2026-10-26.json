@@ -1,0 +1,457 @@
+{
+  "checkedAt": "2026-10-26",
+  "method": "Read every shipped freebie PDF, extracted installation text and URI annotations; did not open install links or change platform accounts.",
+  "guides": [
+    {
+      "id": "sku-legacy-01-windows95",
+      "files": [
+        "sku-legacy-01-windows95-landing.pdf"
+      ],
+      "sha256": "7975a6db31d2088cfdfae1fc50a4898e96dc31b77df247f875eedef097b789e0",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-legacy-02-windowsxp",
+      "files": [
+        "sku-legacy-02-windowsxp-landing.pdf"
+      ],
+      "sha256": "b4749759e658510922b5453803768ef6b292ca8e1073a1de2033d39dd8a3311c",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-legacy-03-windowsvista",
+      "files": [
+        "sku-legacy-03-windowsvista-landing.pdf"
+      ],
+      "sha256": "965bc2bee178de9628d208c9c848714e0475bca59305f9b385dea410a0102d62",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-legacy-04-windows7",
+      "files": [
+        "sku-legacy-04-windows7-landing.pdf"
+      ],
+      "sha256": "75a1c88fa42516d3cd6de93c1ddb70cee9e4c7368bb92f74769877668aacd7fe",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-legacy-05-windows10",
+      "files": [
+        "sku-legacy-05-windows10-landing.pdf"
+      ],
+      "sha256": "55c9788d9ee3c98663aa149349d057259fdef2ea00b83a0ac925053cb81ba2f4",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-legacy-07-notepad",
+      "files": [
+        "sku-legacy-07-notepad-landing.pdf"
+      ],
+      "sha256": "9cfbd4d4d8b52441883c1f6bb22cca826d2b9f87e6ea6274896e4fbc06d1c14e",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-legacy-09-cyberpunk-red",
+      "files": [
+        "sku-legacy-09-cyberpunk-red-landing.pdf"
+      ],
+      "sha256": "02048a06703d80148d4b0fc9882814ea54558cf8981314beed91f76315fcdde4",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-legacy-10-cyberpunk-kabuki",
+      "files": [
+        "sku-legacy-10-cyberpunk-kabuki-landing.pdf"
+      ],
+      "sha256": "ae33ff9ad7ce30d61704e779d11b2726a885126e23bc50e33a885e47083b95c8",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-legacy-retro-os-mac",
+      "files": [
+        "sku-legacy-retro-os-mac-landing.pdf"
+      ],
+      "sha256": "5bff47b1ab66c8df7b912ab6c126b610c403ba37033998a8eeb4e4a5b2c76e23",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-legacy-16-retro-mp3",
+      "files": [
+        "sku-legacy-16-retro-mp3-landing.pdf"
+      ],
+      "sha256": "65d4646e7294e389c0cbd8a1da1966eeab0d75b3328f0d88485cf5261e2aa2aa",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-legacy-17-retro-messenger",
+      "files": [
+        "sku-legacy-17-retro-messenger-landing.pdf"
+      ],
+      "sha256": "a20d9265291206b064ad0b5d3344178ddf78df3e22e35cfcfb7aef4bffe2e39f",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.etsy.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-01-crt-terminal",
+      "files": [
+        "sku-01-crt-terminal-landing.pdf"
+      ],
+      "sha256": "329002b1f57fc16362bcea808c694fb18fceb854ab201ba0b0d7e652b1d5213b",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-02-dialup-log",
+      "files": [
+        "sku-02-dialup-log-landing.pdf"
+      ],
+      "sha256": "31033659fd1a9f88eba9507db6357cbd87d03a4875324e4acade5c9a37af5ee8",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-04-popup-stack",
+      "files": [
+        "sku-04-popup-stack-landing.pdf"
+      ],
+      "sha256": "43c6fb06453d6745f04830704f74f95958f620944c2d8b3bffefac79e91cec3c",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-05-forum-thread",
+      "files": [
+        "sku-05-forum-thread-landing.pdf"
+      ],
+      "sha256": "0d949f0b655e92735cfdf0a46d2130e686801046e573420ce02463ee03ba4ced",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-06-irc-minimal",
+      "files": [
+        "sku-06-irc-minimal-landing.pdf"
+      ],
+      "sha256": "106e9ed750edb81f7c8b4cd29bc8f870f1ac2e965b38d7b18e501e3d410413ff",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-07-retro-email",
+      "files": [
+        "sku-07-retro-email-landing.pdf"
+      ],
+      "sha256": "cd5fd05ed27de7bfd06423ce85644c530eb894aa99cf2251fb9e084f93265cdc",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-10-bios-setup-panel",
+      "files": [
+        "sku-10-bios-setup-panel-landing.pdf"
+      ],
+      "sha256": "a775a1de4d15460a982404b161aea85e034d20bedb2e4227721fc7a87d539fff",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-13-classic-file-list",
+      "files": [
+        "sku-13-classic-file-list-landing.pdf"
+      ],
+      "sha256": "634591991d274c3578a1f70bf484892800aaa8080a48467320494523699c59aa",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-14-desktop-sticky-notes",
+      "files": [
+        "sku-14-desktop-sticky-notes-landing.pdf"
+      ],
+      "sha256": "fa198c890d2ccf46cc426119e70957ea448580228001eec427ab9809e307ed77",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-19-disk-defrag-map",
+      "files": [
+        "sku-19-disk-defrag-map-landing.pdf"
+      ],
+      "sha256": "1b740261d8bfb7fc0dfba43dd832f9e5db671637ec7121db03e7b203f59878d6",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-21-cd-burning-session",
+      "files": [
+        "sku-21-cd-burning-session-landing.pdf"
+      ],
+      "sha256": "e7cc8930de553d59e58684672285037e1d834084ef7bc22e720d45810fbf726e",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-22-antivirus-scan",
+      "files": [
+        "sku-22-antivirus-scan-landing.pdf"
+      ],
+      "sha256": "16ea84c612fa9bdc96d4a0092f02a7cfa99229c9c5024ebce6140b5e8dee403e",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-23-firewall-rules-monitor",
+      "files": [
+        "sku-23-firewall-rules-monitor-landing.pdf"
+      ],
+      "sha256": "77f4b01379a4c8eb79458611c4e35998255466d58b5e9a72662da34d9b0d2475",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    },
+    {
+      "id": "sku-31-search-results",
+      "files": [
+        "sku-31-search-results-page-landing.pdf"
+      ],
+      "sha256": "9cd3678101c20e416b77c866cb1924996427e9b2b157e3ff0d1382439c2c8824",
+      "pages": 4,
+      "platforms": [
+        "streamlabs",
+        "streamelements"
+      ],
+      "domains": [
+        "overlays.batary.dev",
+        "streamlabs.com",
+        "www.senergygroup.org",
+        "www.youtube.com"
+      ]
+    }
+  ]
+}

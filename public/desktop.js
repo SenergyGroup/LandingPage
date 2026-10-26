@@ -83,7 +83,7 @@
     let route=id==='messenger'?'/looks/retro-messenger':id==='welcome'||id==='preview'?'/':id==='looks'?'/#looks':null;
     if(['store','panels','custom','free','about'].includes(id)){
       const frame=windows.get(id).element.querySelector('iframe');
-      const url=new URL(frame.getAttribute('src')||frame.dataset.src,location.origin);url.searchParams.delete('embedded');route=url.pathname+url.search+url.hash;
+      const url=new URL(frame.dataset.currentSrc||frame.getAttribute('src')||frame.dataset.src,location.origin);url.searchParams.delete('embedded');route=url.pathname+url.search+url.hash;
     }
     if(route&&location.pathname+location.search+location.hash!==route)history.pushState({desktopApp:id},'',route);
     if(route)document.title=id==='messenger'?'Retro Messenger | SenergyGroup':'SenergyGroup — Your stream, your desktop';
@@ -95,7 +95,14 @@
     if(state===windows.get('store')&&requested.pathname==='/')requested.pathname='/store';
     if(['/store','/claim','/custom','/about','/panels'].includes(requested.pathname)||requested.pathname.startsWith('/panel-maker/'))requested.searchParams.set('embedded','1');
     const wanted=requested.pathname+requested.search+requested.hash;
-    if(!frame.getAttribute('src') || (src&&frame.getAttribute('src')!==wanted))frame.src=wanted;
+    const current=frame.dataset.currentSrc||frame.getAttribute('src');
+    if(!current || (src&&current!==wanted)){
+      frame.dataset.currentSrc=wanted;
+      // The desktop owns history. Assigning iframe.src adds a second entry,
+      // leaving the outer URL and the visible tool out of sync on Back/Forward.
+      frame.contentWindow.location.replace(wanted);
+    }
+    if(!frame.dataset.currentSrc)frame.dataset.currentSrc=wanted;
   }
   function openApp(id,{focus=true,route=true,url}={}) {
     const state=windows.get(id);if(!state)return;
@@ -106,7 +113,7 @@
       const title=state.element.querySelector('.desktop-drag-handle>span').textContent;
       task.append(state.element.querySelector('.desktop-pixel').cloneNode(true));
       const label=document.createElement('span');label.textContent=title;task.append(label);task.title=title;task.setAttribute('aria-label','Switch to '+title);
-      task.addEventListener('click',()=>{if(active===id&&!state.minimized)minimize(id);else activate(id,true);});
+      task.addEventListener('click',()=>{if(active===id&&!state.minimized)minimize(id);else {activate(id,true);updateRoute(id);}});
       running.append(task);state.task=task;
     }
     setMenu(false);activate(id,focus);loadFrame(state,url);
@@ -202,7 +209,7 @@
         doc.addEventListener('pointerdown',()=>activate(id,false));
         doc.addEventListener('keydown',event=>{if(event.key==='Escape'&&!event.target.closest('input,textarea,select'))close(id);});
         doc.addEventListener('click',event=>{
-          const link=event.target.closest('a');if(!link||link.target==='_blank'||event.ctrlKey||event.metaKey)return;
+          const link=event.target.closest('a');if(!link||link.target==='_blank'||link.hasAttribute('download')||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
           const url=new URL(link.href);if(url.origin!==location.origin)return;
           const target=url.pathname.startsWith('/panel-maker/')?'panels':{'/':'store','/store':'store','/looks/retro-messenger':'messenger','/custom':'custom','/claim':'free','/panels':'panels','/about':'about'}[url.pathname];
           if(target){event.preventDefault();openApp(target,{url:url.pathname+url.search+url.hash});}
@@ -228,7 +235,7 @@
   function tick(){const now=new Date();clock.textContent=now.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});clock.dateTime=now.toISOString();clock.title=now.toLocaleDateString(undefined,{dateStyle:'full'});}
   tick();setInterval(tick,15000);applyPreferences();
   const initial=location.hash==='#looks'?'looks':shell.dataset.initialApp;
-  openApp(initial,{focus:false,route:false});
+  openApp(initial,{focus:false,route:false,url:['store','panels','custom','free','about'].includes(initial)?location.pathname+location.search+location.hash:undefined});
   const resizeObserver=new ResizeObserver(()=>{windows.forEach((state,id)=>{if(!state.rect)state.rect=initialRect(id);});sync();});
   resizeObserver.observe(workspace);
   window.addEventListener('popstate',event=>{

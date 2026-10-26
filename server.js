@@ -442,7 +442,7 @@ const renderPanelsPage = () => formatHtml(
   "Browse retro Twitch panel styles. Personalize About, Schedule, Rules, Socials, and Support panels in your browser, then download your PNGs."
 );
 
-const renderStorePage = (widgets, activeAesthetic, activeType, embedded = false, allListings = false) => {
+const renderStorePage = (widgets, activeAesthetic, activeType, embedded = false, allListings = false, sourceUrl = "/store") => {
   const published = publishedWidgets(widgets);
   const byType = activeType ? published.filter((w) => w.productType === activeType) : published;
   const matching = activeAesthetic ? byType.filter((w) => w.aesthetic === activeAesthetic) : byType;
@@ -468,12 +468,12 @@ const renderStorePage = (widgets, activeAesthetic, activeType, embedded = false,
   `;
 
   if (!embedded) {
-    return formatHtml(`Widget Store | ${BRAND_NAME}`, renderShowroomHome({widgets,addUtm:addLandingUtm,initial:'store',storeSrc:storeUrl(activeType,activeAesthetic)}));
+    return formatHtml(`Widget Store | ${BRAND_NAME}`, renderShowroomHome({widgets,addUtm:addLandingUtm,initial:'store',storeSrc:escapeHtml(sourceUrl)}));
   }
   return formatHtml(`Widget Store | ${BRAND_NAME}`, `
     <main class="catalog-app">
       <div class="catalog-address"><span>Address</span><b>C:\\SenergyGroup\\Widget Store</b><a href="/looks/retro-messenger">Preview Retro Messenger</a></div>
-      <header class="catalog-heading"><h1>${activeType === "bundle" ? "Stream Kits & Chat Bundles" : "Widget Store"}</h1><p>Pick your look. Chat widgets for Streamlabs &amp; StreamElements. Purchases and digital delivery happen on Etsy.</p><div class="catalog-summary"><b>${published.length} active Etsy listings</b><span>${groupStoreListings(published).length} products · USD prices</span><a href="/store${allListings ? '' : '?view=listings'}">${allListings ? 'Group matching listings' : 'Show all Etsy listings'}</a></div></header>
+      <header class="catalog-heading"><h1>${activeType === "bundle" ? "Stream Kits & Chat Bundles" : "Widget Store"}</h1><p>Pick your look. Chat widgets for Streamlabs &amp; StreamElements. Purchases and digital delivery happen on Etsy.</p><p><strong>No coding needed.</strong> Follow the install links in your PDF setup guide, then add the browser source to OBS.</p><div class="catalog-summary"><b>${published.length} active Etsy listings</b><span>${groupStoreListings(published).length} products · USD prices</span><a href="/store${allListings ? '' : '?view=listings'}">${allListings ? 'Group matching listings' : 'Show all Etsy listings'}</a></div></header>
       <div class="catalog-layout"><aside class="catalog-filters"><h2>Browse folders</h2>${filterBar}<hr><a class="catalog-side-link" href="/panel-maker/retro-messenger">Open Panel Maker →</a><a class="catalog-side-link" href="/custom">Custom orders →</a></aside>
       <section class="catalog-results" aria-label="Products"><div class="widget-grid">${filtered.map(w=>renderStoreCard(w,'store-cta')).join('')}</div>${filtered.length?'':'<p class="notice">No products in this style yet. <a href="/store">Browse all products</a>.</p>'}</section></div>
       <footer class="catalog-status">${filtered.length} ${filtered.length === 1 ? "item" : "items"} · Digital products · Setup guide included · Etsy opens in a new tab</footer>
@@ -704,7 +704,12 @@ const renderAboutPage = (widgets) => {
  * Claim flow (existing free-widget funnel, unchanged behavior)
  * ------------------------------------------------------------------------ */
 
-const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "") => {
+const claimPlatformLabel = (widget) => {
+  const names = { streamlabs: "Streamlabs", streamelements: "StreamElements" };
+  return (widget.claimPlatforms || []).map((platform) => names[platform]).filter(Boolean).join(" or ") || "See the setup guide for platform details";
+};
+
+const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "", selectedId = "") => {
   const claimable = freebieWidgets(allWidgets);
   const filtered = activeAesthetic
     ? claimable.filter((w) => w.aesthetic === activeAesthetic)
@@ -727,15 +732,19 @@ const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "") => {
         <a class="widget-etsy-link"
            href="${addLandingUtm(widget.etsyUrl, { slug: widget.id, content: "card-cta" })}"
            target="_blank"
-           rel="noopener noreferrer">View on Etsy &rarr;</a>`
+           rel="noopener noreferrer">Preview on Etsy &rarr;</a>`
         : "";
       return `
-      <label class="widget-card">
-        <input type="radio" name="widget_id" value="${widget.id}" required />
+      <article class="widget-card claim-widget-card">
+        <label class="widget-choice">
+        <input type="radio" name="widget_id" value="${escapeHtml(widget.id)}" data-widget-name="${escapeHtml(widget.name)}" data-widget-platforms="${escapeHtml(claimPlatformLabel(widget))}" aria-label="${escapeHtml(widget.name)}" ${selectedId === widget.id ? "checked" : ""} required />
         <div class="widget-thumbnail"><img src="${escapeHtml(widget.thumbnail)}" alt="${escapeHtml(widget.name)} preview" loading="lazy"></div>
-        <div class="widget-name">${widget.name}</div>
-        <div class="widget-desc">${widget.description}</div>${etsyLink}
-      </label>
+        <div class="widget-name">${escapeHtml(widget.name)}</div>
+        <div class="widget-desc">${escapeHtml(widget.description)}</div>
+        </label>
+        <p class="widget-platforms">Works with ${escapeHtml(claimPlatformLabel(widget))}</p>
+        <button type="button" class="primary-button claim-choose" data-choose-widget="${escapeHtml(widget.id)}" aria-label="Choose ${escapeHtml(widget.name)} as your free widget" aria-pressed="${selectedId === widget.id}">Choose this free widget</button>${etsyLink}
+      </article>
     `;
     })
     .join("\n");
@@ -746,47 +755,27 @@ const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "") => {
     ${renderHeader("claim")}
     <main class="container">
       <section class="hero">
-        <p class="eyebrow">A little something for your next stream</p>
+        <p class="eyebrow">An extra theme, with our thanks</p>
         <h1>Choose your free chat widget</h1>
-        <p class="subhead">Choose one theme for <strong>Streamlabs &amp; StreamElements</strong>. Confirm your email to get the setup guide.</p>
-        ${errorMessage ? `<p class="error">${errorMessage}</p>` : ""}
+        <p class="subhead">Pick an additional chat theme as a thank-you for joining our newsletter. Platform support is listed on each card. Confirm your email to unlock its free setup guide.</p>
+        ${errorMessage ? `<p class="error" role="alert">${escapeHtml(errorMessage)}</p>` : ""}
       </section>
       <form class="claim-form" action="/claim" method="POST">
         ${filterBar}
-        <h2 class="claim-step">1. Pick a theme</h2><div class="widget-grid">${widgetCards}</div><h2 class="claim-step">2. Send your setup guide</h2>
+        <h2 class="claim-step">1. Pick a theme</h2><div class="widget-grid">${widgetCards}</div><h2 class="claim-step">2. Get your free setup guide</h2>
         <div class="form-row" id="claim-email-section">
+          <p id="claim-selection" class="claim-selection" role="status" aria-live="polite">${selectedId ? `Selected: <strong>${escapeHtml(claimable.find((w) => w.id === selectedId)?.name || "")}</strong>` : "No widget selected yet. Choose a theme above."}</p>
           <label for="email">Email address</label>
           <input id="email" name="email" type="email" placeholder="you@example.com" required />
         </div>
-        <button type="submit" class="primary-button" ${LOCAL_PREVIEW ? 'disabled' : ''}>Send me my widget</button>${LOCAL_PREVIEW ? '<p class="local-form-note">Email sending is off in this local preview. You can still browse and select a theme.</p>' : ''}
+        <button type="submit" class="primary-button" ${LOCAL_PREVIEW ? 'disabled' : ''}>Email my free widget setup guide</button>${LOCAL_PREVIEW ? '<p class="local-form-note">Email sending is off in this local preview. You can still browse and select a theme.</p>' : ''}
         <p class="microcopy">By claiming your widget, you agree to join the SenergyGroup newsletter.
           We'll send you monthly widget drops and community votes.
           No spam. Unsubscribe with one click at any time.</p>
       </form>
     </main>
     ${renderFooter()}
-    <script>
-      // When a visitor picks a widget, glide down to the email field so it's
-      // obvious they still need to enter an email and hit "Send me my widget".
-      (function () {
-        var form = document.querySelector(".claim-form");
-        if (!form) return;
-        var emailSection = document.getElementById("claim-email-section");
-        var emailInput = document.getElementById("email");
-        form.addEventListener("change", function (event) {
-          if (!event.target || event.target.name !== "widget_id") return;
-          if (emailSection && emailSection.scrollIntoView) {
-            emailSection.scrollIntoView({ behavior: "smooth", block: "center" });
-          }
-          if (emailInput) {
-            setTimeout(function () {
-              try { emailInput.focus({ preventScroll: true }); }
-              catch (err) { emailInput.focus(); }
-            }, 450);
-          }
-        });
-      })();
-    </script>
+    <script src="/public/claim.js" defer></script>
   `
   );
 };
@@ -835,7 +824,7 @@ const renderConfirmedPage = (claim, widget) =>
         </div>
 
         <div class="install-notes-callout">
-          <h4>Streamlabs &amp; StreamElements setup</h4>
+          <h4>${escapeHtml(claimPlatformLabel(widget))} setup</h4>
           <p>Use the platform-specific installation steps in your PDF guide. Configure Streamlabs Chat Box or your StreamElements widget in your <strong>browser</strong>, then add its browser source to OBS.</p>
         </div>
 
@@ -888,7 +877,7 @@ const customRateLimitReached = (ipHash) => {
 const createOrUpdateSubscriber = async ({ email, token, widgetId }) => {
   if (!KIT_API_KEY || !KIT_FORM_ID) {
     console.error("Missing Kit Credentials in .env");
-    return null; // Return null instead of an object to make the next part easier
+    throw new Error("Kit confirmation is not configured");
   }
 
   const payload = {
@@ -923,6 +912,7 @@ const createOrUpdateSubscriber = async ({ email, token, widgetId }) => {
     console.log(`--- Kit Success ---`);
     console.log(`Subscriber: ${email} | Captured Kit ID: ${kitId}`);
 
+    if (!kitId) throw new Error("Kit did not return a subscriber ID");
     return kitId;
   } catch (error) {
     console.error("Network or Kit Error:", error.message);
@@ -949,7 +939,7 @@ app.get("/looks/retro-messenger", (req, res) => {
 app.get("/store", (req, res) => {
   const aesthetic = typeof req.query.aesthetic === "string" ? req.query.aesthetic : null;
   const type = ["bundle", "chat"].includes(req.query.type) ? req.query.type : null;
-  res.send(renderStorePage(loadWidgets(), aesthetic, type, req.query.embedded === "1", req.query.view === "listings"));
+  res.send(renderStorePage(loadWidgets(), aesthetic, type, req.query.embedded === "1", req.query.view === "listings", req.originalUrl));
 });
 
 const renderUtilityPage = (req, initial, sourceKey, renderContent) => {
@@ -1069,17 +1059,18 @@ app.get("/admin/requests", (req, res) => {
 
 app.get("/claim", (req, res) => {
   const widgets = loadWidgets();
-  const aesthetic = req.query.aesthetic || null;
+  const aesthetic = typeof req.query.aesthetic === "string" ? req.query.aesthetic : null;
   res.send(renderUtilityPage(req,'free','freeSrc',()=>renderClaimPage(widgets,aesthetic)));
 });
 
 app.post("/claim", async (req, res) => {
-  const { email, widget_id: widgetId } = req.body;
+  const email = typeof req.body.email === "string" ? req.body.email.trim() : "";
+  const widgetId = typeof req.body.widget_id === "string" ? req.body.widget_id : "";
   const widgets = loadWidgets();
   const widget = findWidget(widgets, widgetId);
 
-  if (!email || !widget) {
-    res.status(400).send(renderClaimPage(widgets, null, "Please choose a widget and enter an email."));
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !widget || widget.freebie === false || !widget.downloadAvailable) {
+    res.status(400).send(renderClaimPage(widgets, null, "Please choose an available free widget and enter a valid email address.", widget && widget.freebie !== false ? widget.id : ""));
     return;
   }
 
@@ -1243,7 +1234,7 @@ app.get("/panel-maker/:family", (req, res) => {
     return;
   }
   if (req.query.embedded !== "1") {
-    return res.send(formatHtml(`Panel Maker | ${BRAND_NAME}`, renderShowroomHome({widgets:loadWidgets(),addUtm:addLandingUtm,initial:'panels',panelSrc:`/panel-maker/${family}`})));
+    return res.send(formatHtml(`Panel Maker | ${BRAND_NAME}`, renderShowroomHome({widgets:loadWidgets(),addUtm:addLandingUtm,initial:'panels',panelSrc:escapeHtml(req.originalUrl)})));
   }
   let html = fs.readFileSync(path.join(ASSETS_DIR, "panel-makers", `${family}.html`), 'utf8');
   html = html.replace('</head>', '<link rel="stylesheet" href="/public/shop-app.css"><script src="/public/image-preview.js" defer></script></head>').replace('<body>', `<body class="panel-maker-app" data-panel-family="${family}">`);

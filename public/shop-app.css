@@ -28,3 +28,12 @@ body.classic-page{--chrome:#c0c0c0;--navy:#000080;--title-a:#000080;--title-b:#0
 .panel-maker-app[data-panel-family=irc-minimal]>.win{margin:12px;max-width:1200px}.panel-maker-app .panel-app-toolbar{max-width:none;margin:0}.panel-maker-app .panel-enlarge{display:block;width:100%}
 @media(max-width:700px){.panel-maker-app[data-panel-family=irc-minimal]>.win{margin:8px}.panel-maker-app[data-panel-family=irc-minimal] .main{padding:8px}.panel-maker-app[data-panel-family=irc-minimal] .actual{display:none}.panel-maker-app[data-panel-family=irc-minimal] .pvbox{padding:3px}.panel-maker-app[data-panel-family=irc-minimal] #cv{margin:0}.panel-maker-app .panel-app-toolbar{padding:9px}}
 @media(max-width:700px){.panel-maker-app[data-panel-family=irc-minimal] #cv{display:block!important;width:320px;height:100px}}
+
+/* Keep selection separate from the optional Etsy preview link. */
+.claim-widget-card .widget-choice{display:flex;flex-direction:column;gap:8px;cursor:pointer}
+.classic-page .claim-widget-card .widget-platforms{font:11px/1.5 Tahoma,Arial,sans-serif;margin:0;padding:0 5px}
+.classic-page .claim-widget-card .claim-choose{margin:4px;min-height:42px}
+.classic-page .claim-widget-card .claim-choose[aria-pressed=true]{background:#000080;color:#fff;box-shadow:var(--bevel-in)}
+.classic-page .claim-widget-card .widget-etsy-link{margin:0 4px 4px;align-self:center}
+.claim-widget-card:focus-within{outline:2px dotted #000080;outline-offset:2px}
+.classic-page .claim-selection{padding:10px;background:#fff;box-shadow:var(--bevel-in);overflow-wrap:anywhere}

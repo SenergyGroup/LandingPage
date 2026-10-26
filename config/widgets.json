@@ -60,7 +60,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4428923358",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-legacy-02-windowsxp",
@@ -77,7 +81,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4429737565",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-legacy-03-windowsvista",
@@ -94,7 +102,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4429739383",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-legacy-04-windows7",
@@ -111,7 +123,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4429747082",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-legacy-05-windows10",
@@ -128,7 +144,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4429748726",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-legacy-07-notepad",
@@ -145,7 +165,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "1638565288",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-legacy-09-cyberpunk-red",
@@ -158,7 +182,11 @@
     "price": 9.99,
     "etsyUrl": null,
     "publishedAt": null,
-    "freebie": true
+    "freebie": true,
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-legacy-10-cyberpunk-kabuki",
@@ -171,7 +199,11 @@
     "price": 9.99,
     "etsyUrl": null,
     "publishedAt": null,
-    "freebie": true
+    "freebie": true,
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-legacy-11-trauma-team",
@@ -244,7 +276,11 @@
     "price": 9.99,
     "etsyUrl": null,
     "publishedAt": null,
-    "freebie": true
+    "freebie": true,
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-legacy-16-retro-mp3",
@@ -261,7 +297,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4469407947",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-legacy-17-retro-messenger",
@@ -277,7 +317,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4469875012",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-01-crt-terminal",
@@ -293,7 +337,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4472519860",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-02-dialup-log",
@@ -307,7 +355,11 @@
     "publishedAt": "2026-04-13",
     "image": "https://i.etsystatic.com/46135568/r/il/2cad37/7851262826/il_fullxfull.7851262826_3yav.jpg",
     "freebie": true,
-    "storeActive": false
+    "storeActive": false,
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-04-popup-stack",
@@ -323,7 +375,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4487982773",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-05-forum-thread",
@@ -339,7 +395,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4472605740",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-06-irc-minimal",
@@ -355,7 +415,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4473131682",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-07-retro-email",
@@ -371,7 +435,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4473110841",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-10-bios-setup-panel",
@@ -385,7 +453,11 @@
     "publishedAt": "2026-04-13",
     "image": "https://i.etsystatic.com/46135568/r/il/9966b5/7890002471/il_fullxfull.7890002471_gtlv.jpg",
     "freebie": true,
-    "storeActive": false
+    "storeActive": false,
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-13-classic-file-list",
@@ -399,7 +471,11 @@
     "publishedAt": "2026-04-13",
     "image": "https://i.etsystatic.com/46135568/r/il/4b1325/7890046867/il_fullxfull.7890046867_mplp.jpg",
     "freebie": true,
-    "storeActive": false
+    "storeActive": false,
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-14-desktop-sticky-notes",
@@ -415,7 +491,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4478873037",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-19-disk-defrag-map",
@@ -431,7 +511,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4478883370",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-21-cd-burning-session",
@@ -445,7 +529,11 @@
     "publishedAt": "2026-04-13",
     "image": "https://i.etsystatic.com/46135568/r/il/19a0b7/7850801818/il_fullxfull.7850801818_gakx.jpg",
     "freebie": true,
-    "storeActive": false
+    "storeActive": false,
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-22-antivirus-scan",
@@ -459,7 +547,11 @@
     "publishedAt": "2026-04-13",
     "image": "https://i.etsystatic.com/46135568/r/il/234ccb/7898784045/il_fullxfull.7898784045_cped.jpg",
     "freebie": true,
-    "storeActive": false
+    "storeActive": false,
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-23-firewall-rules-monitor",
@@ -473,7 +565,11 @@
     "publishedAt": "2026-04-19",
     "image": "https://i.etsystatic.com/46135568/r/il/73147d/7851229352/il_fullxfull.7851229352_5c6f.jpg",
     "freebie": true,
-    "storeActive": false
+    "storeActive": false,
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-31-search-results",
@@ -489,7 +585,11 @@
     "freebie": true,
     "storeActive": true,
     "etsyListingId": "4526509394",
-    "etsyVerifiedAt": "2026-10-25"
+    "etsyVerifiedAt": "2026-10-25",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ]
   },
   {
     "id": "sku-radar-generic-1990s-video-rental-store-checkout-membership-terminal",
