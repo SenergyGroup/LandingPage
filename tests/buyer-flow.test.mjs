@@ -17,7 +17,7 @@ const widgetId = 'sku-legacy-02-windowsxp';
 const kitId = 'sku-mk-kit-full';
 const kitListing = 'https://www.etsy.com/listing/4533131913/retro-bundle-streamelements-y2k-early';
 
-async function startFixture(external = false) {
+async function startFixture(external = false, preview = false) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'senergy-buyer-flow-'));
   const zips = path.join(dir, 'zips');
   fs.mkdirSync(path.join(zips, widgetId), { recursive: true });
@@ -30,13 +30,14 @@ async function startFixture(external = false) {
   let source = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
   assert.ok(source.includes('dotenv.config();'));
   source = source.replace('dotenv.config();', '/* Tests never load production secrets. */');
+  source = source.replace('from "./showroom.mjs"', `from ${JSON.stringify(pathToFileURL(path.join(root, 'showroom.mjs')).href)}`);
   source = source.replace('const __dirname = path.dirname(__filename);', `const __dirname = ${JSON.stringify(root)};`);
   source = source.replace('const WIDGETS_PATH = path.join(__dirname, "config", "widgets.json");', `const WIDGETS_PATH = ${JSON.stringify(path.join(dir, 'widgets.json'))};`);
   source = source.replace('const ZIPS_ROOT = path.join(__dirname, "assets", "zips");', `const ZIPS_ROOT = ${JSON.stringify(zips)};`);
   for (const name of ['dotenv', 'express', 'better-sqlite3', 'nanoid']) {
     source = source.replace(`from "${name}"`, `from ${JSON.stringify(pathToFileURL(require.resolve(name)).href)}`);
   }
-  const start = /app\.listen\(PORT, \(\) => \{[\s\S]*?\}\);\s*$/;
+  const start = /app\.listen\(PORT, LOCAL_PREVIEW \? "127\.0\.0\.1" : undefined, \(\) => \{[\s\S]*?\}\);\s*$/;
   assert.match(source, start);
   source = source.replace(start, `
     globalThis.fetch = () => { throw new Error('External requests blocked in tests'); };
@@ -55,7 +56,7 @@ async function startFixture(external = false) {
   const file = path.join(dir, 'server.mjs');
   fs.writeFileSync(file, source);
   const child = fork(file, [], {
-    env: { ...process.env, DB_PATH: ':memory:', DOWNLOAD_BASE_URL: external ? 'https://downloads.example.invalid/files/' : '', KIT_API_KEY: '', KIT_FORM_ID: '', ADMIN_KEY: '' },
+    env: { ...process.env, LOCAL_PREVIEW: preview ? '1' : '0', DB_PATH: ':memory:', DOWNLOAD_BASE_URL: external ? 'https://downloads.example.invalid/files/' : '', KIT_API_KEY: '', KIT_FORM_ID: '', ADMIN_KEY: '' },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc']
   });
   let logs = '';
@@ -157,28 +158,29 @@ test('local PDF access survives repeat downloads, confirmation return, and inter
   await t.test('homepage and kit category lead to the live paid kit, excluded from freebies', async () => {
     const home = await (await fetch(fixture.base)).text();
     assert.match(home, /href="\/store\?type=bundle"[^]*?Full Stream Kits/);
-    assert.ok(home.indexOf(`id="${kitId}"`) < home.indexOf('id="sku-31-search-results"'));
-    const store = await (await fetch(`${fixture.base}/store?type=bundle`)).text();
-    assert.match(store, /<h1>Ready-made Stream Kits<\/h1>/);
+    assert.match(home, /href="\/looks\/retro-messenger"/);
+    assert.match(home, /Make your stream your own/);
+    const store = await (await fetch(`${fixture.base}/store?type=bundle&embedded=1`)).text();
+    assert.match(store, /<h1>Stream Kits & Chat Bundles<\/h1>/);
     assert.match(store, /\$29\.99/);
     assert.ok(store.includes(kitListing + '?utm_source=senergy-landing'));
     assert.match(store, /Chat supports Streamlabs or StreamElements/);
     assert.match(store, /type=bundle&amp;aesthetic=y2k/);
-    assert.equal((store.match(/class="widget-card store-card kit-store-card"/g) || []).length, 3);
+    assert.equal((store.match(/class="widget-card store-card kit-store-card"/g) || []).length, 4);
     assert.ok(store.includes('https://www.etsy.com/listing/4572959296/win95-retro-stream-kit-overlays-for?utm_source=senergy-landing'));
     const xpCard = store.slice(store.indexOf('id="sku-xp-kit-full"'), store.indexOf('id="sku-w95-kit-full"'));
     assert.ok(xpCard.includes('https://www.etsy.com/listing/4573470064/xp-inspired-stream-kit-for-twitch-8?utm_source=senergy-landing'));
     assert.match(xpCard, /Buy on Etsy/);
     assert.doesNotMatch(xpCard, /Visit Etsy shop|Etsy listing coming soon/);
-    const claim = await (await fetch(`${fixture.base}/claim`)).text();
+    const claim = await (await fetch(`${fixture.base}/claim?embedded=1`)).text();
     assert.ok(!claim.includes(`value="${kitId}"`));
     assert.ok(!claim.includes('value="sku-xp-kit-full"'));
     assert.ok(!claim.includes('value="sku-w95-kit-full"'));
-    const chat = await (await fetch(`${fixture.base}/store?type=chat`)).text();
+    const chat = await (await fetch(`${fixture.base}/store?type=chat&embedded=1`)).text();
     assert.ok(!chat.includes(`id="${kitId}"`));
     assert.ok(!chat.includes('id="sku-xp-kit-full"'));
     assert.ok(!chat.includes('id="sku-w95-kit-full"'));
-    const windows = await (await fetch(`${fixture.base}/store?type=bundle&aesthetic=windows`)).text();
+    const windows = await (await fetch(`${fixture.base}/store?type=bundle&aesthetic=windows&embedded=1`)).text();
     assert.ok(windows.includes('id="sku-xp-kit-full"'));
     assert.ok(windows.includes('id="sku-w95-kit-full"'));
     assert.ok(!windows.includes(`id="${kitId}"`));
@@ -198,4 +200,148 @@ test('external download redirects stay reusable without claiming a completed tra
   assert.equal((await fetch(`${fixture.base}/confirmed?token=test-repeat`)).status, 200);
   assert.equal((await fetch(`${fixture.base}/download/test-repeat`, { redirect: 'manual' })).status, 302);
   assert.equal((await fetch(`${fixture.base}/download/test-pending`)).status, 403);
+});
+
+test('Messenger showroom routes, assets and exact checkout destinations work', async t => {
+  const fixture = await startFixture();
+  t.after(() => fixture.close());
+  const home = await (await fetch(fixture.base)).text();
+  const response = await fetch(`${fixture.base}/looks/retro-messenger`);
+  assert.equal(response.status, 200);
+  const look = await response.text();
+  for (const page of [home, look]) {
+    assert.match(page, /data-mode-choice="plain"/);
+    assert.match(page, /data-mode-choice="chat"/);
+    assert.match(page, /data-mode-choice="kit"/);
+    assert.match(page, /data-mode-choice="alert"/);
+    assert.match(page, /data-mode-choice="goal"/);
+    assert.match(page, /data-fire-alert="follow"/);
+    assert.match(page, /data-scene-choice="starting"/);
+    assert.match(page, /pixabay-pacman-7024232.png/);
+    assert.doesNotMatch(page, /quiet-quest.svg|sg-desktop-detail|sg-desktop-taskbar/);
+    assert.match(page, /href="\/panel-maker\/retro-messenger"/);
+    // Every local link target, image, script and stylesheet resolves.
+    const paths = [...new Set([...page.matchAll(/(?:href|src)="(\/[^"#]*)(?:#[^"]*)?"/g)].map(m=>m[1].replaceAll('&amp;','&')))];
+    for (const url of paths) {
+      assert.equal((await fetch(`${fixture.base}${url}`, {method:'HEAD'})).status, 200, url);
+    }
+  }
+  assert.equal((look.match(/data-part="/g)||[]).length,8);
+  assert.equal((look.match(/data-messenger-tab="/g)||[]).length,3);
+  assert.match(home, /data-initial-app="store"/);
+  assert.match(look, /data-initial-app="messenger"/);
+  assert.match(home, /aria-label="Desktop taskbar"/);
+  const links = [...look.matchAll(/data-product-id="([^"]+)" href="([^"]+)"/g)];
+  assert.equal(links.length,2);
+  const expected = { 'sku-legacy-17-retro-messenger':'/listing/4469875012/', 'sku-mk-kit-full':'/listing/4533131913/' };
+  for (const [,id,href] of links) {
+    const url = new URL(href.replaceAll('&amp;','&'));
+    assert.equal(url.hostname,'www.etsy.com');
+    assert.ok(url.pathname.startsWith(expected[id]));
+    assert.equal(url.searchParams.get('utm_campaign'),id);
+    assert.equal(url.searchParams.get('utm_source'),'senergy-landing');
+  }
+  assert.match(look, /Other live kit components use StreamElements with OBS/);
+  assert.doesNotMatch(look, /youtube\.com|youtu\.be|assets\/zips/);
+  assert.equal((await fetch(`${fixture.base}/looks/not-a-look`)).status,404);
+});
+
+test('local preview cannot send forms, mutate claims, expose downloads or load analytics', async t => {
+  const fixture = await startFixture(false,true);
+  t.after(() => fixture.close());
+  for (const url of ['/', '/looks/retro-messenger','/store','/claim','/custom','/panels']) {
+    const response = await fetch(`${fixture.base}${url}`);
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get('x-robots-tag'),'noindex, nofollow');
+    const html=await response.text();
+    assert.match(html,/LOCAL PREVIEW/);
+    assert.doesNotMatch(html,/googletagmanager|gtag\('config'/);
+  }
+  for (const url of ['/claim','/custom']) {
+    const response=await fetch(`${fixture.base}${url}`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'email=fixture%40example.invalid'});
+    assert.equal(response.status,403);
+    assert.match(await response.text(),/No request was sent/);
+  }
+  for (const url of ['/confirmed?token=test-repeat','/download/test-repeat','/admin/requests','/Confirmed?token=test-repeat','/ADMIN/requests']) {
+    assert.equal((await fetch(`${fixture.base}${url}`)).status,403);
+  }
+  assert.deepEqual(await fixture.state('repeat'),{status:'confirmed',delivered_at:null});
+});
+
+
+test('store and Panel Maker have desktop entry routes and working embedded tools', async t => {
+  const fixture=await startFixture(false,true);t.after(()=>fixture.close());
+  for(const [route,app] of [['/store?type=bundle','store'],['/panel-maker/retro-messenger','panels']]){
+    const html=await(await fetch(fixture.base+route)).text();
+    assert.ok(html.includes(`data-initial-app="${app}"`));
+    assert.match(html,/desktop-icon-drag.js/);
+  }
+  const store=await(await fetch(fixture.base+'/store?type=bundle&embedded=1')).text();
+  assert.match(store,/class="catalog-app"/);assert.match(store,/shop-app.css/);
+  assert.equal((store.match(/class="widget-card store-card kit-store-card"/g)||[]).length,4);
+  const maker=await(await fetch(fixture.base+'/panel-maker/retro-messenger?embedded=1')).text();
+  assert.match(maker,/class="panel-maker-app"/);assert.match(maker,/shop-app.css/);
+  assert.match(maker,/id="dlOne"/);assert.match(maker,/id="cv"/);assert.match(maker,/id="sn"/);
+  assert.match(maker,/panel-maker-kit/);assert.match(maker,/listing\/4533131913\//);
+  for(const family of ['retro-messenger','windows-xp','irc-minimal']){
+    const editor=await(await fetch(fixture.base+'/panel-maker/'+family+'?embedded=1')).text();
+    assert.ok(editor.includes('data-panel-family="'+family+'"'));
+    assert.match(editor,/class="panel-app-toolbar"/);assert.match(editor,/href="\/store">Widget Store/);
+    assert.match(editor,/id="cv"/);assert.match(editor,/id="dlOne"/);
+  }
+  assert.equal((await fetch(fixture.base+'/panel-maker/not-a-family?embedded=1')).status,404);
+});
+
+
+test('paid catalog matches all 31 active Etsy listings and preserves free-widget eligibility', async t => {
+  const fixture=await startFixture(false,true);t.after(()=>fixture.close());
+  const audit=JSON.parse(fs.readFileSync(path.join(root,'docs/etsy-catalog-audit-2026-10-25.json'),'utf8'));
+  const entries=JSON.parse(fs.readFileSync(path.join(root,'config/widgets.json'),'utf8'));
+  const active=entries.filter(w=>w.etsyUrl&&w.storeActive!==false);
+  assert.equal(active.length,31);
+  assert.deepEqual(active.map(w=>w.etsyListingId).sort(),audit.listings.map(w=>w.id).sort());
+  const all=await(await fetch(fixture.base+'/store?view=listings&embedded=1')).text();
+  assert.equal((all.match(/class="widget-card store-card/g)||[]).length,31);
+  for(const listing of audit.listings){
+    const entry=active.find(w=>w.etsyListingId===listing.id);
+    assert.equal(entry.price,listing.price,listing.title);
+    const card=all.slice(all.indexOf(`id="${entry.id}"`)).split('class="widget-card store-card')[0];
+    assert.ok(card.includes('/listing/'+listing.id+'/'),entry.id);
+    assert.ok(card.includes('$'+listing.price.toFixed(2)),entry.id);
+  }
+  const grouped=await(await fetch(fixture.base+'/store?embedded=1')).text();
+  assert.equal((grouped.match(/class="widget-card store-card/g)||[]).length,28);
+  assert.match(grouped,/Buy once: every listing includes all four themes/);
+  for(const listing of audit.listings)assert.ok(grouped.includes('/listing/'+listing.id+'/'),listing.id);
+  for(const removed of audit.removedFromPaidStore){assert.ok(!grouped.includes('/listing/'+removed.id+'/'));assert.ok(entries.find(w=>w.id===removed.sku));}
+  for(const added of audit.added){
+    assert.equal(entries.find(w=>w.id===added.sku).freebie,false);
+    const response=await fetch(fixture.base+added.localImage,{method:'HEAD'});assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/^image\//);
+  }
+  const claim=await(await fetch(fixture.base+'/claim?embedded=1')).text();
+  assert.match(claim,/Streamlabs &amp; StreamElements/);assert.match(claim,/name="widget_id"/);assert.match(claim,/name="email"/);
+  for(const added of audit.added)assert.ok(!claim.includes(`value="${added.sku}"`));
+  for(const [route,app] of [['/claim?aesthetic=windows','free'],['/custom','custom'],['/about','about'],['/panels','panels']]){
+    const shell=await(await fetch(fixture.base+route)).text();assert.ok(shell.includes(`data-initial-app="${app}"`));
+    const inner=await(await fetch(fixture.base+route+(route.includes('?')?'&':'?')+'embedded=1')).text();
+    assert.match(inner,/class="classic-page"/);assert.ok(!inner.includes('class="desktop-shell"'));
+  }
+});
+
+test('icon grid prevents collisions when dropping onto occupied cells and resizing', async () => {
+  const {makeIconGrid,cellPoint,cellKey,arrangeIcons,nearestFreeCell}=await import('../public/desktop-grid.js');
+  const ids=Array.from({length:11},(_,i)=>'icon-'+i);
+  let saved=Object.fromEntries(ids.map(id=>[id,{col:99,row:99}]));
+  for(const [width,height] of [[1440,850],[390,740],[320,450],[844,260],[240,160],[1440,850]]){
+    const grid=makeIconGrid(width,height,ids.length);
+    const positions=arrangeIcons(ids,saved,grid,width<=640?3:2);
+    assert.equal(new Set(Object.values(positions).map(cellKey)).size,ids.length,`${width}x${height}`);
+    const points=Object.values(positions).map(cell=>cellPoint(cell,grid));
+    for(let i=0;i<points.length;i++)for(let j=i+1;j<points.length;j++)assert.ok(Math.abs(points[i].x-points[j].x)>=78||Math.abs(points[i].y-points[j].y)>=86);
+    const occupied=new Set(ids.slice(1).map(id=>cellKey(positions[id])));
+    const target=nearestFreeCell(cellPoint(positions[ids[1]],grid),occupied,grid);
+    assert.ok(target);assert.ok(!occupied.has(cellKey(target)));
+    assert.ok(target.col>=0&&target.col<grid.columns&&target.row>=0&&target.row<grid.rows);
+    saved=positions;
+  }
 });

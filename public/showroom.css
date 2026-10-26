@@ -1,0 +1,35 @@
+/* The comparison stage contains only actual product media and the supplied stock image. */
+.sg-demo{padding:5px;background:#c0c0c0}
+.sg-demo-intro{display:flex;justify-content:space-between;gap:12px;padding:6px 4px 10px;font:12px/1.5 Tahoma,Arial,sans-serif}.sg-demo-intro span{font-size:11px;color:#444}
+.sg-demo-toolbar{display:flex;flex-wrap:wrap;gap:4px;padding:4px 0 8px}
+.sg-demo-toolbar button,.sg-small-button{font:12px Tahoma,Arial,sans-serif;border:0;background:#c0c0c0;color:#000;box-shadow:inset -1px -1px #000,inset 1px 1px #fff,inset -2px -2px #808080;min-height:31px;padding:6px 11px;cursor:pointer}
+.sg-demo-toolbar button[aria-pressed=true],.sg-scene-controls button[aria-pressed=true]{box-shadow:inset 1px 1px #000,inset -1px -1px #fff,inset 2px 2px #808080;background:#dfdfdf;font-weight:bold}
+.sg-stage{aspect-ratio:16/9;width:100%;position:relative;overflow:hidden;background:#008080;isolation:isolate}
+.sg-game-area{position:absolute;left:3%;top:19%;width:61%;height:61%;overflow:hidden;background:#101014}
+.sg-landscape{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.sg-frame-layer{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;display:none}
+.sg-demo[data-mode=kit] .sg-frame-layer{display:block}.sg-demo[data-mode=kit] .sg-landscape{inset:6% 1.2% 5%;width:97.6%;height:89%}
+.sg-product-chat,.sg-plain-chat{position:absolute;right:2%;top:3%;width:32%;height:94%;z-index:2}
+.sg-product-chat video{display:block;width:100%;height:100%;object-fit:fill;background:transparent}
+.sg-plain-chat{background:#16191f;color:#e4e4eb;padding:3%;font:clamp(7px,1vw,13px)/1.6 Tahoma,sans-serif;overflow:hidden}.sg-plain-chat>span{font-size:.9em;color:#9b9ba9;font-weight:bold}.sg-plain-chat p{font-size:inherit!important;margin:1.3em 0!important;line-height:1.5!important}.sg-plain-chat b{color:#b1a5ff;display:block}
+.sg-alert-layer{position:absolute;left:8%;top:0;width:50%;height:19%;display:grid;place-items:center;z-index:3}.sg-alert-layer img{max-width:88%;max-height:84%;object-fit:contain}.sg-alert-layer video{width:100%;height:100%;object-fit:contain}
+.sg-goal-layer{position:absolute;left:3%;bottom:2.8%;width:61%;height:16%;object-fit:fill;z-index:3;background:transparent}
+.sg-scene-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#008080;z-index:5}
+.sg-demo[data-scene]:not([data-scene=live]) .sg-stage>:not(.sg-scene-video){visibility:hidden}
+.sg-demo:not([data-mode=kit]) .sg-stage{background:#21232c}
+.sg-demo[data-mode=plain] :is(.sg-product-chat,.sg-alert-layer,.sg-goal-layer),.sg-demo[data-mode=chat] :is(.sg-plain-chat,.sg-alert-layer,.sg-goal-layer),.sg-demo[data-mode=alert] :is(.sg-product-chat,.sg-goal-layer),.sg-demo[data-mode=goal] :is(.sg-product-chat,.sg-alert-layer),.sg-demo[data-mode=kit] .sg-plain-chat{display:none}
+.sg-stage[data-zoom=true] :is(.sg-game-area,.sg-plain-chat,.sg-alert-layer,.sg-goal-layer,.sg-event-indicator){visibility:hidden}
+.sg-stage[data-zoom=true] .sg-product-chat{width:32%;height:94%;top:3%;right:34%;transform:scale(1);filter:drop-shadow(5px 5px #0004)}
+.sg-event-indicator{position:absolute;left:4%;bottom:.25%;font:8px/1.3 Tahoma;color:#fff;z-index:4;white-space:nowrap;text-shadow:1px 1px #000}
+.sg-demo-actions,.sg-scene-controls{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:8px 1px 0}
+.sg-scene-controls{padding-bottom:8px;border-bottom:1px solid #808080}.sg-scene-controls>span{font:11px Tahoma;margin-right:3px}
+.sg-demo-caption{font:11px/1.5 Tahoma;margin:8px 3px 4px!important}.sg-demo-note{font:9px/1.5 Tahoma;margin:0 3px 4px!important;color:#444}.sg-demo-note a{color:#000080}
+.sg-alert-layer img,.sg-alert-layer video{position:absolute;inset:0;min-width:0;min-height:0}
+.sg-goal-layer{height:auto;aspect-ratio:680/114}
+.sg-small-button:disabled{color:#777!important;text-shadow:1px 1px #fff;cursor:default!important}.sg-demo [hidden]{display:none!important}
+@media(max-width:640px){.sg-demo-intro{display:block}.sg-demo-intro span{display:block;margin-top:3px}.sg-demo-toolbar button{flex:1;font-size:10px!important;padding:7px 4px!important}.sg-demo-actions .sg-small-button{flex:1 1 27%;font-size:10px!important;padding:6px!important}.sg-scene-controls>span{flex-basis:100%}.sg-scene-controls button{flex:1;font-size:9px!important;padding:6px 4px!important}.sg-demo .sg-event-indicator{font-size:5px}.sg-demo .sg-demo-caption{font-size:11px}.sg-demo .sg-demo-note{font-size:9px}}
+
+/* Persistent product stills cover paused or unavailable video surfaces. */
+.sg-product-chat>video,.sg-goal-layer>video,.sg-preview-still{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:fill}
+.sg-preview-still{z-index:1;pointer-events:none}.sg-media-playing>.sg-preview-still{visibility:hidden}
+.desktop-shell .sg-stage[data-zoom=true] .sg-product-chat>.sg-preview-still{height:auto}

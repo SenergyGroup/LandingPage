@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
+    "preview": "node scripts/preview.mjs",
     "test": "node --test tests/buyer-flow.test.mjs"
   },
   "dependencies": {

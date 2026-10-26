@@ -6,15 +6,19 @@ import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
 import { nanoid } from "nanoid";
 import fs from "fs";
+import { renderShowroomHome, renderMessengerLook } from "./showroom.mjs";
 
-dotenv.config();
+const LOCAL_PREVIEW = process.env.LOCAL_PREVIEW === "1";
+if (!LOCAL_PREVIEW) {
+  dotenv.config();
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, "data.sqlite");
+const DB_PATH = LOCAL_PREVIEW ? ":memory:" : (process.env.DB_PATH || path.join(__dirname, "data.sqlite"));
 const WIDGETS_PATH = path.join(__dirname, "config", "widgets.json");
 const ASSETS_DIR = path.join(__dirname, "public");
 const ZIPS_ROOT = path.join(__dirname, "assets", "zips");
@@ -85,6 +89,17 @@ db.exec(`
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use("/public", express.static(ASSETS_DIR));
+
+// Browsing preview never changes subscriber records, sends email or opens private files.
+if (LOCAL_PREVIEW) {
+  app.use((req, res, next) => {
+    res.set("X-Robots-Tag", "noindex, nofollow");
+    if ((req.method !== "GET" && req.method !== "HEAD") || /^\/(confirmed|download|admin)(\/|$)/i.test(req.path)) {
+      return res.status(403).send(formatHtml("Local preview", `${renderHeader()}<main class="container"><h1>Local preview only</h1><p>Forms and downloads are disabled here. No request was sent.</p><p><a href="/">Back to the homepage</a></p></main>${renderFooter()}`));
+    }
+    next();
+  });
+}
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -171,7 +186,7 @@ const freebieWidgets = (widgets) => widgets.filter((w) => w.freebie !== false);
 // Bundles surface first, then newest publish date.
 const publishedWidgets = (widgets) =>
   widgets
-    .filter((w) => w.etsyUrl)
+    .filter((w) => w.etsyUrl && w.storeActive !== false)
     .sort((a, b) => {
       const aBundle = a.productType === "bundle" ? 0 : 1;
       const bBundle = b.productType === "bundle" ? 0 : 1;
@@ -208,9 +223,13 @@ const formatHtml = (title, body, metaDescription = "") => `<!doctype html>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/public/styles.css" />
+    <link rel="stylesheet" href="/public/showroom.css" />
+    <link rel="stylesheet" href="/public/desktop.css" />
+    <link rel="stylesheet" href="/public/shop-app.css" />
+    <script src="/public/image-preview.js" defer></script>
     <meta name="p:domain_verify" content="1a8f352d71cf6353492c5dc37d5c87b5"/>
   </head>
-  <!-- Google tag (gtag.js) -->
+  ${LOCAL_PREVIEW ? '' : `<!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-EMZ8TTYWJ3"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -218,8 +237,9 @@ const formatHtml = (title, body, metaDescription = "") => `<!doctype html>
     gtag('js', new Date());
 
     gtag('config', 'G-EMZ8TTYWJ3');
-  </script>
-  <body>
+  </script>`}
+  <body class="${body.includes('class="desktop-shell"') ? 'desktop-host' : body.includes('class="catalog-app"') ? 'catalog-host' : 'classic-page'}">
+    ${LOCAL_PREVIEW ? '<div class="sg-preview-banner">LOCAL PREVIEW · Forms &amp; analytics are off. Etsy links open the real listings.</div>' : ''}
     ${body}
   </body>
 </html>`;
@@ -300,17 +320,31 @@ const addLandingUtm = (rawUrl, { slug, content }) => {
 };
 
 // Store-style product card (non-selectable; buy CTA goes to Etsy).
+const groupStoreListings = widgets => {
+  const groups=new Map(),result=[];
+  for(const widget of widgets){
+    if(!widget.storeGroup){result.push(widget);continue;}
+    if(!groups.has(widget.storeGroup)){
+      const members=widgets.filter(w=>w.storeGroup===widget.storeGroup);
+      const primary=members.find(w=>w.storeGroupPrimary)||widget;
+      const group={...primary,listings:members};groups.set(widget.storeGroup,group);result.push(group);
+    }
+  }
+  return result;
+};
 const renderStoreCard = (widget, utmContent) => `
   <div class="widget-card store-card${widget.productType === "bundle" ? " kit-store-card" : ""}" id="${escapeHtml(widget.id)}">
-    <div class="widget-thumbnail" style="background-image: url('${widget.image || widget.thumbnail}')"></div>
+    <button type="button" class="widget-thumbnail catalog-image-button" data-image-preview aria-label="Enlarge ${escapeHtml(widget.name)} preview"><img src="${escapeHtml(widget.image || widget.thumbnail)}" alt="${escapeHtml(widget.name)} preview" loading="lazy"><span>＋ Enlarge</span></button>
     <div class="store-card-head">
       <div class="widget-name">${widget.name}</div>
       <div class="widget-price">${formatPrice(widget.price)}</div>
     </div>
-    <div class="widget-desc">${widget.description}</div>
+    <div class="widget-desc">${escapeHtml(widget.description)}</div>
+    ${widget.listings ? `<details class="catalog-listing-options"><summary>${widget.listings.length} Etsy listings · same four-theme widget</summary><p>Buy once: every listing includes all four themes.</p><div>${widget.listings.map((listing,i)=>`<section><button type="button" class="catalog-option-image" data-image-preview aria-label="Enlarge GeoCities listing ${i+1}"><img src="${escapeHtml(listing.image || listing.thumbnail)}" alt="GeoCities listing ${i+1} artwork" loading="lazy"></button><a href="${escapeHtml(addLandingUtm(listing.etsyUrl,{slug:listing.id,content:'geocities-option'}))}" target="_blank" rel="noopener noreferrer">View listing ${i+1} · ${formatPrice(listing.price)}</a></section>`).join('')}</div></details>` : ''}
     <div class="store-card-foot">
       <span class="aesthetic-tag">${aestheticLabel(widget.aesthetic || "retro")}</span>
       ${widget.productType === "bundle" ? `<span class="bundle-tag">${escapeHtml(widget.badgeText || "Bundle")}</span>` : ""}
+      ${['sku-legacy-17-retro-messenger','sku-mk-kit-full'].includes(widget.id)?'<a class="catalog-preview-link" href="/looks/retro-messenger">Explore this look</a>':''}
       <a class="buy-button"
          href="${addLandingUtm(widget.etsyUrl, { slug: widget.id, content: utmContent })}"
          target="_blank"
@@ -331,132 +365,11 @@ const win = (title, bodyHtml, extraClass = "") => `
  * Homepage
  * ------------------------------------------------------------------------ */
 
-const renderHomePage = (widgets) => {
-  const published = publishedWidgets(widgets);
-  const featured = published.slice(0, 6);
-  const freebieCount = freebieWidgets(widgets).length;
-
-  const hero = win(
-    "welcome.exe",
-    `
-      <p class="eyebrow">Retro stream overlays &middot; StreamLabs + StreamElements</p>
-      <h1>Stream like it's 1999.</h1>
-      <p class="subhead">Coded chat widgets, alerts, scenes, and full stream kits for Twitch,
-        built with real HTML/CSS/JS, not static images. Every widget installs in minutes
-        and comes with a themed setup guide.</p>
-      <div class="cta-row">
-        <a class="primary-button" href="/store">Browse the Store</a>
-        <a class="secondary-button" href="/claim">Claim a Free Widget</a>
-      </div>
-      <p class="microcopy">${published.length}+ widgets live on Etsy &middot; instant download &middot; support within 24 hours</p>
-    `,
-    "hero-win"
-  );
-
-  const whatWeMake = win(
-    "what_we_make.dir",
-    `
-      <div class="type-grid">
-        <a class="type-card" href="/store?type=chat">
-          <div class="type-icon">💬</div>
-          <div class="type-name">Chat Widgets</div>
-          <div class="type-desc">Live chat overlays styled as CRT terminals, buddy lists, forums, inboxes, and more.</div>
-        </a>
-        <a class="type-card" href="/store?type=bundle">
-          <div class="type-icon">🔔</div>
-          <div class="type-name">Alert Widgets</div>
-          <div class="type-desc">Follow, sub, tip, cheer, and raid pop-ups with retro chimes. Explore the ready-made kits to find your theme.</div>
-        </a>
-        <a class="type-card" href="/store?type=bundle">
-          <div class="type-icon">🖥️</div>
-          <div class="type-name">Scenes &amp; Goals</div>
-          <div class="type-desc">Starting Soon, BRB, and Ending screens plus a themed goal bar. Explore the ready-made kits to find your theme.</div>
-        </a>
-        <a class="type-card" href="/store?type=bundle">
-          <div class="type-icon">📦</div>
-          <div class="type-name">Full Stream Kits</div>
-          <div class="type-desc">Ready-made chat, alerts, scenes, goals, game frame, and panels in one matching theme. Buy and install today.</div>
-        </a>
-      </div>
-    `
-  );
-
-  const featuredSection = win(
-    "featured_widgets.dir",
-    `
-      <div class="widget-grid">
-        ${featured.map((w) => renderStoreCard(w, "home-featured")).join("\n")}
-      </div>
-      <div class="center-row"><a class="secondary-button" href="/store">See everything in the store &rarr;</a></div>
-    `
-  );
-
-  const customTeaser = win(
-    "custom_orders.exe",
-    `
-      <div class="split-row">
-        <div>
-          <p class="eyebrow">Commissions open &middot; intro pricing</p>
-          <h2>Want it in <em>your</em> style?</h2>
-          <p>Every widget we sell can be rebuilt around your brand: your colors, your fonts,
-            your theme. A full custom 8-piece stream kit starts at <strong>$199</strong>,
-            single pieces from <strong>$35</strong>.</p>
-        </div>
-        <div class="split-cta">
-          <a class="primary-button" href="/custom">Start a Custom Order</a>
-          <p class="microcopy">Free quote &middot; no payment until you approve</p>
-        </div>
-      </div>
-    `,
-    "accent-win"
-  );
-
-  const freeTeaser = win(
-    "free_widget.exe",
-    `
-      <div class="split-row">
-        <div>
-          <h2>Try one free first.</h2>
-          <p>Pick any of ${freebieCount} chat widgets and we'll send it to your inbox.
-            Full version, real install guide, no catch. You'll also get our monthly
-            widget drops and community votes.</p>
-        </div>
-        <div class="split-cta">
-          <a class="primary-button" href="/claim">Claim a Free Widget</a>
-        </div>
-      </div>
-    `
-  );
-
-  const aboutStrip = win(
-    "about_us.txt",
-    `
-      <p>${BRAND_NAME} is a small studio obsessed with the early internet. We build stream
-        overlays the way software used to look, with Windows 95 chrome, dial-up modems, and CRT glow,
-        but engineered for modern OBS setups. Sold on
-        <a href="${addLandingUtm(ETSY_SHOP_URL, { slug: "shop", content: "home-about" })}" target="_blank" rel="noopener noreferrer">Etsy</a>
-        with buyer protection and real human support.</p>
-      <a class="secondary-link" href="/about">More about the shop &rarr;</a>
-    `
-  );
-
-  return formatHtml(
-    `${BRAND_NAME}: Retro Stream Overlays, Chat Widgets & Custom Stream Kits`,
-    `
-    ${renderHeader("home")}
-    <main class="container">
-      ${hero}
-      ${whatWeMake}
-      ${featuredSection}
-      ${customTeaser}
-      ${freeTeaser}
-      ${aboutStrip}
-    </main>
-    ${renderFooter()}
-  `,
-    "Retro-themed chat widgets, alerts, scenes and full stream kits for Twitch. Coded for StreamLabs and StreamElements. Free widget for newsletter subscribers, custom commissions open."
-  );
-};
+const renderHomePage = (widgets) => formatHtml(
+  `${BRAND_NAME}: Make your stream your own`,
+  renderShowroomHome({ widgets, header: renderHeader, footer: renderFooter, addUtm: addLandingUtm }),
+  "Make your stream your own with nostalgic chat widgets, alerts and matching stream kits. Preview Retro Messenger and explore your next look."
+);
 
 /* ---------------------------------------------------------------------------
  * Store
@@ -529,13 +442,15 @@ const renderPanelsPage = () => formatHtml(
   "Browse retro Twitch panel styles. Personalize About, Schedule, Rules, Socials, and Support panels in your browser, then download your PNGs."
 );
 
-const renderStorePage = (widgets, activeAesthetic, activeType) => {
+const renderStorePage = (widgets, activeAesthetic, activeType, embedded = false, allListings = false) => {
   const published = publishedWidgets(widgets);
   const byType = activeType ? published.filter((w) => w.productType === activeType) : published;
-  const filtered = activeAesthetic ? byType.filter((w) => w.aesthetic === activeAesthetic) : byType;
+  const matching = activeAesthetic ? byType.filter((w) => w.aesthetic === activeAesthetic) : byType;
+  const filtered = allListings ? matching : groupStoreListings(matching);
   const aesthetics = [...new Set(byType.map((w) => w.aesthetic).filter(Boolean))].sort();
   const storeUrl = (type, aesthetic) => {
     const params = new URLSearchParams();
+    if (allListings) params.set("view", "listings");
     if (type) params.set("type", type);
     if (aesthetic) params.set("aesthetic", aesthetic);
     return escapeHtml(`/store${params.size ? `?${params}` : ""}`);
@@ -549,44 +464,21 @@ const renderStorePage = (widgets, activeAesthetic, activeType) => {
       <a href="${storeUrl(activeType, null)}" class="filter-btn${!activeAesthetic ? " filter-active" : ""}">All styles</a>
       ${aesthetics.map((a) => `<a href="${storeUrl(activeType, a)}" class="filter-btn${activeAesthetic === a ? " filter-active" : ""}">${aestheticLabel(a)}</a>`).join("\n      ")}
     </nav>
-    <p class="filter-count">Showing ${filtered.length} of ${published.length} products</p>
+    <p class="filter-count">${filtered.length} ${allListings ? (filtered.length === 1 ? "listing" : "listings") : (filtered.length === 1 ? "product" : "products")} shown · ${matching.length} of ${published.length} active Etsy listings</p>
   `;
 
-  return formatHtml(
-    `Widget Store | ${BRAND_NAME}`,
-    `
-    ${renderHeader("store")}
-    <main class="container">
-      ${win(
-        "store.exe",
-        `
-        <p class="eyebrow">The full catalog</p>
-        <h1>${activeType === "bundle" ? "Ready-made Stream Kits" : "Widget Store"}</h1>
-        <p class="subhead">${activeType === "bundle" ? "Complete your stream with a ready-made kit." : "Explore our chat widgets and ready-made stream kits."} Purchases go through our Etsy shop:
-          instant digital download, buyer protection, and a themed install guide with every order.</p>
-        `,
-        "hero-win"
-      )}
-      ${filterBar}
-      <div class="widget-grid">
-        ${filtered.map((w) => renderStoreCard(w, "store-cta")).join("\n")}
-      </div>
-      ${filtered.length ? "" : '<p class="notice">No products in this style yet. <a href="/store">Browse all products</a>.</p>'}
-      ${win(
-        "psst.txt",
-        `
-        <div class="split-row">
-          <p style="margin:0">Don't see your style? We take commissions, with a full custom stream kit
-            from <strong>$199</strong>.</p>
-          <a class="secondary-button" href="/custom">Custom Orders &rarr;</a>
-        </div>
-        `
-      )}
-    </main>
-    ${renderFooter()}
-  `,
-    "Browse all retro Twitch stream widgets by SenergyGroup: CRT terminals, Windows 95/XP chat boxes, cyberpunk HUDs, cozy pixel overlays. Sold on Etsy."
-  );
+  if (!embedded) {
+    return formatHtml(`Widget Store | ${BRAND_NAME}`, renderShowroomHome({widgets,addUtm:addLandingUtm,initial:'store',storeSrc:storeUrl(activeType,activeAesthetic)}));
+  }
+  return formatHtml(`Widget Store | ${BRAND_NAME}`, `
+    <main class="catalog-app">
+      <div class="catalog-address"><span>Address</span><b>C:\\SenergyGroup\\Widget Store</b><a href="/looks/retro-messenger">Preview Retro Messenger</a></div>
+      <header class="catalog-heading"><h1>${activeType === "bundle" ? "Stream Kits & Chat Bundles" : "Widget Store"}</h1><p>Pick your look. Chat widgets for Streamlabs &amp; StreamElements. Purchases and digital delivery happen on Etsy.</p><div class="catalog-summary"><b>${published.length} active Etsy listings</b><span>${groupStoreListings(published).length} products · USD prices</span><a href="/store${allListings ? '' : '?view=listings'}">${allListings ? 'Group matching listings' : 'Show all Etsy listings'}</a></div></header>
+      <div class="catalog-layout"><aside class="catalog-filters"><h2>Browse folders</h2>${filterBar}<hr><a class="catalog-side-link" href="/panel-maker/retro-messenger">Open Panel Maker →</a><a class="catalog-side-link" href="/custom">Custom orders →</a></aside>
+      <section class="catalog-results" aria-label="Products"><div class="widget-grid">${filtered.map(w=>renderStoreCard(w,'store-cta')).join('')}</div>${filtered.length?'':'<p class="notice">No products in this style yet. <a href="/store">Browse all products</a>.</p>'}</section></div>
+      <footer class="catalog-status">${filtered.length} ${filtered.length === 1 ? "item" : "items"} · Digital products · Setup guide included · Etsy opens in a new tab</footer>
+    </main>`);
+
 };
 
 /* ---------------------------------------------------------------------------
@@ -770,8 +662,8 @@ const renderAboutPage = (widgets) => {
         <p class="eyebrow">Est. on the early internet</p>
         <h1>We make streams look like 1999.</h1>
         <p>${BRAND_NAME} is a small studio building retro-themed stream overlays: Windows 95 windows,
-          CRT terminals, dial-up logs, buddy lists, cozy pixel scenes. ${published.length}+ widgets live
-          on Etsy and counting, with new drops every month.</p>
+          CRT terminals, buddy lists, and cozy pixel scenes. Explore ${published.length} active Etsy listings,
+          including chat widgets and matching kits.</p>
         <p>The difference from most overlay shops: our widgets are <strong>real coded software</strong>,
           not static images. Chat messages actually render inside the theme. Alerts actually pop.
           Goal bars actually fill. Everything ships with configurable colors, fonts, and settings,
@@ -784,7 +676,7 @@ const renderAboutPage = (widgets) => {
         `
         <ul class="feature-list">
           <li><strong>Functional, not flat.</strong> Live chat, alert events, and goals rendered in-theme with real HTML/CSS/JS.</li>
-          <li><strong>Both platforms.</strong> Built for StreamLabs and StreamElements, with no vendor lock-in.</li>
+          <li><strong>Chat on either platform.</strong> Chat widgets support Streamlabs and StreamElements. Other live kit pieces use StreamElements; panels are PNG graphics.</li>
           <li><strong>No ZIP-file mysteries.</strong> Install via theme URLs and guided copy-paste. Every order includes a themed PDF guide.</li>
           <li><strong>Human support.</strong> Email us and a real person replies within 24 hours.</li>
         </ul>
@@ -830,7 +722,7 @@ const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "") => {
 
   const widgetCards = filtered
     .map((widget) => {
-      const etsyLink = widget.etsyUrl
+      const etsyLink = widget.etsyUrl && widget.storeActive !== false
         ? `
         <a class="widget-etsy-link"
            href="${addLandingUtm(widget.etsyUrl, { slug: widget.id, content: "card-cta" })}"
@@ -840,7 +732,7 @@ const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "") => {
       return `
       <label class="widget-card">
         <input type="radio" name="widget_id" value="${widget.id}" required />
-        <div class="widget-thumbnail" style="background-image: url('${widget.thumbnail}')"></div>
+        <div class="widget-thumbnail"><img src="${escapeHtml(widget.thumbnail)}" alt="${escapeHtml(widget.name)} preview" loading="lazy"></div>
         <div class="widget-name">${widget.name}</div>
         <div class="widget-desc">${widget.description}</div>${etsyLink}
       </label>
@@ -854,19 +746,19 @@ const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "") => {
     ${renderHeader("claim")}
     <main class="container">
       <section class="hero">
-        <p class="eyebrow">Free Streamlabs Bonus</p>
-        <h1>Claim your free Streamlabs chat widget</h1>
-        <p class="subhead">Choose one theme. Confirm your email. Get instant download access.</p>
+        <p class="eyebrow">A little something for your next stream</p>
+        <h1>Choose your free chat widget</h1>
+        <p class="subhead">Choose one theme for <strong>Streamlabs &amp; StreamElements</strong>. Confirm your email to get the setup guide.</p>
         ${errorMessage ? `<p class="error">${errorMessage}</p>` : ""}
       </section>
       <form class="claim-form" action="/claim" method="POST">
         ${filterBar}
-        <div class="widget-grid">${widgetCards}</div>
+        <h2 class="claim-step">1. Pick a theme</h2><div class="widget-grid">${widgetCards}</div><h2 class="claim-step">2. Send your setup guide</h2>
         <div class="form-row" id="claim-email-section">
           <label for="email">Email address</label>
           <input id="email" name="email" type="email" placeholder="you@example.com" required />
         </div>
-        <button type="submit" class="primary-button">Send me my widget</button>
+        <button type="submit" class="primary-button" ${LOCAL_PREVIEW ? 'disabled' : ''}>Send me my widget</button>${LOCAL_PREVIEW ? '<p class="local-form-note">Email sending is off in this local preview. You can still browse and select a theme.</p>' : ''}
         <p class="microcopy">By claiming your widget, you agree to join the SenergyGroup newsletter.
           We'll send you monthly widget drops and community votes.
           No spam. Unsubscribe with one click at any time.</p>
@@ -943,8 +835,8 @@ const renderConfirmedPage = (claim, widget) =>
         </div>
 
         <div class="install-notes-callout">
-          <h4>StreamLabs Installation Note</h4>
-          <p>Perform the setup in the <strong>browser</strong>. The Streamlabs desktop app doesn't support the custom field configuration steps. Clicking the link in the PDF will open the widget in the browser.</p>
+          <h4>Streamlabs &amp; StreamElements setup</h4>
+          <p>Use the platform-specific installation steps in your PDF guide. Configure Streamlabs Chat Box or your StreamElements widget in your <strong>browser</strong>, then add its browser source to OBS.</p>
         </div>
 
         <footer class="card-footer">
@@ -1046,22 +938,36 @@ app.get("/", (req, res) => {
   res.send(renderHomePage(loadWidgets()));
 });
 
+app.get("/looks/retro-messenger", (req, res) => {
+  res.send(formatHtml(
+    `Retro Messenger stream look | ${BRAND_NAME}`,
+    renderMessengerLook({ widgets: loadWidgets(), header: renderHeader, footer: renderFooter, addUtm: addLandingUtm }),
+    "Preview the Retro Messenger stream look. Compare chat only with the full kit, explore all eight components and find the matching Etsy listing."
+  ));
+});
+
 app.get("/store", (req, res) => {
   const aesthetic = typeof req.query.aesthetic === "string" ? req.query.aesthetic : null;
   const type = ["bundle", "chat"].includes(req.query.type) ? req.query.type : null;
-  res.send(renderStorePage(loadWidgets(), aesthetic, type));
+  res.send(renderStorePage(loadWidgets(), aesthetic, type, req.query.embedded === "1", req.query.view === "listings"));
 });
 
+const renderUtilityPage = (req, initial, sourceKey, renderContent) => {
+  if (req.query.embedded === "1") return renderContent();
+  return formatHtml(`${{free:'Free Widget',custom:'Custom Orders',panels:'Panel Maker',about:'About SenergyGroup'}[initial]} | ${BRAND_NAME}`,
+    renderShowroomHome({widgets:loadWidgets(),addUtm:addLandingUtm,initial,[sourceKey]:escapeHtml(req.originalUrl)}));
+};
+
 app.get("/panels", (req, res) => {
-  res.send(renderPanelsPage());
+  res.send(renderUtilityPage(req,'panels','panelSrc',renderPanelsPage));
 });
 
 app.get("/about", (req, res) => {
-  res.send(renderAboutPage(loadWidgets()));
+  res.send(renderUtilityPage(req,'about','aboutSrc',()=>renderAboutPage(loadWidgets())));
 });
 
 app.get("/custom", (req, res) => {
-  res.send(renderCustomPage());
+  res.send(renderUtilityPage(req,'custom','customSrc',renderCustomPage));
 });
 
 app.post("/custom", (req, res) => {
@@ -1164,7 +1070,7 @@ app.get("/admin/requests", (req, res) => {
 app.get("/claim", (req, res) => {
   const widgets = loadWidgets();
   const aesthetic = req.query.aesthetic || null;
-  res.send(renderClaimPage(widgets, aesthetic));
+  res.send(renderUtilityPage(req,'free','freeSrc',()=>renderClaimPage(widgets,aesthetic)));
 });
 
 app.post("/claim", async (req, res) => {
@@ -1336,13 +1242,25 @@ app.get("/panel-maker/:family", (req, res) => {
     res.status(404).send(renderErrorPage("Page not found."));
     return;
   }
-  res.sendFile(path.join(ASSETS_DIR, "panel-makers", `${family}.html`));
+  if (req.query.embedded !== "1") {
+    return res.send(formatHtml(`Panel Maker | ${BRAND_NAME}`, renderShowroomHome({widgets:loadWidgets(),addUtm:addLandingUtm,initial:'panels',panelSrc:`/panel-maker/${family}`})));
+  }
+  let html = fs.readFileSync(path.join(ASSETS_DIR, "panel-makers", `${family}.html`), 'utf8');
+  html = html.replace('</head>', '<link rel="stylesheet" href="/public/shop-app.css"><script src="/public/image-preview.js" defer></script></head>').replace('<body>', `<body class="panel-maker-app" data-panel-family="${family}">`);
+  const panelName=PANEL_MAKERS.find(panel=>panel.family===family).name;
+  html=html.replace(/<nav class="catalog-nav"[^]*?<\/nav>/, `<nav class="panel-app-toolbar" aria-label="Panel navigation"><b>${escapeHtml(panelName)} Panel Maker</b><a href="/panels">All panel styles</a><a href="/store">Widget Store</a>${family==='retro-messenger'?'<a href="/looks/retro-messenger">See the matching look</a>':''}</nav>`);
+  if (family === 'retro-messenger') {
+    const kit=loadWidgets().find(w=>w.id==='sku-mk-kit-full');
+    const kitUrl=kit?.etsyUrl?escapeHtml(addLandingUtm(kit.etsyUrl,{slug:kit.id,content:'panel-maker-kit'})):'/looks/retro-messenger';
+    html=html.replace(/<div class="taskbar">[^]*?<\/div>\s*<script>/, `<div class="panel-app-footer">Like the whole look? <a href="${kitUrl}" target="_blank" rel="noopener noreferrer">View the full kit on Etsy ↗</a></div><script>`);
+  }
+  res.send(html);
 });
 
 app.use((req, res) => {
   res.status(404).send(renderErrorPage("Page not found."));
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, LOCAL_PREVIEW ? "127.0.0.1" : undefined, () => {
+  console.log(`Server running on http://${LOCAL_PREVIEW ? "127.0.0.1" : "localhost"}:${PORT}`);
 });

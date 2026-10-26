@@ -1,3 +1,4 @@
 .env
 Windows-Guides
 node_modules
+.preview/

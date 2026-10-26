@@ -8,7 +8,11 @@
     "badgeText": "8-Piece Stream Kit",
     "aesthetic": "windows",
     "etsyUrl": "https://www.etsy.com/listing/4573470064/xp-inspired-stream-kit-for-twitch-8",
-    "freebie": false
+    "freebie": false,
+    "price": 29.99,
+    "storeActive": true,
+    "etsyListingId": "4573470064",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-w95-kit-full",
@@ -20,7 +24,10 @@
     "aesthetic": "windows",
     "price": 29.99,
     "etsyUrl": "https://www.etsy.com/listing/4572959296/win95-retro-stream-kit-overlays-for",
-    "freebie": false
+    "freebie": false,
+    "storeActive": true,
+    "etsyListingId": "4572959296",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-mk-kit-full",
@@ -33,7 +40,10 @@
     "price": 29.99,
     "etsyUrl": "https://www.etsy.com/listing/4533131913/retro-bundle-streamelements-y2k-early",
     "image": "https://i.etsystatic.com/46135568/r/il/b00677/8272884607/il_794xN.8272884607_i2es.jpg",
-    "freebie": false
+    "freebie": false,
+    "storeActive": true,
+    "etsyListingId": "4533131913",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-legacy-01-windows95",
@@ -47,7 +57,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4428923358/windows-95-twitch-chat-widget-overlay",
     "publishedAt": "2026-04-20",
     "image": "https://i.etsystatic.com/46135568/r/il/9a7fca/7579321087/il_fullxfull.7579321087_sf24.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4428923358",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-legacy-02-windowsxp",
@@ -61,7 +74,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4429737565/windows-xp-twitch-chat-widget-overlay",
     "publishedAt": "2026-04-20",
     "image": "https://i.etsystatic.com/46135568/r/il/abbcf1/7583717049/il_fullxfull.7583717049_o1x6.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4429737565",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-legacy-03-windowsvista",
@@ -75,7 +91,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4429739383/windows-vista-twitch-chat-widget-overlay",
     "publishedAt": "2026-04-20",
     "image": "https://i.etsystatic.com/46135568/r/il/9e5d1d/7583724355/il_fullxfull.7583724355_ftcz.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4429739383",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-legacy-04-windows7",
@@ -89,7 +108,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4429747082/windows-7-twitch-chat-widget-overlay",
     "publishedAt": "2026-04-20",
     "image": "https://i.etsystatic.com/46135568/r/il/2ae44b/7535794356/il_fullxfull.7535794356_aoe2.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4429747082",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-legacy-05-windows10",
@@ -103,7 +125,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4429748726/windows-10-twitch-chat-widget-overlay",
     "publishedAt": "2026-04-20",
     "image": "https://i.etsystatic.com/46135568/r/il/cbfb6d/7535799500/il_fullxfull.7535799500_injl.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4429748726",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-legacy-07-notepad",
@@ -117,7 +142,10 @@
     "etsyUrl": "https://www.etsy.com/listing/1638565288/notepad-scribbles-chat-widget-streamlabs",
     "publishedAt": "2026-04-20",
     "image": "https://i.etsystatic.com/46135568/r/il/f2a7cf/5652219132/il_fullxfull.5652219132_b5lt.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "1638565288",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-legacy-09-cyberpunk-red",
@@ -230,7 +258,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4469407947/retro-mp3-twitch-chat-widget-animated-ui",
     "publishedAt": "2026-04-20",
     "image": "https://i.etsystatic.com/46135568/r/il/04833b/7816273122/il_fullxfull.7816273122_ls16.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4469407947",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-legacy-17-retro-messenger",
@@ -243,7 +274,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4469875012/retro-messenger-twitch-chat-widget",
     "publishedAt": "2026-04-20",
     "image": "https://i.etsystatic.com/46135568/r/il/9a0a2e/7791437364/il_fullxfull.7791437364_g60e.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4469875012",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-01-crt-terminal",
@@ -256,7 +290,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4472519860/retro-crt-terminal-chat-widget-green",
     "publishedAt": "2026-04-19",
     "image": "https://i.etsystatic.com/46135568/r/il/e2307c/7808958022/il_fullxfull.7808958022_gf6b.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4472519860",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-02-dialup-log",
@@ -269,7 +306,8 @@
     "etsyUrl": "https://www.etsy.com/listing/4478967138/dial-up-log-chat-widget-for-streamlabs",
     "publishedAt": "2026-04-13",
     "image": "https://i.etsystatic.com/46135568/r/il/2cad37/7851262826/il_fullxfull.7851262826_3yav.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": false
   },
   {
     "id": "sku-04-popup-stack",
@@ -278,11 +316,14 @@
     "category": "chat",
     "productType": "chat",
     "aesthetic": "retro",
-    "price": 14.99,
+    "price": 10.99,
     "etsyUrl": "https://www.etsy.com/listing/4487982773/retro-pop-up-stack-chat-widget-for",
     "publishedAt": "2026-04-19",
     "image": "https://i.etsystatic.com/46135568/r/il/f97a69/7975812711/il_fullxfull.7975812711_3gfz.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4487982773",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-05-forum-thread",
@@ -295,7 +336,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4472605740/forum-thread-streamlabs-chat-widget",
     "publishedAt": "2026-04-19",
     "image": "https://i.etsystatic.com/46135568/r/il/5a587b/7857494809/il_fullxfull.7857494809_nqrj.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4472605740",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-06-irc-minimal",
@@ -308,7 +352,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4473131682/irc-minimal-chat-widget-for-streamlabs",
     "publishedAt": "2026-03-21",
     "image": "https://i.etsystatic.com/46135568/r/il/6b8542/7861025247/il_fullxfull.7861025247_c9on.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4473131682",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-07-retro-email",
@@ -321,7 +368,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4473110841/early-internet-inbox-chat-widget-for",
     "publishedAt": "2026-04-19",
     "image": "https://i.etsystatic.com/46135568/r/il/8c478e/7812985052/il_fullxfull.7812985052_p1p5.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4473110841",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-10-bios-setup-panel",
@@ -334,7 +384,8 @@
     "etsyUrl": "https://www.etsy.com/listing/4477569006/retro-dos-terminal-chat-widget",
     "publishedAt": "2026-04-13",
     "image": "https://i.etsystatic.com/46135568/r/il/9966b5/7890002471/il_fullxfull.7890002471_gtlv.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": false
   },
   {
     "id": "sku-13-classic-file-list",
@@ -347,7 +398,8 @@
     "etsyUrl": "https://www.etsy.com/listing/4477567833/retro-windows-95-file-list-chat-widget",
     "publishedAt": "2026-04-13",
     "image": "https://i.etsystatic.com/46135568/r/il/4b1325/7890046867/il_fullxfull.7890046867_mplp.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": false
   },
   {
     "id": "sku-14-desktop-sticky-notes",
@@ -360,7 +412,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4478873037/sticky-notes-chat-widget-for-streamlabs",
     "publishedAt": "2026-04-19",
     "image": "https://i.etsystatic.com/46135568/r/il/488c97/7898768165/il_fullxfull.7898768165_79iv.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4478873037",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-19-disk-defrag-map",
@@ -373,7 +428,10 @@
     "etsyUrl": "https://www.etsy.com/listing/4478883370/disk-defrag-map-chat-widget-for",
     "publishedAt": "2026-04-19",
     "image": "https://i.etsystatic.com/46135568/r/il/844146/7850757662/il_fullxfull.7850757662_s8d0.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4478883370",
+    "etsyVerifiedAt": "2026-10-25"
   },
   {
     "id": "sku-21-cd-burning-session",
@@ -386,7 +444,8 @@
     "etsyUrl": "https://www.etsy.com/listing/4478883175/cd-burn-chat-widget-for-streamlabs",
     "publishedAt": "2026-04-13",
     "image": "https://i.etsystatic.com/46135568/r/il/19a0b7/7850801818/il_fullxfull.7850801818_gakx.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": false
   },
   {
     "id": "sku-22-antivirus-scan",
@@ -399,7 +458,8 @@
     "etsyUrl": "https://www.etsy.com/listing/4478893742/antivirus-chat-widget-for-streamlabs",
     "publishedAt": "2026-04-13",
     "image": "https://i.etsystatic.com/46135568/r/il/234ccb/7898784045/il_fullxfull.7898784045_cped.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": false
   },
   {
     "id": "sku-23-firewall-rules-monitor",
@@ -412,7 +472,8 @@
     "etsyUrl": "https://www.etsy.com/listing/4478897822/firewall-monitor-chat-widget-for",
     "publishedAt": "2026-04-19",
     "image": "https://i.etsystatic.com/46135568/r/il/73147d/7851229352/il_fullxfull.7851229352_5c6f.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": false
   },
   {
     "id": "sku-31-search-results",
@@ -421,10 +482,214 @@
     "category": "chat",
     "productType": "chat",
     "aesthetic": "y2k",
-    "price": 14.99,
+    "price": 11.99,
     "etsyUrl": "https://www.etsy.com/listing/4526509394/search-results-chat-widget-for",
     "publishedAt": "2026-06-26",
     "image": "https://i.etsystatic.com/46135568/r/il/3f2b7a/8182577414/il_fullxfull.8182577414_3so6.jpg",
-    "freebie": true
+    "freebie": true,
+    "storeActive": true,
+    "etsyListingId": "4526509394",
+    "etsyVerifiedAt": "2026-10-25"
+  },
+  {
+    "id": "sku-radar-generic-1990s-video-rental-store-checkout-membership-terminal",
+    "name": "Retro DVD Rental Chat",
+    "description": "A blue-and-yellow rental counter for your community, with a member list, message table and editable counter details.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4602703856/retro-dvd-rental-chat-widget-for",
+    "thumbnail": "/public/catalog-etsy/4602703856.jpg",
+    "freebie": false,
+    "price": 11.99,
+    "storeActive": true,
+    "etsyListingId": "4602703856",
+    "etsyVerifiedAt": "2026-10-25",
+    "image": "/public/catalog-etsy/4602703856.jpg"
+  },
+  {
+    "id": "sku-41-flip-phone-sms",
+    "name": "Y2K SMS Chat",
+    "description": "Early-2000s texting nostalgia: a compact lavender screen, bitmap lettering and incoming-message effects.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "y2k",
+    "etsyUrl": "https://www.etsy.com/listing/4595551418/y2k-sms-chat-widget-for-streamers-early",
+    "thumbnail": "/public/catalog-etsy/4595551418.jpg",
+    "freebie": false,
+    "price": 11.99,
+    "storeActive": true,
+    "etsyListingId": "4595551418",
+    "etsyVerifiedAt": "2026-10-25",
+    "image": "/public/catalog-etsy/4595551418.jpg"
+  },
+  {
+    "id": "etsy-geocities-4582779802",
+    "name": "GeoCities Chat — 4 Themes",
+    "description": "An early-internet guestbook. All four GeoCities themes are included in one purchase.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "webcore",
+    "etsyUrl": "https://www.etsy.com/listing/4582779802/geocities-chat-widget-for-streamlabs-and",
+    "thumbnail": "/public/catalog-etsy/4582779802.jpg",
+    "freebie": false,
+    "storeGroup": "geocities-four-themes",
+    "storeGroupPrimary": false,
+    "price": 11.99,
+    "storeActive": true,
+    "etsyListingId": "4582779802",
+    "etsyVerifiedAt": "2026-10-25",
+    "image": "/public/catalog-etsy/4582779802.jpg"
+  },
+  {
+    "id": "etsy-geocities-4582780236",
+    "name": "GeoCities Chat — 4 Themes",
+    "description": "An early-internet guestbook. All four GeoCities themes are included in one purchase.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "webcore",
+    "etsyUrl": "https://www.etsy.com/listing/4582780236/geocities-chat-widget-for-streamlabs-and",
+    "thumbnail": "/public/catalog-etsy/4582780236.jpg",
+    "freebie": false,
+    "storeGroup": "geocities-four-themes",
+    "storeGroupPrimary": false,
+    "price": 11.99,
+    "storeActive": true,
+    "etsyListingId": "4582780236",
+    "etsyVerifiedAt": "2026-10-25",
+    "image": "/public/catalog-etsy/4582780236.jpg"
+  },
+  {
+    "id": "etsy-geocities-4582780610",
+    "name": "GeoCities Chat — 4 Themes",
+    "description": "An early-internet guestbook. All four GeoCities themes are included in one purchase.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "webcore",
+    "etsyUrl": "https://www.etsy.com/listing/4582780610/geocities-chat-widget-for-streamlabs-and",
+    "thumbnail": "/public/catalog-etsy/4582780610.jpg",
+    "freebie": false,
+    "storeGroup": "geocities-four-themes",
+    "storeGroupPrimary": false,
+    "price": 11.99,
+    "storeActive": true,
+    "etsyListingId": "4582780610",
+    "etsyVerifiedAt": "2026-10-25",
+    "image": "/public/catalog-etsy/4582780610.jpg"
+  },
+  {
+    "id": "sku-cc-geocities-guestbook",
+    "name": "GeoCities Chat — 4 Themes",
+    "description": "An early-internet guestbook with Starlight Homepage, Mystical Realm, Moonpetal Shrine and Pink Desktop. All four themes are included in one purchase.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "webcore",
+    "etsyUrl": "https://www.etsy.com/listing/4582766457/geocities-chat-widget-for-streamlabs-and",
+    "thumbnail": "/public/catalog-etsy/4582766457.jpg",
+    "freebie": false,
+    "storeGroup": "geocities-four-themes",
+    "storeGroupPrimary": true,
+    "price": 11.99,
+    "storeActive": true,
+    "etsyListingId": "4582766457",
+    "etsyVerifiedAt": "2026-10-25",
+    "image": "/public/catalog-etsy/4582766457.jpg"
+  },
+  {
+    "id": "sku-cc-last-call-split-flap",
+    "name": "Split-Flap Chat",
+    "description": "A mechanical departure board for chat, with flipping character tiles and adjustable colors, spacing and motion.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4595215962/split-flap-retro-chat-widget-for",
+    "thumbnail": "/public/catalog-etsy/4595215962.jpg",
+    "freebie": false,
+    "price": 11.99,
+    "storeActive": true,
+    "etsyListingId": "4595215962",
+    "etsyVerifiedAt": "2026-10-25",
+    "image": "/public/catalog-etsy/4595215962.jpg"
+  },
+  {
+    "id": "sku-legacy-18-retro-os",
+    "name": "Retro OS Chat",
+    "description": "A nostalgic operating-system window with animated messages, color accents and sizing controls.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "windows",
+    "etsyUrl": "https://www.etsy.com/listing/4469270922/retro-os-twitch-chat-widget-animated-ui",
+    "thumbnail": "/public/catalog-etsy/4469270922.jpg",
+    "freebie": false,
+    "price": 9.99,
+    "storeActive": true,
+    "etsyListingId": "4469270922",
+    "etsyVerifiedAt": "2026-10-25",
+    "image": "/public/catalog-etsy/4469270922.jpg"
+  },
+  {
+    "id": "sku-cc-y2k-doodles",
+    "name": "Y2K Doodles Chat",
+    "description": "An early-2000s sticker-book window with smileys, doodles, colorful chat cards and customizable paper and ink.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "y2k",
+    "etsyUrl": "https://www.etsy.com/listing/4571606555/y2k-doodles-chat-widget-for-streamlabs",
+    "thumbnail": "/public/catalog-etsy/4571606555.jpg",
+    "freebie": false,
+    "price": 11.99,
+    "storeActive": true,
+    "etsyListingId": "4571606555",
+    "etsyVerifiedAt": "2026-10-25",
+    "image": "/public/catalog-etsy/4571606555.jpg"
+  },
+  {
+    "id": "sku-legacy-06-windows-bundle",
+    "name": "Windows Chat Mega Bundle",
+    "description": "Five animated chat widgets: Windows 95, XP, Vista, 7 and 10. Switch between five Windows-era looks.",
+    "category": "bundle",
+    "productType": "bundle",
+    "aesthetic": "windows",
+    "etsyUrl": "https://www.etsy.com/listing/4429752230/retro-windows-theme-twitch-chat-widget",
+    "thumbnail": "/public/catalog-etsy/4429752230.jpg",
+    "freebie": false,
+    "badgeText": "5 Chat Widgets",
+    "price": 29.99,
+    "storeActive": true,
+    "etsyListingId": "4429752230",
+    "etsyVerifiedAt": "2026-10-25",
+    "image": "/public/catalog-etsy/4429752230.jpg"
+  },
+  {
+    "id": "sku-cc-os-runic-chat",
+    "name": "Old School RPG Chat",
+    "description": "A fantasy chatbox with parchment, quest-log lettering, role colors and original rank glyphs.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "fantasy",
+    "etsyUrl": "https://www.etsy.com/listing/4542456310/old-school-rpg-chat-widget-fantasy",
+    "thumbnail": "/public/catalog-etsy/4542456310.jpg",
+    "freebie": false,
+    "price": 11.99,
+    "storeActive": true,
+    "etsyListingId": "4542456310",
+    "etsyVerifiedAt": "2026-10-25",
+    "image": "/public/catalog-etsy/4542456310.jpg"
+  },
+  {
+    "id": "sku-cc-etch-a-sketch",
+    "name": "Magic Sketch Chat",
+    "description": "A red-framed drawing-toy chat display with traced lettering, spinning knobs and a shake-to-clear effect.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "retro",
+    "etsyUrl": "https://www.etsy.com/listing/4539765353/magic-sketch-chat-widget-90s-retro",
+    "thumbnail": "/public/catalog-etsy/4539765353.jpg",
+    "freebie": false,
+    "price": 11.99,
+    "storeActive": true,
+    "etsyListingId": "4539765353",
+    "etsyVerifiedAt": "2026-10-25",
+    "image": "/public/catalog-etsy/4539765353.jpg"
   }
 ]

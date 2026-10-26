@@ -1,0 +1,397 @@
+{
+  "checkedOn": "2026-10-25",
+  "source": "https://www.etsy.com/your/shops/me/tools/listings",
+  "currency": "USD",
+  "activeCount": 31,
+  "added": [
+    {
+      "id": "4602703856",
+      "sku": "sku-radar-generic-1990s-video-rental-store-checkout-membership-terminal",
+      "name": "Retro DVD Rental Chat",
+      "imageSource": "https://i.etsystatic.com/46135568/r/il/b9f21e/8737244352/il_fullxfull.8737244352_okek.jpg",
+      "localImage": "/public/catalog-etsy/4602703856.jpg"
+    },
+    {
+      "id": "4595551418",
+      "sku": "sku-41-flip-phone-sms",
+      "name": "Y2K SMS Chat",
+      "imageSource": "https://i.etsystatic.com/46135568/r/il/5527e2/8726552431/il_fullxfull.8726552431_ic8k.jpg",
+      "localImage": "/public/catalog-etsy/4595551418.jpg"
+    },
+    {
+      "id": "4582779802",
+      "sku": "etsy-geocities-4582779802",
+      "name": "GeoCities Chat — 4 Themes",
+      "imageSource": "https://i.etsystatic.com/46135568/r/il/b1b5b5/8627298441/il_fullxfull.8627298441_4vyn.jpg",
+      "localImage": "/public/catalog-etsy/4582779802.jpg"
+    },
+    {
+      "id": "4582780236",
+      "sku": "etsy-geocities-4582780236",
+      "name": "GeoCities Chat — 4 Themes",
+      "imageSource": "https://i.etsystatic.com/46135568/r/il/d0e1d2/8627301453/il_fullxfull.8627301453_m7b0.jpg",
+      "localImage": "/public/catalog-etsy/4582780236.jpg"
+    },
+    {
+      "id": "4582780610",
+      "sku": "etsy-geocities-4582780610",
+      "name": "GeoCities Chat — 4 Themes",
+      "imageSource": "https://i.etsystatic.com/46135568/r/il/cf73e9/8627304851/il_fullxfull.8627304851_cjas.jpg",
+      "localImage": "/public/catalog-etsy/4582780610.jpg"
+    },
+    {
+      "id": "4582766457",
+      "sku": "sku-cc-geocities-guestbook",
+      "name": "GeoCities Chat — 4 Themes",
+      "imageSource": "https://i.etsystatic.com/46135568/r/il/cba9fd/8627145747/il_fullxfull.8627145747_8rbn.jpg",
+      "localImage": "/public/catalog-etsy/4582766457.jpg"
+    },
+    {
+      "id": "4595215962",
+      "sku": "sku-cc-last-call-split-flap",
+      "name": "Split-Flap Chat",
+      "imageSource": "https://i.etsystatic.com/46135568/r/il/2f260e/8676260094/il_fullxfull.8676260094_d3rn.jpg",
+      "localImage": "/public/catalog-etsy/4595215962.jpg"
+    },
+    {
+      "id": "4469270922",
+      "sku": "sku-legacy-18-retro-os",
+      "name": "Retro OS Chat",
+      "imageSource": "https://i.etsystatic.com/46135568/r/il/e41bab/7835911959/il_fullxfull.7835911959_1g9d.jpg",
+      "localImage": "/public/catalog-etsy/4469270922.jpg"
+    },
+    {
+      "id": "4571606555",
+      "sku": "sku-cc-y2k-doodles",
+      "name": "Y2K Doodles Chat",
+      "imageSource": "https://i.etsystatic.com/46135568/r/il/e98fa6/8496396210/il_fullxfull.8496396210_2cbo.jpg",
+      "localImage": "/public/catalog-etsy/4571606555.jpg"
+    },
+    {
+      "id": "4429752230",
+      "sku": "sku-legacy-06-windows-bundle",
+      "name": "Windows Chat Mega Bundle",
+      "imageSource": "https://i.etsystatic.com/46135568/r/il/4172fb/7535818318/il_fullxfull.7535818318_ojuv.jpg",
+      "localImage": "/public/catalog-etsy/4429752230.jpg"
+    },
+    {
+      "id": "4542456310",
+      "sku": "sku-cc-os-runic-chat",
+      "name": "Old School RPG Chat",
+      "imageSource": "https://i.etsystatic.com/46135568/r/il/6961a1/8286405340/il_fullxfull.8286405340_qnsd.jpg",
+      "localImage": "/public/catalog-etsy/4542456310.jpg"
+    },
+    {
+      "id": "4539765353",
+      "sku": "sku-cc-etch-a-sketch",
+      "name": "Magic Sketch Chat",
+      "imageSource": "https://i.etsystatic.com/46135568/r/il/598ab3/8499267502/il_fullxfull.8499267502_iaih.jpg",
+      "localImage": "/public/catalog-etsy/4539765353.jpg"
+    }
+  ],
+  "removedFromPaidStore": [
+    {
+      "id": "4478967138",
+      "sku": "sku-02-dialup-log",
+      "name": "Dial-Up Connection Log Chat Widget"
+    },
+    {
+      "id": "4477569006",
+      "sku": "sku-10-bios-setup-panel",
+      "name": "BIOS Setup Panel Chat Widget"
+    },
+    {
+      "id": "4477567833",
+      "sku": "sku-13-classic-file-list",
+      "name": "Classic File List Chat Widget"
+    },
+    {
+      "id": "4478883175",
+      "sku": "sku-21-cd-burning-session",
+      "name": "CD Burning Session Chat Widget"
+    },
+    {
+      "id": "4478893742",
+      "sku": "sku-22-antivirus-scan",
+      "name": "Antivirus Scan Chat Widget"
+    },
+    {
+      "id": "4478897822",
+      "sku": "sku-23-firewall-rules-monitor",
+      "name": "Firewall Rules Monitor Chat Widget"
+    }
+  ],
+  "priceCorrections": [
+    {
+      "id": "4573470064",
+      "sku": "sku-xp-kit-full",
+      "name": "Windows XP Full Stream Kit",
+      "previous": null,
+      "price": 29.99
+    },
+    {
+      "id": "4487982773",
+      "sku": "sku-04-popup-stack",
+      "name": "Pop-Up Stack Chat Widget",
+      "previous": 14.99,
+      "price": 10.99
+    },
+    {
+      "id": "4526509394",
+      "sku": "sku-31-search-results",
+      "name": "Search Results Chat Widget",
+      "previous": 14.99,
+      "price": 11.99
+    }
+  ],
+  "listings": [
+    {
+      "id": "4602703856",
+      "sku": "sku-radar-generic-1990s-video-rental-store-checkout-membership-terminal",
+      "title": "Retro DVD Rental Chat Widget For StreamLabs & StreamElements",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4602703856/retro-dvd-rental-chat-widget-for",
+      "productType": "chat"
+    },
+    {
+      "id": "4429739383",
+      "sku": "sku-legacy-03-windowsvista",
+      "title": "Windows Vista Twitch Chat Widget Overlay, Aero Glass Style Chat Box, Animated UI, OBS Streamlabs Browser Source, Download",
+      "price": 9.99,
+      "url": "https://www.etsy.com/listing/4429739383/windows-vista-twitch-chat-widget-overlay",
+      "productType": "chat"
+    },
+    {
+      "id": "4595551418",
+      "sku": "sku-41-flip-phone-sms",
+      "title": "Y2K SMS Chat Widget for Streamers | Early 2000s Flip Phone Screen | StreamLabs StreamElements | OBS Overlay",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4595551418/y2k-sms-chat-widget-for-streamers-early",
+      "productType": "chat"
+    },
+    {
+      "id": "4469875012",
+      "sku": "sku-legacy-17-retro-messenger",
+      "title": "Retro Messenger Twitch Chat Widget, Animated UI (Digital Download)",
+      "price": 9.99,
+      "url": "https://www.etsy.com/listing/4469875012/retro-messenger-twitch-chat-widget",
+      "productType": "chat"
+    },
+    {
+      "id": "4472519860",
+      "sku": "sku-01-crt-terminal",
+      "title": "Retro CRT Terminal Chat Widget – Green Monospace Stream Overlay",
+      "price": 12.99,
+      "url": "https://www.etsy.com/listing/4472519860/retro-crt-terminal-chat-widget-green",
+      "productType": "chat"
+    },
+    {
+      "id": "4582779802",
+      "sku": "etsy-geocities-4582779802",
+      "title": "GeoCities Chat Widget for StreamLabs and StreamElements, Early Internet with Four Themes",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4582779802/geocities-chat-widget-for-streamlabs-and",
+      "productType": "chat"
+    },
+    {
+      "id": "4582780236",
+      "sku": "etsy-geocities-4582780236",
+      "title": "GeoCities Chat Widget for StreamLabs and StreamElements, Early Internet with Four Themes",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4582780236/geocities-chat-widget-for-streamlabs-and",
+      "productType": "chat"
+    },
+    {
+      "id": "4582780610",
+      "sku": "etsy-geocities-4582780610",
+      "title": "GeoCities Chat Widget for StreamLabs and StreamElements, Early Internet with Four Themes",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4582780610/geocities-chat-widget-for-streamlabs-and",
+      "productType": "chat"
+    },
+    {
+      "id": "4582766457",
+      "sku": "sku-cc-geocities-guestbook",
+      "title": "GeoCities Chat Widget for StreamLabs and StreamElements, Early Internet with Four Themes",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4582766457/geocities-chat-widget-for-streamlabs-and",
+      "productType": "chat"
+    },
+    {
+      "id": "4595215962",
+      "sku": "sku-cc-last-call-split-flap",
+      "title": "Split-Flap Retro Chat Widget for StreamLabs and StreamElements, Animated Flip Board",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4595215962/split-flap-retro-chat-widget-for",
+      "productType": "chat"
+    },
+    {
+      "id": "4478873037",
+      "sku": "sku-14-desktop-sticky-notes",
+      "title": "Sticky Notes Chat Widget for StreamLabs and StreamElements, Cozy Handwritten Twitch Chat Box Overlay",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4478873037/sticky-notes-chat-widget-for-streamlabs",
+      "productType": "chat"
+    },
+    {
+      "id": "4428923358",
+      "sku": "sku-legacy-01-windows95",
+      "title": "Windows 95 Retro Twitch Chat Widget, Animated UI (Digital Download)",
+      "price": 9.99,
+      "url": "https://www.etsy.com/listing/4428923358/windows-95-twitch-chat-widget-overlay",
+      "productType": "chat"
+    },
+    {
+      "id": "4473131682",
+      "sku": "sku-06-irc-minimal",
+      "title": "IRC Minimal Chat Widget for StreamLabs — Monospace Overlay for Coding & Talk Streams",
+      "price": 12.99,
+      "url": "https://www.etsy.com/listing/4473131682/irc-minimal-chat-widget-for-streamlabs",
+      "productType": "chat"
+    },
+    {
+      "id": "4429747082",
+      "sku": "sku-legacy-04-windows7",
+      "title": "Windows 7 Twitch Chat Widget Overlay, Aero UI Animated Chat Box, OBS Streamlabs Browser Source, Instant Digital Download",
+      "price": 9.99,
+      "url": "https://www.etsy.com/listing/4429747082/windows-7-twitch-chat-widget-overlay",
+      "productType": "chat"
+    },
+    {
+      "id": "4429748726",
+      "sku": "sku-legacy-05-windows10",
+      "title": "Windows 10 Twitch Chat Widget Overlay, Modern UI Animated Chat Box, OBS Streamlabs Browser Source, Instant Download",
+      "price": 9.99,
+      "url": "https://www.etsy.com/listing/4429748726/windows-10-twitch-chat-widget-overlay",
+      "productType": "chat"
+    },
+    {
+      "id": "4533131913",
+      "sku": "sku-mk-kit-full",
+      "title": "Retro Bundle StreamElements, Y2K Early 2000s Overlay Package",
+      "price": 29.99,
+      "url": "https://www.etsy.com/listing/4533131913/retro-bundle-streamelements-y2k-early",
+      "productType": "bundle"
+    },
+    {
+      "id": "4429737565",
+      "sku": "sku-legacy-02-windowsxp",
+      "title": "Windows XP Retro Twitch Chat Widget, Animated UI (Digital Download)",
+      "price": 9.99,
+      "url": "https://www.etsy.com/listing/4429737565/windows-xp-twitch-chat-widget-overlay",
+      "productType": "chat"
+    },
+    {
+      "id": "4573470064",
+      "sku": "sku-xp-kit-full",
+      "title": "XP-Inspired Stream Kit for Twitch, 8 Pieces with Chat, Alerts, Scenes, Goals and Panels",
+      "price": 29.99,
+      "url": "https://www.etsy.com/listing/4573470064/xp-inspired-stream-kit-for-twitch-8",
+      "productType": "bundle"
+    },
+    {
+      "id": "4572959296",
+      "sku": "sku-w95-kit-full",
+      "title": "Win95 Retro Stream Kit, Overlays for Twitch, Chat Alerts Scenes Goal Bar Game Frame and Panels",
+      "price": 29.99,
+      "url": "https://www.etsy.com/listing/4572959296/win95-retro-stream-kit-overlays-for",
+      "productType": "bundle"
+    },
+    {
+      "id": "4469270922",
+      "sku": "sku-legacy-18-retro-os",
+      "title": "Retro OS Twitch Chat Widget, Animated UI (Digital Download)",
+      "price": 9.99,
+      "url": "https://www.etsy.com/listing/4469270922/retro-os-twitch-chat-widget-animated-ui",
+      "productType": "chat"
+    },
+    {
+      "id": "4571606555",
+      "sku": "sku-cc-y2k-doodles",
+      "title": "Y2K Doodles Twitch Chat Widget, 2000s Webcore Sticker Brochure Style (Digital Download)",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4571606555/y2k-doodles-chat-widget-for-streamlabs",
+      "productType": "chat"
+    },
+    {
+      "id": "4469407947",
+      "sku": "sku-legacy-16-retro-mp3",
+      "title": "Retro MP3 Twitch Chat Widget, Animated UI (Digital Download)",
+      "price": 9.99,
+      "url": "https://www.etsy.com/listing/4469407947/retro-mp3-twitch-chat-widget-animated-ui",
+      "productType": "chat"
+    },
+    {
+      "id": "4429752230",
+      "sku": "sku-legacy-06-windows-bundle",
+      "title": "Retro Windows Theme Twitch Chat Widget Mega Bundle, 5 Animated Chat Boxes (95 XP Vista 7 10), OBS Streamlabs Browser Source",
+      "price": 29.99,
+      "url": "https://www.etsy.com/listing/4429752230/retro-windows-theme-twitch-chat-widget",
+      "productType": "bundle"
+    },
+    {
+      "id": "1638565288",
+      "sku": "sku-legacy-07-notepad",
+      "title": "Notepad Chat Widget for Streamlabs • Handwritten Style (Digital Download)",
+      "price": 9.99,
+      "url": "https://www.etsy.com/listing/1638565288/notepad-scribbles-chat-widget-streamlabs",
+      "productType": "chat"
+    },
+    {
+      "id": "4487982773",
+      "sku": "sku-04-popup-stack",
+      "title": "Retro Pop Up Stack Chat Widget for StreamLabs and StreamElements",
+      "price": 10.99,
+      "url": "https://www.etsy.com/listing/4487982773/retro-pop-up-stack-chat-widget-for",
+      "productType": "chat"
+    },
+    {
+      "id": "4478883370",
+      "sku": "sku-19-disk-defrag-map",
+      "title": "Disk Defrag Map Chat Widget for StreamLabs and StreamElements, 90s Nostalgia Early Internet",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4478883370/disk-defrag-map-chat-widget-for",
+      "productType": "chat"
+    },
+    {
+      "id": "4542456310",
+      "sku": "sku-cc-os-runic-chat",
+      "title": "Old School RPG Chat Widget, Fantasy Parchment Twitch Overlay (Digital Download)",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4542456310/old-school-rpg-chat-widget-fantasy",
+      "productType": "chat"
+    },
+    {
+      "id": "4539765353",
+      "sku": "sku-cc-etch-a-sketch",
+      "title": "Magic Sketch Chat Widget, 90s Retro Drawing Toy, Streamlabs Elements Overlay (Digital Download)",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4539765353/magic-sketch-chat-widget-90s-retro",
+      "productType": "chat"
+    },
+    {
+      "id": "4473110841",
+      "sku": "sku-07-retro-email",
+      "title": "Early Internet Inbox Chat Widget for StreamLabs — Retro Email Style | Twitch Chat Box Overlay",
+      "price": 12.99,
+      "url": "https://www.etsy.com/listing/4473110841/early-internet-inbox-chat-widget-for",
+      "productType": "chat"
+    },
+    {
+      "id": "4526509394",
+      "sku": "sku-31-search-results",
+      "title": "Search Results Chat Widget for StreamLabs and StreamElements, Retro Browser Stream Overlay",
+      "price": 11.99,
+      "url": "https://www.etsy.com/listing/4526509394/search-results-chat-widget-for",
+      "productType": "chat"
+    },
+    {
+      "id": "4472605740",
+      "sku": "sku-05-forum-thread",
+      "title": "Forum Thread StreamLabs Chat Widget — Retro Early Internet Overlay for Discussion Streams",
+      "price": 12.99,
+      "url": "https://www.etsy.com/listing/4472605740/forum-thread-streamlabs-chat-widget",
+      "productType": "chat"
+    }
+  ]
+}

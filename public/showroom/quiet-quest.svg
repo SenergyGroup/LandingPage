@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="590" viewBox="0 0 800 590" shape-rendering="crispEdges">
+<title>Quiet Quest, an original illustrative landscape for the stream preview</title>
+<rect width="800" height="590" fill="#efb789"/><path d="M0 0h800v170H0z" fill="#ada4c7"/><path d="M0 120h800v90H0z" fill="#dca9bc"/>
+<path d="M570 110h80v20h20v70h-20v20h-80v-20h-20v-70h20z" fill="#fff0b0"/>
+<path d="M100 90h90v12h40v16H70v-16h30zM340 63h70v12h36v15H310V75h30z" fill="#f7d8cb"/>
+<path d="M0 290h50v-35h50v-30h50v-35h40v35h50v45h50v30h50v40H0zM330 300h55v-40h45v-40h40v-40h45v-30h40v50h40v35h60v40h60v35h85v60H330z" fill="#73739c"/>
+<path d="M0 330h90v-35h90v20h100v35h100v-15h100v-35h80v25h100v25h140v110H0z" fill="#587d83"/>
+<path d="M0 420h130v-25h140v25h150v-20h160v30h220v160H0z" fill="#34766a"/>
+<path d="M350 420h90v50h55v50h85v70H270v-45h95v-40h35v-45h-50z" fill="#b6c494"/>
+<path d="M90 280h20v160H90zM45 350h110v25H45zM60 320h80v30H60zM75 290h50v30H75zM85 270h30v20H85z" fill="#254e60"/>
+<path d="M660 300h18v160h-18zM608 380h120v30H608zM625 350h88v30h-88zM641 318h55v32h-55zM655 295h28v23h-28z" fill="#254e60"/>
+<path d="M500 380h110v90H500z" fill="#c79b77"/><path d="M480 380h150v-20h-20v-20h-20v-20h-70v20h-20v20h-20z" fill="#6b5068"/><path d="M540 420h30v50h-30z" fill="#604e61"/><path d="M580 407h18v22h-18z" fill="#fff0b0"/>
+<path d="M380 395h17v16h-17z" fill="#f3d09c"/><path d="M376 389h25v9h-25z" fill="#684d6b"/><path d="M375 411h27v26h-27z" fill="#e9a655"/><path d="M379 437h8v13h-8zM392 437h8v13h-8z" fill="#3b485e"/>
+<g fill="#eecf86"><path d="M180 460h6v6h-6zM210 500h6v6h-6zM615 500h6v6h-6zM710 470h6v6h-6zM145 530h6v6h-6z"/></g>
+</svg>
