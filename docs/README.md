@@ -73,8 +73,9 @@ promote each other free with email signup. Both entries are `freebie:true` and
 `storeActive:false` while the paid listings are unpublished. Images are public;
 freebie PDFs stay under `assets/zips/{id}/` for gated delivery.
 
-Owner approved the GitHub push on November 8, 2026. Render deployment and live
-acceptance remain with the owner. Before customer release, deploy
+Owner approved the GitHub push on November 8, 2026 and subsequently confirmed
+both guide links and the live email claim flow work after the Render deployment.
+For future releases, deploy
 the code, two catalog rows, two preview images and both freebie guide PDFs
 together, then verify both guide links and confirmation/download behavior on the
 live site. Do not upload paid guides to the freebie folders or publish Etsy as a
@@ -84,7 +85,28 @@ After the owner confirms both live guide links open the correct selected widget
 and the email confirmation/download flow succeeds, streamline the paired release
 workflow. The owner's intended default for all future chats is a matching alert,
 with each guide offering the other widget free through email signup. Do not mark
-the pilot live-verified or roll out the streamlined workflow before that feedback.
+new pairs live-verified without that feedback. The owner requested the confirmed
+page visual update before work on the broader paired-product SOPs begins.
+
+### Confirmed-page visual update (local review)
+
+`/confirmed` now opens inside the existing Free Widget desktop window; its
+`embedded=1` content shows the complete preview image, a PDF download action,
+and instructions using the claimed widget's supported platforms. The existing
+confirmation lookup and download authorization remain unchanged. Store/free-widget
+navigation and browser Back stay within the desktop shell.
+
+In local preview only, `/preview/confirmed?widget={id}` shows the same layout
+with an explicitly disabled download button and no subscriber/claim creation.
+This preview route returns 404 in production. It does not bypass `/confirmed`
+or `/download`, which remain blocked in local preview.
+
+Validation: 22 HTTP regression checks, including real fixture PDF responses and
+repeat downloads for both café products. Run the parent repo's Python against
+`LandingPage/scripts/check-confirmed-preview.py` for desktop/mobile visual checks;
+captures are under `.preview/confirmed/`. The owner approved this confirmed-page
+revision and its GitHub push on November 8, 2026; Render deployment stays with
+the owner. The previously published paired flow is owner-verified.
 
 Widget definitions live in `config/widgets.json`:
 

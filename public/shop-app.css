@@ -55,3 +55,23 @@ body.classic-page{--chrome:#c0c0c0;--navy:#000080;--title-a:#000080;--title-b:#0
 .classic-page .matching-email-panel .claim-selection{font-size:11px}
 @media(max-width:560px){.classic-page .matching-claim-layout{grid-template-columns:minmax(0,1fr);gap:16px}.classic-page .claim-form.is-matching{padding:12px}.classic-page .claim-form.is-matching .widget-thumbnail{height:140px}.classic-page .claim-form.is-matching .widget-desc{display:none}.classic-page .matching-email-panel .claim-selection{display:none}.classic-page .claim-view-tabs a{font-size:11px;padding:9px 10px}}
 .classic-page .claim-selection{padding:10px;background:#fff;box-shadow:var(--bevel-in);overflow-wrap:anywhere}
+
+/* Confirmation completes the same Free Widget desktop app. */
+.classic-page .confirmed-status{color:#215124;font-weight:bold}
+.classic-page .confirmed-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:24px;padding:16px;background:#c0c0c0;box-shadow:var(--bevel-out)}
+.classic-page .confirmed-preview{margin:0;min-width:0;background:#fff;box-shadow:var(--bevel-in);padding:8px}
+.classic-page .confirmed-image{height:240px;display:flex;align-items:center;justify-content:center}
+.classic-page .confirmed-image img{display:block;width:100%;height:100%;object-fit:contain}
+.classic-page .confirmed-preview figcaption{font:12px/1.5 Tahoma;color:#000;margin-top:8px}
+.classic-page .confirmed-preview figcaption strong{display:block;padding:6px;background:#000080;color:#fff}
+.classic-page .confirmed-preview figcaption span{display:block;padding:8px 4px 2px;font-size:11px}
+.classic-page .confirmed-next{min-width:0}
+.classic-page .confirmed-next h2{margin:0 0 8px}
+.classic-page .confirmed-next>p{margin:0 0 16px}
+.classic-page .confirmed-next .confirmed-download{width:100%;box-sizing:border-box;background:#000080;color:#fff;min-height:44px;padding:12px}
+.classic-page .confirmed-next .confirmed-download:disabled{background:#c0c0c0;color:#666}
+.classic-page .confirmed-steps{padding-left:20px;margin:18px 0}
+.classic-page .confirmed-steps li{padding-left:3px;margin:0 0 8px}
+.classic-page .confirmed-help{font-size:11px;overflow-wrap:anywhere;border-top:1px solid #808080;padding-top:12px}
+.classic-page .confirmed-navigation{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:18px;font:11px Tahoma}
+@media(max-width:560px){.classic-page .confirmed-layout{grid-template-columns:minmax(0,1fr);gap:18px;padding:12px}.classic-page .confirmed-image{height:150px}.classic-page .confirmed-navigation{line-height:1.6}.classic-page .confirmed-next>p{margin-bottom:12px}}

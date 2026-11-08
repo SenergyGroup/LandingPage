@@ -18,7 +18,7 @@
     const {width:w,height:h}=dimensions();
     const sizes = {welcome:[350,550],preview:[900,800],looks:[820,475],messenger:[850,600],store:[940,600],panels:[950,620],custom:[850,590],free:[800,580],display:[385,470],readme:[590,520]};
     let [width,height]=sizes[id]||[650,500];
-    if(id==='free' && new URLSearchParams(location.search).has('widget'))height=680;
+    if(id==='free' && (new URLSearchParams(location.search).has('widget') || location.pathname==='/confirmed'))height=680;
     let x=190, y=34;
     if (id==='preview') {width=Math.min(width,w>700?w-190:w-20);x=w>700?175:10;y=28;}
     else if(id==='welcome' && w>900){width=w<1050?320:350;x=w<1050?170:195;y=35;}
@@ -94,7 +94,7 @@
     if(!frame)return;
     const requested=new URL(src||frame.dataset.src,location.origin);
     if(state===windows.get('store')&&requested.pathname==='/')requested.pathname='/store';
-    if(['/store','/claim','/custom','/about','/panels'].includes(requested.pathname)||requested.pathname.startsWith('/panel-maker/'))requested.searchParams.set('embedded','1');
+    if(['/store','/claim','/confirmed','/preview/confirmed','/custom','/about','/panels'].includes(requested.pathname)||requested.pathname.startsWith('/panel-maker/'))requested.searchParams.set('embedded','1');
     const wanted=requested.pathname+requested.search+requested.hash;
     const current=frame.dataset.currentSrc||frame.getAttribute('src');
     if(!current || (src&&current!==wanted)){
@@ -240,7 +240,7 @@
   const resizeObserver=new ResizeObserver(()=>{windows.forEach((state,id)=>{if(!state.rect)state.rect=initialRect(id);});sync();});
   resizeObserver.observe(workspace);
   window.addEventListener('popstate',event=>{
-    const id=location.pathname==='/looks/retro-messenger'?'messenger':location.pathname==='/store'?'store':location.pathname.startsWith('/panel-maker/')?'panels':location.hash==='#looks'?'looks':({'/claim':'free','/custom':'custom','/about':'about','/panels':'panels'}[location.pathname]||event.state?.desktopApp||'store');
+    const id=location.pathname==='/looks/retro-messenger'?'messenger':location.pathname==='/store'?'store':location.pathname.startsWith('/panel-maker/')?'panels':location.hash==='#looks'?'looks':({'/claim':'free','/confirmed':'free','/preview/confirmed':'free','/custom':'custom','/about':'about','/panels':'panels'}[location.pathname]||event.state?.desktopApp||'store');
     openApp(id,{route:false,url:['store','panels','custom','free','about'].includes(id)?location.pathname+location.search+location.hash:undefined});
   });
 })();

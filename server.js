@@ -804,42 +804,35 @@ const renderCheckEmailPage = (email) =>
   `
   );
 
-const renderConfirmedPage = (claim, widget) =>
+const renderConfirmedPage = (claim, widget, preview = false) =>
   formatHtml(
-    "Your Widget is Ready!",
+    "Your widget is ready",
     `
     ${renderHeader("claim")}
-    <main class="container narrow">
-      <section class="message-card">
-        <div class="success-icon">✓</div>
-        <h1>Success!</h1>
-        <br />
-        <h2>Your widget is ready to download</h2>
-        <p class="subhead">The <strong>${widget.name}</strong> theme has been unlocked.</p>
-
-        <div class="widget-preview">
-          <div class="widget-thumbnail large" style="background-image: url('${widget.thumbnail}')"></div>
-          <div class="widget-info">
-            <div class="widget-name">${widget.name}</div>
-            <div class="widget-desc">${widget.description}</div>
-          </div>
-        </div>
-
-        <div class="button-group">
-          <a class="primary-button" href="/download/${claim.claim_token}">Download File</a>
-          <a class="secondary-button" href="${addLandingUtm(ETSY_SHOP_URL, { slug: "shop", content: "confirmed-cta" })}" target="_blank" rel="noopener noreferrer">Browse Our Other Themes on Etsy</a>
-        </div>
-
-        <div class="install-notes-callout">
-          <h4>${escapeHtml(claimPlatformLabel(widget))} setup</h4>
-          <p>Use the platform-specific installation steps in your PDF guide. Configure Streamlabs Chat Box or your StreamElements widget in your <strong>browser</strong>, then add its browser source to OBS.</p>
-        </div>
-
-        <footer class="card-footer">
-          <p>Support: <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p>
-          <p>Response time: Within 24 hours</p>
-        </footer>
+    <main class="container confirmed-page">
+      <section class="hero">
+        <p class="eyebrow confirmed-status">✓ ${preview ? 'Confirmation preview' : 'Email confirmed'}</p>
+        <h1>Your widget is ready</h1>
+        <p class="subhead">${escapeHtml(widget.name)} is yours. Download the guide to install it.</p>
       </section>
+      <section class="confirmed-layout" aria-label="Your free widget and setup guide">
+        <figure class="confirmed-preview">
+          <div class="confirmed-image"><img src="${escapeHtml(widget.thumbnail)}" alt="${escapeHtml(widget.name)} preview" /></div>
+          <figcaption><strong>${escapeHtml(widget.name)}</strong><span>Works with ${escapeHtml(claimPlatformLabel(widget))}</span></figcaption>
+        </figure>
+        <div class="confirmed-next">
+          <h2>Next: install your widget</h2>
+          <p>Your PDF has the install link and step-by-step setup instructions.</p>
+          ${preview ? '<button type="button" class="primary-button confirmed-download" disabled>Download setup guide (PDF)</button><p class="local-form-note">Preview only. No claim was created; downloads are disabled.</p>' : `<a class="primary-button confirmed-download" href="/download/${encodeURIComponent(claim.claim_token)}" download>Download setup guide (PDF)</a>`}
+          <ol class="confirmed-steps">
+            <li>Open your PDF and click the ${escapeHtml(claimPlatformLabel(widget))} install button.</li>
+            <li>Customize your widget in your browser.</li>
+            <li>Add its browser source to OBS.</li>
+          </ol>
+          <p class="confirmed-help">Need a hand? <a href="mailto:${escapeHtml(SUPPORT_EMAIL)}">${escapeHtml(SUPPORT_EMAIL)}</a></p>
+        </div>
+      </section>
+      <nav class="confirmed-navigation" aria-label="Keep exploring"><a href="/store">Browse the widget store &rarr;</a><a href="/claim?widget=${encodeURIComponent(widget.id)}&amp;view=all">See other free widgets &rarr;</a></nav>
     </main>
     ${renderFooter()}
   `
@@ -1176,8 +1169,17 @@ app.get("/confirmed", (req, res) => {
     return;
   }
 
-  res.send(renderConfirmedPage(claim, widget));
+  res.send(renderUtilityPage(req,'free','freeSrc',()=>renderConfirmedPage(claim, widget)));
 });
+
+// Presentation-only review route. Production never exposes this route or a claim.
+if (LOCAL_PREVIEW) {
+  app.get('/preview/confirmed', (req, res) => {
+    const widget = typeof req.query.widget === 'string' ? findWidget(loadWidgets(), req.query.widget) : null;
+    if (!widget || widget.freebie === false || !widget.downloadAvailable) return res.sendStatus(404);
+    res.send(renderUtilityPage(req,'free','freeSrc',()=>renderConfirmedPage(null, widget, true)));
+  });
+}
 
 app.get("/download/:token", (req, res) => {
   const token = req.params.token;

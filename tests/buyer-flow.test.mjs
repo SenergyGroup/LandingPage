@@ -131,7 +131,9 @@ test('local PDF access survives repeat downloads, confirmation return, and inter
     await download(fixture);
     const page = await fetch(`${fixture.base}/confirmed?token=test-repeat`);
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /\/download\/test-repeat/);
+    assert.match(await page.text(), /data-initial-app="free"/);
+    const embedded = await fetch(`${fixture.base}/confirmed?token=test-repeat&embedded=1`);
+    assert.match(await embedded.text(), /\/download\/test-repeat/);
     await download(fixture);
     assert.deepEqual(await fixture.state('repeat'), first);
     await download(fixture, 'legacy');
@@ -429,6 +431,46 @@ test('both cafe companions use the existing email confirmation gate with mocked 
     assert.equal(request.body.fields.widget_id,id);
     assert.equal((await fetch(fixture.base+'/download/'+request.body.fields.widget_claim_token)).status,403);
   }
+});
+
+test('confirmed cafe claims open the desktop and deliver the correct repeatable PDF', async t => {
+  const fixture=await startFixture(false,false,'success'); t.after(()=>fixture.close());
+  for (const id of ['sku-47-internet-cafe-receipt','sku-cc-internet-cafe-order-ticket']) {
+    await submitClaim(fixture,{email:'confirmed@example.invalid',widget_id:id});
+    const token=(await fixture.state('__requests')).at(-1).body.fields.widget_claim_token;
+    const route='/confirmed?token='+token;
+    const shell=await (await fetch(fixture.base+route)).text();
+    assert.match(shell,/data-initial-app="free"/);
+    assert.ok(shell.includes(`token=${token}&amp;embedded=1`));
+    const embedded=await (await fetch(fixture.base+route+'&embedded=1')).text();
+    assert.doesNotMatch(embedded,/class="desktop-shell"|background-image/);
+    assert.match(embedded,/Email confirmed|Download setup guide \(PDF\)/);
+    assert.ok(embedded.includes(`href="/download/${token}" download`));
+    assert.ok(embedded.includes(`/public/images/${id}/preview.png`));
+    assert.doesNotMatch(embedded,/overlays\.batary\.dev|streamlabs\.com\/profile\/share/);
+    if(id.includes('order-ticket'))assert.doesNotMatch(embedded,/Streamlabs Chat Box|Streamlabs or StreamElements/);
+    for(let attempt=0;attempt<2;attempt++) {
+      const response=await fetch(fixture.base+'/download/'+token);
+      assert.equal(response.status,200);
+      assert.match(response.headers.get('content-disposition'),/attachment/);
+      assert.equal(await response.text(),'%PDF-1.4\nCafe fixture only');
+    }
+  }
+  assert.equal((await fetch(fixture.base+'/confirmed?token=unknown')).status,404);
+  assert.equal((await fetch(fixture.base+'/preview/confirmed?widget=sku-47-internet-cafe-receipt')).status,404);
+});
+
+test('confirmation review is presentation only and stays isolated from real claims', async t => {
+  const fixture=await startFixture(false,true); t.after(()=>fixture.close());
+  const route='/preview/confirmed?widget=sku-cc-internet-cafe-order-ticket';
+  const shell=await (await fetch(fixture.base+route)).text();
+  assert.match(shell,/data-initial-app="free"/);
+  const embedded=await (await fetch(fixture.base+route+'&embedded=1')).text();
+  assert.match(embedded,/Confirmation preview/);
+  assert.match(embedded,/confirmed-download" disabled/);
+  assert.doesNotMatch(embedded,/href="\/download\/|googletagmanager/);
+  assert.equal((await fixture.state('__claims')).length,6);
+  assert.equal((await fetch(fixture.base+'/preview/confirmed?widget='+kitId)).status,404);
 });
 
 test('claim validation rejects invalid emails and paid or missing downloads before contacting Kit', async t => {
