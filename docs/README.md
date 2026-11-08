@@ -81,12 +81,14 @@ together, then verify both guide links and confirmation/download behavior on the
 live site. Do not upload paid guides to the freebie folders or publish Etsy as a
 side effect. `npm test` covers both selected IDs and uses mocked Kit only.
 
-After the owner confirms both live guide links open the correct selected widget
-and the email confirmation/download flow succeeds, streamline the paired release
-workflow. The owner's intended default for all future chats is a matching alert,
-with each guide offering the other widget free through email signup. Do not mark
-new pairs live-verified without that feedback. The owner requested the confirmed
-page visual update before work on the broader paired-product SOPs begins.
+The owner confirmed the live pair and approved the confirmed-page redesign, then
+authorized the reusable paired workflow. All new chats now include a matching
+alert, with each guide offering the other free through email signup. The parent
+product repo's `workflows/create_widget_pair.md` and `/widget-pair` coordinate it;
+`tools/widget_pair.py link/check/stage` configure, validate and stage both sides.
+No site code changes are needed for each new pair. The catalog regression counts
+are derived from configured entries so adding a pair does not break fixed totals.
+New pairs still require visual and live acceptance; don't inherit the café results.
 
 ### Confirmed-page visual update (local review)
 

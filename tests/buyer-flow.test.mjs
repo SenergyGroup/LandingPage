@@ -358,7 +358,10 @@ test('audit routes keep their requested tool and query parameters, with an initi
     const content = await embedded.text();
     assert.equal(embedded.status, 200);
     assert.doesNotMatch(content, /class="desktop-shell"/);
-    if (app === 'free') assert.match(content, /Showing 5 of 27 widgets/);
+    if (app === 'free') {
+      const freebies=JSON.parse(fs.readFileSync(path.join(root,'config/widgets.json'),'utf8')).filter(w=>w.freebie!==false);
+      assert.ok(content.includes(`Showing ${freebies.filter(w=>w.aesthetic==='windows').length} of ${freebies.length} widgets`));
+    }
     if (app === 'panels') assert.match(content, /<canvas/);
     if (app === 'store') assert.match(content, /Stream Kits & Chat Bundles/);
   }
@@ -371,14 +374,16 @@ test('claim cards expose verified platform metadata, primary choice controls and
   const html = await (await fetch(fixture.base + '/claim?embedded=1')).text();
   const catalog = JSON.parse(fs.readFileSync(path.join(root,'config/widgets.json'),'utf8'));
   const freebies = catalog.filter(w => w.freebie !== false);
-  assert.equal(freebies.length, 27);
+  assert.ok(freebies.length > 0);
   for (const widget of freebies) {
     assert.deepEqual(widget.claimPlatforms, widget.productType === 'alert' ? ['streamelements'] : ['streamlabs','streamelements']);
     assert.ok(html.includes(`data-choose-widget="${widget.id}"`));
     assert.ok(html.includes(`data-widget-name="${widget.name}"`));
   }
-  assert.equal((html.match(/Works with Streamlabs or StreamElements/g)||[]).length, 26);
-  assert.equal((html.match(/Works with StreamElements</g)||[]).length, 1);
+  assert.equal((html.match(/Works with Streamlabs or StreamElements/g)||[]).length,
+    freebies.filter(w=>w.claimPlatforms.join(',')==='streamlabs,streamelements').length);
+  assert.equal((html.match(/Works with StreamElements</g)||[]).length,
+    freebies.filter(w=>w.claimPlatforms.join(',')==='streamelements').length);
   assert.match(html, /Preview on Etsy/);
   assert.match(html, /id="claim-selection"[^>]*role="status"/);
   assert.match(html, /Email my free widget setup guide/);
