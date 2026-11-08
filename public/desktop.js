@@ -18,6 +18,7 @@
     const {width:w,height:h}=dimensions();
     const sizes = {welcome:[350,550],preview:[900,800],looks:[820,475],messenger:[850,600],store:[940,600],panels:[950,620],custom:[850,590],free:[800,580],display:[385,470],readme:[590,520]};
     let [width,height]=sizes[id]||[650,500];
+    if(id==='free' && new URLSearchParams(location.search).has('widget'))height=680;
     let x=190, y=34;
     if (id==='preview') {width=Math.min(width,w>700?w-190:w-20);x=w>700?175:10;y=28;}
     else if(id==='welcome' && w>900){width=w<1050?320:350;x=w<1050?170:195;y=35;}

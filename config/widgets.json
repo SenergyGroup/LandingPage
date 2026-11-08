@@ -791,5 +791,34 @@
     "etsyListingId": "4539765353",
     "etsyVerifiedAt": "2026-10-25",
     "image": "/public/catalog-etsy/4539765353.jpg"
+  },
+  {
+    "id": "sku-cc-internet-cafe-order-ticket",
+    "name": "Café Order Ticket Alerts",
+    "description": "A matching café order ticket with animated paper feed, tear, and exit. Four animation speeds and editable receipt details.",
+    "category": "alert",
+    "productType": "alert",
+    "aesthetic": "retro",
+    "freebie": true,
+    "claimPlatforms": [
+      "streamelements"
+    ],
+    "matchingSet": "internet-cafe",
+    "storeActive": false
+  },
+  {
+    "id": "sku-47-internet-cafe-receipt",
+    "name": "Internet Café Receipt Chat",
+    "description": "A matching receipt chat widget with paper-feed animation, cream paper, and editable café details.",
+    "category": "chat",
+    "productType": "chat",
+    "aesthetic": "retro",
+    "freebie": true,
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ],
+    "matchingSet": "internet-cafe",
+    "storeActive": false
   }
 ]

@@ -44,6 +44,48 @@ Beyond the existing Kit/claim settings:
 
 ## Widget configuration
 
+### Matching café companion pilot (staged 2026-11-07)
+
+Guide links may use `/claim?widget={id}`. Only a configured, claimable product
+with an available download is preselected. Its preview, platform support and
+email signup appear together; users may return to the full picker. Unknown,
+paid-only or unavailable IDs fall back to the normal picker. The existing Kit
+confirmation and token-gated download remain in place.
+
+The November 8 refinement opens the desktop's Free Widget window directly, with
+**Your matching widget** active. Only that preview is shown, already selected;
+the email step sits beside it on desktop and immediately below on phones.
+**Browse all free widgets** uses `view=all` while retaining `widget={id}` so the
+matching tab remains available, including through aesthetic filters. Browser
+Back restores the focused selection. This route is reusable for future approved
+pairs; only the café pair is configured in this pilot. Existing PDF links work
+unchanged. Review the full desktop-shell URL, not only `?embedded=1`.
+
+Local browser QA: `widgets/sku-cc-internet-cafe-order-ticket/check_claim_preview.py`
+(run with the parent repo's Python). Both products are checked at desktop and
+phone sizes for an active Free Widget window, one selected item, visible email
+action, browse/return, browser Back, and no horizontal overflow. Preview email
+sending stays disabled. Screenshots are in the alert's `guide/website-preview/`.
+
+The first pair is `sku-47-internet-cafe-receipt` (chat, Streamlabs + StreamElements)
+and `sku-cc-internet-cafe-order-ticket` (alert, StreamElements only). Their guides
+promote each other free with email signup. Both entries are `freebie:true` and
+`storeActive:false` while the paid listings are unpublished. Images are public;
+freebie PDFs stay under `assets/zips/{id}/` for gated delivery.
+
+Owner approved the GitHub push on November 8, 2026. Render deployment and live
+acceptance remain with the owner. Before customer release, deploy
+the code, two catalog rows, two preview images and both freebie guide PDFs
+together, then verify both guide links and confirmation/download behavior on the
+live site. Do not upload paid guides to the freebie folders or publish Etsy as a
+side effect. `npm test` covers both selected IDs and uses mocked Kit only.
+
+After the owner confirms both live guide links open the correct selected widget
+and the email confirmation/download flow succeeds, streamline the paired release
+workflow. The owner's intended default for all future chats is a matching alert,
+with each guide offering the other widget free through email signup. Do not mark
+the pilot live-verified or roll out the streamlined workflow before that feedback.
+
 Widget definitions live in `config/widgets.json`:
 
 ```json

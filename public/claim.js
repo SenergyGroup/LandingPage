@@ -18,7 +18,7 @@
     summary.textContent = selected
       ? `Selected: ${selected.dataset.widgetName} — ${selected.dataset.widgetPlatforms}`
       : 'No widget selected yet. Choose a theme above.';
-    submit.textContent = selected
+    submit.textContent = form.classList.contains('is-matching') ? 'Email my free widget' : selected
       ? `Email my free ${selected.dataset.widgetName} setup guide`
       : 'Email my free widget setup guide';
     if (!scroll || !selected) return;

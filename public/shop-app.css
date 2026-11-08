@@ -36,4 +36,22 @@ body.classic-page{--chrome:#c0c0c0;--navy:#000080;--title-a:#000080;--title-b:#0
 .classic-page .claim-widget-card .claim-choose[aria-pressed=true]{background:#000080;color:#fff;box-shadow:var(--bevel-in)}
 .classic-page .claim-widget-card .widget-etsy-link{margin:0 4px 4px;align-self:center}
 .claim-widget-card:focus-within{outline:2px dotted #000080;outline-offset:2px}
+.classic-page .claim-view-tabs{display:flex;gap:4px;margin:0;border-bottom:2px solid #808080}
+.classic-page .claim-view-tabs a{background:#c0c0c0;box-shadow:var(--bevel-out);padding:10px 12px;text-decoration:none;font:bold 12px/1.3 Tahoma;min-height:36px;box-sizing:border-box;display:flex;align-items:center}
+.classic-page .claim-view-tabs a[aria-current=page]{background:#000080;color:#fff}
+.classic-page .claim-form.is-matching{max-width:none;background:#c0c0c0;padding:14px;box-shadow:var(--bevel-out)}
+.classic-page .matching-claim-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+.classic-page .claim-form.is-matching .widget-grid{grid-template-columns:minmax(0,1fr);padding:0;margin:0;box-shadow:none;background:transparent}
+.classic-page .claim-form.is-matching .widget-thumbnail{height:190px;aspect-ratio:auto}
+.classic-page .claim-form.is-matching .widget-thumbnail img{height:100%;object-fit:contain}
+.classic-page .matching-selected{font:bold 11px Tahoma;margin:3px 5px 5px;color:#000080}
+.classic-page .matching-email-panel{min-width:0;padding:2px 0}
+.classic-page .matching-email-panel h2{margin:0 0 8px}
+.classic-page .matching-email-panel>p{margin:0 0 12px}
+.classic-page .matching-email-panel input{width:100%}
+.classic-page .matching-email-panel button[type=submit]{width:100%;background:#000080;color:#fff}
+.classic-page .matching-email-panel button[type=submit]:disabled{background:#c0c0c0;color:#666}
+.classic-page .matching-email-panel .microcopy{margin:14px 0 0;font-size:10px}
+.classic-page .matching-email-panel .claim-selection{font-size:11px}
+@media(max-width:560px){.classic-page .matching-claim-layout{grid-template-columns:minmax(0,1fr);gap:16px}.classic-page .claim-form.is-matching{padding:12px}.classic-page .claim-form.is-matching .widget-thumbnail{height:140px}.classic-page .claim-form.is-matching .widget-desc{display:none}.classic-page .matching-email-panel .claim-selection{display:none}.classic-page .claim-view-tabs a{font-size:11px;padding:9px 10px}}
 .classic-page .claim-selection{padding:10px;background:#fff;box-shadow:var(--bevel-in);overflow-wrap:anywhere}

@@ -709,9 +709,13 @@ const claimPlatformLabel = (widget) => {
   return (widget.claimPlatforms || []).map((platform) => names[platform]).filter(Boolean).join(" or ") || "See the setup guide for platform details";
 };
 
-const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "", selectedId = "") => {
+const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "", selectedId = "", browseAll = false) => {
   const claimable = freebieWidgets(allWidgets);
-  const filtered = activeAesthetic
+  const selectedWidget = claimable.find((w) => w.id === selectedId && w.downloadAvailable);
+  const focused = selectedWidget && !browseAll;
+  const matchingUrl = selectedWidget ? `/claim?widget=${encodeURIComponent(selectedWidget.id)}` : "";
+  const browseUrl = selectedWidget ? `${matchingUrl}&view=all` : "/claim";
+  const filtered = focused ? [selectedWidget] : activeAesthetic
     ? claimable.filter((w) => w.aesthetic === activeAesthetic)
     : claimable;
 
@@ -719,8 +723,8 @@ const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "", selecte
 
   const filterBar = `
     <nav class="filter-bar" aria-label="Filter by aesthetic">
-      <a href="/claim" class="filter-btn${!activeAesthetic ? " filter-active" : ""}">All</a>
-      ${aesthetics.map((a) => `<a href="/claim?aesthetic=${a}" class="filter-btn${activeAesthetic === a ? " filter-active" : ""}">${aestheticLabel(a)}</a>`).join("\n      ")}
+      <a href="${escapeHtml(browseUrl)}" class="filter-btn${!activeAesthetic ? " filter-active" : ""}">All</a>
+      ${aesthetics.map((a) => `<a href="${escapeHtml(browseUrl + (selectedWidget ? '&' : '?') + 'aesthetic=' + encodeURIComponent(a))}" class="filter-btn${activeAesthetic === a ? " filter-active" : ""}">${aestheticLabel(a)}</a>`).join("\n      ")}
     </nav>
     <p class="filter-count">Showing ${filtered.length} of ${claimable.length} widgets</p>
   `;
@@ -743,7 +747,7 @@ const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "", selecte
         <div class="widget-desc">${escapeHtml(widget.description)}</div>
         </label>
         <p class="widget-platforms">Works with ${escapeHtml(claimPlatformLabel(widget))}</p>
-        <button type="button" class="primary-button claim-choose" data-choose-widget="${escapeHtml(widget.id)}" aria-label="Choose ${escapeHtml(widget.name)} as your free widget" aria-pressed="${selectedId === widget.id}">Choose this free widget</button>${etsyLink}
+        ${focused ? '<p class="matching-selected">✓ Selected from your guide</p>' : `<button type="button" class="primary-button claim-choose" data-choose-widget="${escapeHtml(widget.id)}" aria-label="Choose ${escapeHtml(widget.name)} as your free widget" aria-pressed="${selectedId === widget.id}">Choose this free widget</button>${etsyLink}`}
       </article>
     `;
     })
@@ -753,16 +757,18 @@ const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "", selecte
     "Claim your free widget",
     `
     ${renderHeader("claim")}
-    <main class="container">
+    <main class="container${focused ? ' matching-claim-page' : ''}">
       <section class="hero">
-        <p class="eyebrow">An extra theme, with our thanks</p>
-        <h1>Choose your free chat widget</h1>
-        <p class="subhead">Pick an additional chat theme as a thank-you for joining our newsletter. Platform support is listed on each card. Confirm your email to unlock its free setup guide.</p>
+        <p class="eyebrow">${focused ? "Complete your matching set" : "A free widget, with our thanks"}</p>
+        <h1>${focused ? escapeHtml(selectedWidget.name) : "Choose your free widget"}</h1>
+        <p class="subhead">${focused ? "Already selected for you. Join our newsletter to get this matching widget free." : "Choose a chat widget or matching accessory as a thank-you for joining our newsletter. Confirm your email to unlock its free setup guide."}</p>
         ${errorMessage ? `<p class="error" role="alert">${escapeHtml(errorMessage)}</p>` : ""}
       </section>
-      <form class="claim-form" action="/claim" method="POST">
-        ${filterBar}
-        <h2 class="claim-step">1. Pick a theme</h2><div class="widget-grid">${widgetCards}</div><h2 class="claim-step">2. Get your free setup guide</h2>
+      ${selectedWidget ? `<nav class="claim-view-tabs" aria-label="Free widget views"><a href="${escapeHtml(matchingUrl)}" ${focused ? 'aria-current="page"' : ''}>Your matching widget</a><a href="${escapeHtml(browseUrl)}" ${!focused ? 'aria-current="page"' : ''}>Browse all free widgets</a></nav>` : ''}
+      <form class="claim-form${focused ? ' is-matching' : ''}" action="/claim" method="POST">
+        ${focused ? '<div class="matching-claim-layout">' : filterBar + '<h2 class="claim-step">1. Pick a widget</h2>'}
+        <div class="widget-grid">${widgetCards}</div>
+        ${focused ? '<section class="matching-email-panel" aria-labelledby="matching-email-title"><h2 id="matching-email-title">Get this widget free</h2><p>Enter your email, then confirm it in your inbox to unlock the setup guide and install link.</p>' : '<h2 class="claim-step">2. Get your free setup guide</h2>'}
         <div class="form-row" id="claim-email-section">
           <p id="claim-selection" class="claim-selection" role="status" aria-live="polite">${selectedId ? `Selected: <strong>${escapeHtml(claimable.find((w) => w.id === selectedId)?.name || "")}</strong>` : "No widget selected yet. Choose a theme above."}</p>
           <label for="email">Email address</label>
@@ -772,6 +778,7 @@ const renderClaimPage = (allWidgets, activeAesthetic, errorMessage = "", selecte
         <p class="microcopy">By claiming your widget, you agree to join the SenergyGroup newsletter.
           We'll send you monthly widget drops and community votes.
           No spam. Unsubscribe with one click at any time.</p>
+        ${focused ? '</section></div>' : ''}
       </form>
     </main>
     ${renderFooter()}
@@ -1060,7 +1067,9 @@ app.get("/admin/requests", (req, res) => {
 app.get("/claim", (req, res) => {
   const widgets = loadWidgets();
   const aesthetic = typeof req.query.aesthetic === "string" ? req.query.aesthetic : null;
-  res.send(renderUtilityPage(req,'free','freeSrc',()=>renderClaimPage(widgets,aesthetic)));
+  const requested = typeof req.query.widget === "string" ? findWidget(widgets, req.query.widget) : null;
+  const selectedId = requested && requested.freebie !== false && requested.downloadAvailable ? requested.id : "";
+  res.send(renderUtilityPage(req,'free','freeSrc',()=>renderClaimPage(widgets,aesthetic,"",selectedId,req.query.view === 'all')));
 });
 
 app.post("/claim", async (req, res) => {

@@ -24,6 +24,10 @@ async function startFixture(external = false, preview = false, kitMock = '') {
   const pdf = Buffer.alloc(16 * 1024 * 1024, 32);
   pdf.write('%PDF-1.4\n');
   fs.writeFileSync(path.join(zips, widgetId, 'guide.pdf'), pdf);
+  for (const id of ['sku-47-internet-cafe-receipt', 'sku-cc-internet-cafe-order-ticket']) {
+    fs.mkdirSync(path.join(zips, id), {recursive:true});
+    fs.writeFileSync(path.join(zips, id, 'guide.pdf'), '%PDF-1.4\nCafe fixture only');
+  }
   const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/widgets.json'), 'utf8'));
   catalog.push({ id: 'missing-file', name: 'Missing fixture', zip: 'missing.pdf', freebie: false });
   fs.writeFileSync(path.join(dir, 'widgets.json'), JSON.stringify(catalog));
@@ -352,7 +356,7 @@ test('audit routes keep their requested tool and query parameters, with an initi
     const content = await embedded.text();
     assert.equal(embedded.status, 200);
     assert.doesNotMatch(content, /class="desktop-shell"/);
-    if (app === 'free') assert.match(content, /Showing 5 of 25 widgets/);
+    if (app === 'free') assert.match(content, /Showing 5 of 27 widgets/);
     if (app === 'panels') assert.match(content, /<canvas/);
     if (app === 'store') assert.match(content, /Stream Kits & Chat Bundles/);
   }
@@ -365,17 +369,18 @@ test('claim cards expose verified platform metadata, primary choice controls and
   const html = await (await fetch(fixture.base + '/claim?embedded=1')).text();
   const catalog = JSON.parse(fs.readFileSync(path.join(root,'config/widgets.json'),'utf8'));
   const freebies = catalog.filter(w => w.freebie !== false);
-  assert.equal(freebies.length, 25);
+  assert.equal(freebies.length, 27);
   for (const widget of freebies) {
-    assert.deepEqual(widget.claimPlatforms, ['streamlabs','streamelements']);
+    assert.deepEqual(widget.claimPlatforms, widget.productType === 'alert' ? ['streamelements'] : ['streamlabs','streamelements']);
     assert.ok(html.includes(`data-choose-widget="${widget.id}"`));
     assert.ok(html.includes(`data-widget-name="${widget.name}"`));
   }
-  assert.equal((html.match(/Works with Streamlabs or StreamElements/g)||[]).length, 25);
+  assert.equal((html.match(/Works with Streamlabs or StreamElements/g)||[]).length, 26);
+  assert.equal((html.match(/Works with StreamElements</g)||[]).length, 1);
   assert.match(html, /Preview on Etsy/);
   assert.match(html, /id="claim-selection"[^>]*role="status"/);
   assert.match(html, /Email my free widget setup guide/);
-  assert.match(html, /additional chat theme as a thank-you/);
+  assert.match(html, /chat widget or matching accessory as a thank-you/);
   assert.match(html, /src="\/public\/claim.js"/);
   assert.match(await (await fetch(fixture.base + '/store?embedded=1')).text(), /No coding needed/);
 });
@@ -383,6 +388,47 @@ test('claim cards expose verified platform metadata, primary choice controls and
 const submitClaim = (fixture, body) => fetch(fixture.base + '/claim', {
   method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
   body:new URLSearchParams(body), redirect:'manual'
+});
+
+test('paired guide links preselect only a valid downloadable free widget and preserve the shell route', async t => {
+  const fixture=await startFixture(); t.after(()=>fixture.close());
+  for (const id of ['sku-47-internet-cafe-receipt','sku-cc-internet-cafe-order-ticket']) {
+    const route='/claim?widget='+id+'&utm_content=cover-matching-freebie';
+    const shell=await (await fetch(fixture.base+route)).text();
+    assert.ok(shell.includes('widget='+id+'&amp;utm_content=cover-matching-freebie&amp;embedded=1'));
+    const content=await (await fetch(fixture.base+route+'&embedded=1')).text();
+    assert.match(content,/Complete your matching set/);
+    assert.equal((content.match(/type="radio"/g)||[]).length,1);
+    assert.ok(content.includes(`value="${id}"`));
+    assert.match(content,/checked required/);
+    assert.match(content,/aria-current="page">Your matching widget/);
+    assert.match(content,/Get this widget free/);
+    assert.doesNotMatch(content,/class="primary-button claim-choose"/);
+    assert.match(content,/Join|join our newsletter/);
+    assert.doesNotMatch(content,/overlays\.batary\.dev|streamlabs\.com\/profile\/share/);
+    const browse=await (await fetch(fixture.base+route+'&view=all&embedded=1')).text();
+    assert.match(browse,/aria-current="page">Browse all free widgets/);
+    assert.ok((browse.match(/type="radio"/g)||[]).length>1);
+    assert.ok(browse.includes(`href="/claim?widget=${id}"`));
+    const filtered=await (await fetch(fixture.base+route+'&view=all&aesthetic=windows&embedded=1')).text();
+    assert.ok(filtered.includes(`href="/claim?widget=${id}"`));
+  }
+  for (const id of [kitId,'unknown','sku-legacy-01-windows95','<script>bad</script>']) {
+    const content=await (await fetch(fixture.base+'/claim?embedded=1&widget='+encodeURIComponent(id))).text();
+    assert.doesNotMatch(content,/Complete your matching set|checked required|<script>bad/);
+  }
+});
+
+test('both cafe companions use the existing email confirmation gate with mocked Kit', async t => {
+  const fixture=await startFixture(false,false,'success'); t.after(()=>fixture.close());
+  for (const id of ['sku-47-internet-cafe-receipt','sku-cc-internet-cafe-order-ticket']) {
+    const response=await submitClaim(fixture,{email:'pair@example.invalid',widget_id:id});
+    assert.equal(response.status,302);
+    assert.match(response.headers.get('location'),/^\/check-email/);
+    const request=(await fixture.state('__requests')).at(-1);
+    assert.equal(request.body.fields.widget_id,id);
+    assert.equal((await fetch(fixture.base+'/download/'+request.body.fields.widget_claim_token)).status,403);
+  }
 });
 
 test('claim validation rejects invalid emails and paid or missing downloads before contacting Kit', async t => {
