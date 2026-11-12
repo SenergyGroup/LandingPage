@@ -616,12 +616,17 @@
     "aesthetic": "y2k",
     "etsyUrl": "https://www.etsy.com/listing/4595551418/y2k-sms-chat-widget-for-streamers-early",
     "thumbnail": "/public/catalog-etsy/4595551418.jpg",
-    "freebie": false,
+    "freebie": true,
     "price": 11.99,
     "storeActive": true,
     "etsyListingId": "4595551418",
     "etsyVerifiedAt": "2026-10-25",
-    "image": "/public/catalog-etsy/4595551418.jpg"
+    "image": "/public/catalog-etsy/4595551418.jpg",
+    "claimPlatforms": [
+      "streamlabs",
+      "streamelements"
+    ],
+    "matchingSet": "sku-41-flip-phone-sms"
   },
   {
     "id": "etsy-geocities-4582779802",
@@ -820,5 +825,19 @@
     ],
     "matchingSet": "internet-cafe",
     "storeActive": false
+  },
+  {
+    "id": "sku-41a-flip-phone-alert",
+    "storeActive": false,
+    "name": "Flip Phone Alerts",
+    "description": "A lavender flip phone opens for follows, subscriptions, tips, cheers and raids. Includes the StreamElements setup guide.",
+    "aesthetic": "y2k",
+    "category": "alert",
+    "productType": "alert",
+    "freebie": true,
+    "claimPlatforms": [
+      "streamelements"
+    ],
+    "matchingSet": "sku-41-flip-phone-sms"
   }
 ]

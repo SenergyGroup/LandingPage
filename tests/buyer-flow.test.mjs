@@ -17,7 +17,7 @@ const widgetId = 'sku-legacy-02-windowsxp';
 const kitId = 'sku-mk-kit-full';
 const kitListing = 'https://www.etsy.com/listing/4533131913/retro-bundle-streamelements-y2k-early';
 
-async function startFixture(external = false, preview = false, kitMock = '') {
+async function startFixture(external = false, preview = false, kitMock = '', phonePair = false) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'senergy-buyer-flow-'));
   const zips = path.join(dir, 'zips');
   fs.mkdirSync(path.join(zips, widgetId), { recursive: true });
@@ -29,6 +29,23 @@ async function startFixture(external = false, preview = false, kitMock = '') {
     fs.writeFileSync(path.join(zips, id, 'guide.pdf'), '%PDF-1.4\nCafe fixture only');
   }
   const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/widgets.json'), 'utf8'));
+  // Phone route tests use disposable assets; real PDF links are checked by widget_pair.py.
+  const phoneImages = path.join(dir, 'phone-images');
+  if (phonePair) {
+    for (const [id, name, category, claimPlatforms] of [
+      ['sku-41-flip-phone-sms', 'Flip Phone SMS Chat', 'chat', ['streamlabs','streamelements']],
+      ['sku-41a-flip-phone-alert', 'Flip Phone Alerts', 'alert', ['streamelements']]
+    ]) {
+      const row = catalog.find(w => w.id === id);
+      const entry = {id, name, category, productType:category, aesthetic:'y2k', freebie:true,
+        claimPlatforms, matchingSet:'sku-41-flip-phone-sms', thumbnail:`/public/images/${id}/preview.png`};
+      if (row) Object.assign(row,entry); else catalog.push({...entry,storeActive:false});
+      fs.mkdirSync(path.join(zips,id), {recursive:true});
+      fs.writeFileSync(path.join(zips,id,'guide.pdf'), `%PDF-1.4\nPhone fixture only: ${id}`);
+      fs.mkdirSync(path.join(phoneImages,id), {recursive:true});
+      fs.writeFileSync(path.join(phoneImages,id,'preview.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl9Wl0AAAAASUVORK5CYII=','base64'));
+    }
+  }
   catalog.push({ id: 'missing-file', name: 'Missing fixture', zip: 'missing.pdf', freebie: false });
   fs.writeFileSync(path.join(dir, 'widgets.json'), JSON.stringify(catalog));
   let source = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
@@ -38,6 +55,10 @@ async function startFixture(external = false, preview = false, kitMock = '') {
   source = source.replace('const __dirname = path.dirname(__filename);', `const __dirname = ${JSON.stringify(root)};`);
   source = source.replace('const WIDGETS_PATH = path.join(__dirname, "config", "widgets.json");', `const WIDGETS_PATH = ${JSON.stringify(path.join(dir, 'widgets.json'))};`);
   source = source.replace('const ZIPS_ROOT = path.join(__dirname, "assets", "zips");', `const ZIPS_ROOT = ${JSON.stringify(zips)};`);
+  if (phonePair) {
+    source = source.replace('const IMAGES_ROOT = path.join(__dirname, "public", "images");', `const IMAGES_ROOT = ${JSON.stringify(phoneImages)};`);
+    source = source.replace('app.use("/public", express.static(ASSETS_DIR));', `app.use("/public/images", express.static(${JSON.stringify(phoneImages)}));\napp.use("/public", express.static(ASSETS_DIR));`);
+  }
   for (const name of ['dotenv', 'express', 'better-sqlite3', 'nanoid']) {
     source = source.replace(`from "${name}"`, `from ${JSON.stringify(pathToFileURL(require.resolve(name)).href)}`);
   }
@@ -305,7 +326,9 @@ test('store and Panel Maker have desktop entry routes and working embedded tools
 
 
 test('paid catalog matches all 31 active Etsy listings and preserves free-widget eligibility', async t => {
-  const fixture=await startFixture(false,true);t.after(()=>fixture.close());
+  const fixture=await startFixture(false,true,'',true);t.after(()=>fixture.close());
+  // Explicitly paired after the October paid-catalog audit; other added listings stay paid-only.
+  const pairedFreebies = new Set(['sku-41-flip-phone-sms']);
   const audit=JSON.parse(fs.readFileSync(path.join(root,'docs/etsy-catalog-audit-2026-10-25.json'),'utf8'));
   const entries=JSON.parse(fs.readFileSync(path.join(root,'config/widgets.json'),'utf8'));
   const active=entries.filter(w=>w.etsyUrl&&w.storeActive!==false);
@@ -326,12 +349,12 @@ test('paid catalog matches all 31 active Etsy listings and preserves free-widget
   for(const listing of audit.listings)assert.ok(grouped.includes('/listing/'+listing.id+'/'),listing.id);
   for(const removed of audit.removedFromPaidStore){assert.ok(!grouped.includes('/listing/'+removed.id+'/'));assert.ok(entries.find(w=>w.id===removed.sku));}
   for(const added of audit.added){
-    assert.equal(entries.find(w=>w.id===added.sku).freebie,false);
+    assert.equal(entries.find(w=>w.id===added.sku).freebie,pairedFreebies.has(added.sku));
     const response=await fetch(fixture.base+added.localImage,{method:'HEAD'});assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/^image\//);
   }
   const claim=await(await fetch(fixture.base+'/claim?embedded=1')).text();
   assert.match(claim,/Works with Streamlabs or StreamElements/);assert.match(claim,/name="widget_id"/);assert.match(claim,/name="email"/);
-  for(const added of audit.added)assert.ok(!claim.includes(`value="${added.sku}"`));
+  for(const added of audit.added)assert.equal(claim.includes(`value="${added.sku}"`),pairedFreebies.has(added.sku));
   for(const [route,app] of [['/claim?aesthetic=windows','free'],['/custom','custom'],['/about','about'],['/panels','panels']]){
     const shell=await(await fetch(fixture.base+route)).text();assert.ok(shell.includes(`data-initial-app="${app}"`));
     const inner=await(await fetch(fixture.base+route+(route.includes('?')?'&':'?')+'embedded=1')).text();
@@ -538,4 +561,73 @@ test('icon grid prevents collisions when dropping onto occupied cells and resizi
     assert.ok(target.col>=0&&target.col<grid.columns&&target.row>=0&&target.row<grid.rows);
     saved=positions;
   }
+});
+
+
+const phoneIds = ['sku-41-flip-phone-sms','sku-41a-flip-phone-alert'];
+
+test('phone guide routes preserve matching selection, platform labels and browse return path', async t => {
+  const fixture=await startFixture(false,false,'',true); t.after(()=>fixture.close());
+  for (const id of phoneIds) {
+    const route='/claim?widget='+id+'&utm_content=cover-matching-freebie';
+    const shell=await (await fetch(fixture.base+route)).text();
+    assert.match(shell,/data-initial-app="free"/);
+    assert.ok(shell.includes('widget='+id+'&amp;utm_content=cover-matching-freebie&amp;embedded=1'));
+    const content=await (await fetch(fixture.base+route+'&embedded=1')).text();
+    assert.equal((content.match(/type="radio"/g)||[]).length,1);
+    assert.ok(content.includes(`value="${id}"`));
+    assert.match(content,/checked required/);
+    assert.match(content,/aria-current="page">Your matching widget/);
+    assert.match(content,/Get this widget free/);
+    assert.match(content,/Email my free widget setup guide/);
+    assert.doesNotMatch(content,/overlays\.batary\.dev|streamlabs\.com\/profile\/share/);
+    if(id.includes('41a')) assert.doesNotMatch(content,/Works with Streamlabs or StreamElements/);
+    else assert.match(content,/Works with Streamlabs or StreamElements/);
+    for (const suffix of ['&view=all','&view=all&aesthetic=windows']) {
+      const browse=await (await fetch(fixture.base+route+suffix+'&embedded=1')).text();
+      assert.ok(browse.includes(`href="/claim?widget=${id}"`));
+    }
+    const image=await fetch(fixture.base+`/public/images/${id}/preview.png`);
+    assert.equal(image.status,200); assert.match(image.headers.get('content-type'),/image\/png/);
+  }
+});
+
+test('phone confirmation delivers the selected guide twice while unknown and unconfirmed tokens stay blocked', async t => {
+  const fixture=await startFixture(false,false,'success',true); t.after(()=>fixture.close());
+  for (const id of phoneIds) {
+    const response=await submitClaim(fixture,{email:'phone@example.invalid',widget_id:id});
+    assert.equal(response.status,302); assert.match(response.headers.get('location'),/^\/check-email/);
+    const request=(await fixture.state('__requests')).at(-1);
+    assert.equal(request.body.fields.widget_id,id);
+    const token=request.body.fields.widget_claim_token;
+    assert.equal((await fetch(fixture.base+'/download/'+token)).status,403);
+    const shell=await (await fetch(fixture.base+'/confirmed?token='+token)).text();
+    assert.match(shell,/data-initial-app="free"/);
+    const content=await (await fetch(fixture.base+'/confirmed?token='+token+'&embedded=1')).text();
+    assert.match(content,/Download setup guide \(PDF\)/);
+    assert.ok(content.includes(`/public/images/${id}/preview.png`));
+    assert.ok(content.includes(`href="/download/${token}" download`));
+    if(id.includes('41a')) assert.doesNotMatch(content,/Streamlabs Chat Box|Streamlabs or StreamElements/);
+    for(let i=0;i<2;i++) {
+      const download=await fetch(fixture.base+'/download/'+token);
+      assert.equal(download.status,200);
+      assert.equal(await download.text(),`%PDF-1.4\nPhone fixture only: ${id}`);
+    }
+  }
+  assert.equal((await fetch(fixture.base+'/download/unknown')).status,403);
+  assert.equal((await fetch(fixture.base+'/confirmed?token=unknown')).status,404);
+});
+
+test('phone local confirmation previews cannot send email, create claims or unlock a download', async t => {
+  const fixture=await startFixture(false,true,'success',true); t.after(()=>fixture.close());
+  for (const id of phoneIds) {
+    const shell=await (await fetch(fixture.base+'/preview/confirmed?widget='+id)).text();
+    assert.match(shell,/data-initial-app="free"/);
+    const content=await (await fetch(fixture.base+'/preview/confirmed?widget='+id+'&embedded=1')).text();
+    assert.match(content,/confirmed-download" disabled/);
+    assert.doesNotMatch(content,/href="\/download\/|googletagmanager/);
+    assert.equal((await submitClaim(fixture,{email:'phone@example.invalid',widget_id:id})).status,403);
+  }
+  assert.deepEqual(await fixture.state('__requests'),[]);
+  assert.equal((await fixture.state('__claims')).length,6);
 });
