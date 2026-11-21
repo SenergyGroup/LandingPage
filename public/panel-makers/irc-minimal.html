@@ -1,1456 +1,283 @@
 <!DOCTYPE html>
-<!-- IRC MINIMAL PANEL MAKER v2 — self-serve Twitch panel generator.
-     Each panel is a classic IRC client window rendered in <canvas>: a #channel title
-     bar with the server name, a three-line log with [hh:mm] timestamps, <nick>
-     brackets, *** server lines and /commands, an adaptive nick list, and a
-     CONNECTED status bar with a block cursor. Buyers type their nick + text, pick a
-     theme, upload an avatar, and download PNGs — one at a time or the set as a .zip.
-
-     The maker itself is laid out like an IRC client: a channel list on the left
-     (one channel = one panel, its box = in your set), the panel you are editing on
-     the right, and everything a first-timer does not need folded away.
-
-     Text is TRUE BITMAP: IBM Plex Mono (SIL OFL, via @fontsource/ibm-plex-mono) was
-     pre-rendered through FreeType's 1-bit rasteriser (Bold 16 titles, Bold 14 nicks
-     and keys, Medium 14 body, Medium 13 timestamps/status) and packed into a glyph
-     atlas inside this file. Every string is drawn from that atlas at 1x and blitted
-     at exactly 2x, so Twitch's 2:1 downscale lands each text pixel on one screen
-     pixel, identically on every OS — no web fonts, no anti-aliasing, nothing to load.
-     No libraries, works offline. -->
-<html lang="en">
+<!-- IRC MINIMAL PANEL MAKER - self-serve Twitch panel generator.
+     Buyers type their own info, toggle social tags, and download PNGs.
+     Everything renders in a <canvas> (no libraries, works offline). -->
+<html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IRC Minimal Panel Maker — Senergy Group</title>
-<style>
-  /* No web fonts: the panel text comes from the 1-bit glyph atlas in the script below.
-     The maker's own UI uses whatever terminal face the OS has, like any IRC client. */
-  :root {
-    --desk: #0f1114;
-    --win: #16181d;
-    --bar: #2a2a2a;
-    --acc: #90a4ae;
-    --txt: #d4d4d4;
-    --ttl: #6bc5ff;
-    --ok: #6bff6b;
-    --dim: #8a8f94;
-    --line: #3a4046;
-    --sel: #1d2228;
-    --mono: "IBM Plex Mono", Consolas, "DejaVu Sans Mono", Menlo, "Liberation Mono", "Courier New", monospace;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; }
-  body {
-    background: var(--desk);
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--txt);
-    min-height: 100vh;
-    padding: 24px 16px 32px;
-  }
+<title>IRC Minimal Panel Maker</title>
+<style>/* BEGIN EMBEDDED FONT LICENSE
+Copyright © 2017 IBM Corp. with Reserved Font Name "Plex"
 
-  /* ── The one window ───────────────────────────────────── */
-  .win {
-    max-width: 960px; margin: 0 auto;
-    background: var(--win);
-    border: 1px solid var(--acc);
-    box-shadow: 0 0 0 1px #000, 8px 8px 0 rgba(0,0,0,.35);
-  }
-  .tb {
-    display: flex; align-items: center; gap: 8px;
-    height: 28px; padding: 0 10px;
-    background: var(--bar);
-    border-bottom: 1px solid var(--acc);
-    color: var(--ttl); font-weight: bold; font-size: 13px;
-    white-space: nowrap; overflow: hidden;
-  }
-  .tb .ico { width: 16px; height: 16px; image-rendering: pixelated; flex: 0 0 auto; }
-  .tb .srv { color: var(--dim); font-weight: normal; }
-  .tb .srv::before { content: "— "; opacity: .5; }
-  .tb .steps { margin-left: auto; color: var(--dim); font-weight: normal; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
-  .tb .steps b { color: var(--txt); font-weight: normal; }
-  .cols { display: grid; grid-template-columns: 208px minmax(0, 1fr); }
-  .cols > * { min-width: 0; }   /* grid items default to min-width:auto, which lets the channel strip blow the track open on phones */
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
 
-  /* ── Channel list (one channel = one panel) ───────────── */
-  .side { border-right: 1px solid var(--line); padding-bottom: 10px; }
-  .side .hd { padding: 8px 10px 6px; color: var(--dim); font-size: 11px; border-bottom: 1px solid var(--line); }
-  .side .hd b { color: var(--txt); font-weight: normal; }
-  #presetRow { display: flex; flex-direction: column; padding: 4px 0; }
-  .pickwrap { display: flex; align-items: center; gap: 6px; padding: 0 8px 0 0; }
-  .pickwrap .pick, .pickwrap .pick:active, .pickwrap .pick:hover {
-    flex: 1 1 auto; justify-content: flex-start; padding: 6px 10px 6px 8px;
-    background: none; border: none; border-left: 3px solid transparent; font-weight: normal; color: var(--txt);
-  }
-  .pickwrap .pick:hover { color: var(--ttl); }
-  .pickwrap .pick.on { background: var(--sel); border-left-color: var(--ok); color: var(--ttl); font-weight: bold; }
-  .pickwrap .inc { width: 15px; height: 15px; margin: 0; accent-color: var(--ok); flex: 0 0 auto; }
-  .side .foot { padding: 10px 12px 0; font-size: 11px; color: var(--dim); line-height: 1.5; }
+This license is copied below, and is also available with a FAQ at: http://scripts.sil.org/OFL
 
-  /* ── Editor column ────────────────────────────────────── */
-  .main { padding: 12px 14px 14px; min-width: 0; }
-  .pvbox { padding: 14px; background: #18181b; border: 1px solid var(--line); }   /* Twitch's panel-area ground */
-  canvas { display: block; }
-  #cv { width: 100%; height: auto; image-rendering: auto; }
-  .actual { margin-top: 12px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
-  #cv1 { width: 320px; height: 100px; image-rendering: auto; flex: 0 0 auto; }
-  .actual .lab { font-size: 11px; color: #adadb8; line-height: 1.5; flex: 1 1 200px; }
-  .actual .lab b { color: #fff; font-weight: normal; }
-  .meta { margin: 6px 0 12px; font-size: 11px; color: var(--dim); }
-  .meta b { color: var(--txt); font-weight: normal; }
 
-  .grp { margin: 0 0 12px; padding: 10px 12px 12px; border: 1px solid var(--line); }
-  .grp .lg { font-weight: bold; font-size: 13px; margin: 0 0 4px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; color: var(--ttl); }
-  .grp .lg small { font-weight: normal; color: var(--dim); }
-  label { display: block; font-size: 12px; margin: 10px 0 4px; color: var(--acc); }
-  input[type=text], input[type=number] {
-    width: 100%; padding: 6px 8px; font: 13px var(--mono); background: var(--desk); color: var(--txt);
-    border: 1px solid var(--line); outline: none; caret-color: var(--ok);
-  }
-  input[type=text]:focus, input[type=number]:focus { border-color: var(--ttl); }
-  input::placeholder { color: #5a6068; }
-  .row { display: flex; gap: 6px; flex-wrap: wrap; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
-  .list3 { display: grid; gap: 4px; }
-  button, .btn {
-    font: bold 12px var(--mono); color: var(--txt); cursor: pointer; padding: 6px 10px; background: var(--bar);
-    border: 1px solid var(--acc); display: inline-flex; align-items: center; gap: 6px; text-decoration: none; line-height: 1.2;
-  }
-  button:hover, .btn:hover { border-color: var(--ttl); color: var(--ttl); }
-  button:active, .btn:active, button.on { border-color: var(--ok); color: var(--ok); background: #172119; }
-  button:disabled { color: var(--dim); border-color: var(--line); cursor: default; }
-  button .ico { width: 16px; height: 16px; image-rendering: pixelated; }
-  button:focus-visible { outline: 1px dashed var(--ok); outline-offset: 2px; }
-  input[type=checkbox] { accent-color: var(--ok); }
-  #iconRow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-  .icons button { padding: 4px 5px; justify-content: center; }
-  .icons button .ico { width: 24px; height: 24px; }
-  .checks { display: flex; gap: 4px 12px; flex-wrap: wrap; }
-  .checks label { display: inline-flex; align-items: center; gap: 5px; margin: 4px 0 0; color: var(--txt); }
-  #handles { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; margin-top: 6px; }
-  #handles label { margin: 0; font-size: 11px; }
-  #handles input { padding: 4px 6px; font-size: 12px; }
-  .days { display: flex; gap: 4px; flex-wrap: wrap; }
-  .days button { min-width: 40px; justify-content: center; padding: 6px 0; }
-  .colors { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
-  .colors label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
-  input[type=color] { width: 30px; height: 22px; padding: 0; border: 1px solid var(--acc); background: var(--desk); cursor: pointer; }
-  input[type=file] { font: 12px var(--mono); max-width: 100%; color: var(--txt); }
-  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .fname { font-size: 11px; color: var(--dim); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  label.btn { margin: 0; }
-  .themes { display: flex; gap: 6px; flex-wrap: wrap; }
-  .themes button { padding: 5px 9px; font-weight: normal; }
-  .sw { width: 12px; height: 12px; border: 1px solid var(--acc); display: inline-block; }
-  .hint { font-size: 11px; color: var(--dim); line-height: 1.55; margin-top: 8px; }
-  .hint b { color: var(--txt); font-weight: normal; }
-  .avatarRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
-  .avatarRow label { margin: 0; display: inline-flex; align-items: center; gap: 5px; color: var(--txt); }
-  .linkish, .linkish:active, .linkish:hover { background: none; border: none; box-shadow: none; padding: 0; font: 12px var(--mono); color: var(--ttl); text-decoration: underline; cursor: pointer; }
-  .inline { display: inline-flex; align-items: center; gap: 6px; color: var(--txt); }
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
 
-  /* folded sections: closed by default, one line each */
-  details.more { margin: 12px 0 0; border-top: 1px dashed var(--line); padding-top: 8px; }
-  details.more > summary { cursor: pointer; color: var(--dim); font-size: 12px; list-style: none; }
-  details.more > summary::-webkit-details-marker { display: none; }
-  details.more > summary::before { content: "▸ "; color: var(--ok); }
-  details.more[open] > summary::before { content: "▾ "; }
-  details.more > summary:hover { color: var(--ttl); }
-  details.more > .in { padding: 2px 0 4px; }
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
 
-  .sugg textarea { width: 100%; font: 12px var(--mono); padding: 6px 8px; background: var(--desk); color: var(--txt); resize: vertical; border: 1px solid var(--line); margin-top: 8px; }
-  .dl-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 0; align-items: center; }
-  .dl-row .primary { border-color: var(--ok); color: var(--ok); }
-  .dl-row .note { font-size: 11px; color: var(--dim); }
-  #setBox { display: none; margin-top: 10px; padding: 12px; background: #18181b; border: 1px solid var(--line); }
-  #setBox.on { display: block; }
-  #setBox .lab { font-size: 11px; color: #c8c8cc; margin-bottom: 8px; }
-  #setCol { display: grid; grid-template-columns: repeat(auto-fill, 320px); gap: 10px; }
-  #setCol canvas { width: 320px; height: 100px; }
-  .howto { font-size: 12px; line-height: 1.6; color: var(--txt); }
-  .howto b { color: var(--ttl); font-weight: normal; }
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded, 
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
 
-  /* ── Status bar: kit CTA (static, the window's own bottom bar) ── */
-  .statusbar {
-    background: var(--bar); border-top: 1px solid var(--acc);
-    padding: 5px 10px; display: flex; align-items: center; gap: 10px; font-size: 12px;
-  }
-  .statusbar .dot { color: var(--ok); font-size: 8px; }
-  .statusbar .conn { color: var(--dim); }
-  .statusbar .sep { color: var(--line); }
-  .statusbar .task { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dim); }
-  .statusbar .task b { color: var(--txt); font-weight: normal; }
-  .statusbar .start { border-color: var(--ok); color: var(--ok); padding: 4px 8px; }
-  .statusbar .start .ico { width: 16px; height: 16px; image-rendering: pixelated; }
-  .statusbar .cur { color: var(--ok); animation: blink 1s steps(1, end) infinite; }
-  @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
 
-  /* ── Phones / narrow: channel strip on top, true-size preview pinned ── */
-  @media (max-width: 760px) {
-    body { padding: 10px 8px 24px; }
-    .tb .steps { display: none; }
-    .cols { grid-template-columns: 1fr; }
-    .side { border-right: none; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
-    #presetRow { flex-direction: row; overflow-x: auto; gap: 4px; padding: 6px 8px; -webkit-overflow-scrolling: touch; }
-    .pickwrap { flex: 0 0 auto; padding: 0; border: 1px solid var(--line); }
-    .pickwrap .pick, .pickwrap .pick:hover { border-left: none; padding: 5px 4px 5px 8px; white-space: nowrap; }
-    .pickwrap .pick.on { border-left: none; }
-    .pickwrap .inc { margin-right: 6px; }
-    .side .foot { display: none; }
-    .main { padding: 8px 8px 12px; }
-    .pvbox { position: sticky; top: 0; z-index: 4; padding: 8px; }
-    .pvbox #cv, .actual .lab { display: none; }
-    .actual { margin-top: 0; justify-content: center; }
-    .two { grid-template-columns: 1fr; }
-    .statusbar .task { display: none; }
-  }
-  .catalog-nav { max-width: 960px; margin: 0 auto 12px; }
-  .catalog-nav a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ttl); font-weight: bold; }
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+
+END EMBEDDED FONT LICENSE */
+/* IBM Plex Mono, SIL OFL 1.1. License: fonts/OFL.txt. Embedded core glyphs keep OBS rendering stable. */
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url(data:font/woff2;base64,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) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url(data:font/woff2;base64,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) format('woff2');unicode-range:U+23B8-23BD,U+2500-259F;}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:700;font-display:swap;src:url(data:font/woff2;base64,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) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;}
+
+  body { background: #0f1114; font-family: 'IBM Plex Mono', 'Courier New', monospace; margin: 0; padding: 28px;
+         display: flex; flex-direction: column; align-items: center; gap: 20px; color: #d4d4d4; }
+  .win { background: #1c1c1c; border: 1px solid #647078; width: 700px; max-width: 96vw; }
+  .tb { background: #2a2a2a; color: #6bc5ff; font-weight: bold; font-size: 13px; padding: 6px 10px;
+        border-bottom: 1px solid #647078; }
+  .body { padding: 14px; }
+  label { display: block; font-size: 12px; font-weight: bold; margin: 10px 0 3px; color: #647078; }
+  input[type=text], select { width: 100%; box-sizing: border-box; padding: 6px 8px; font-family: 'IBM Plex Mono', monospace;
+         font-size: 13px; background: #0f1114; color: #d4d4d4; border: 1px solid #3a4046; }
+  input[type=text]:focus { outline: none; border-color: #6bc5ff; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .preset, .dl { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: bold; padding: 6px 12px;
+         cursor: pointer; background: #2a2a2a; color: #d4d4d4; border: 1px solid #647078; }
+  .preset:hover, .dl:hover { border-color: #6bff6b; color: #6bff6b; }
+  .checks { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin-top: 6px; }
+  .checks label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-weight: normal; color: #d4d4d4; }
+  canvas { display: block; width: 100%; margin-top: 4px; border: 1px solid #3a4046; }
+  .hint { font-size: 11px; color: #8a8f94; margin-top: 8px; line-height: 1.5; }
+  .colors { display: flex; gap: 16px; align-items: center; font-size: 12px; margin-top: 6px; }
+  a.dl { text-decoration: none; }
 </style>
 </head>
 <body>
-<nav class="catalog-nav" aria-label="Panel navigation"><a href="/panels">&#8592; All Stream Panels</a></nav>
-
-<div class="win">
-  <div class="tb">
-    <canvas class="ico" data-icon="prompt" width="16" height="16" aria-hidden="true"></canvas>
-    <span>#panel-maker</span><span class="srv">IRC Minimal</span>
-    <span class="steps"><b>1</b> pick a channel &nbsp;·&nbsp; <b>2</b> type your text &nbsp;·&nbsp; <b>3</b> download</span>
-  </div>
-
-  <div class="cols">
-    <!-- ── channel list: one channel = one panel ─────────────────── -->
-    <aside class="side">
-      <div class="hd">channels &nbsp;·&nbsp; <b>&#9745;</b> = in your set</div>
-      <div id="presetRow" role="group" aria-label="Panels"></div>
-      <div class="foot">Click a channel to edit that panel. Untick the ones you don't want in the download.<br><br>Your edits stay in this browser until you <button type="button" class="linkish" id="resetAll">start over</button>.</div>
-    </aside>
-
-    <!-- ── the panel you are editing ─────────────────────────────── -->
-    <main class="main">
-      <div class="pvbox">
-        <canvas id="cv" width="640" height="200" aria-label="Panel preview at 2x"></canvas>
-        <div class="actual">
-          <canvas id="cv1" width="320" height="100" aria-label="Panel preview at actual Twitch size"></canvas>
-          <div class="lab"><b>Actual size on Twitch.</b> The image is the header; your links go in Twitch's text box underneath it.</div>
-        </div>
-      </div>
-      <div class="meta"><b id="pvName">About Me</b> &nbsp;·&nbsp; <span id="stFile">01_about.png</span><span id="stTs"></span></div>
-
-      <section class="grp" id="controls">
-        <div class="lg"><span>This panel <small id="thisName"></small></span><button type="button" class="linkish" id="resetOne">reset this panel</button></div>
-        <div class="two">
-          <div><label for="title">Channel (the panel's title)</label><input type="text" id="title" value="" maxlength="22" autocomplete="off"></div>
-          <div><label for="sn">Your nick</label><input type="text" id="sn" value="RetroStreamer" maxlength="25" autocomplete="off" spellcheck="false"></div>
-        </div>
-
-        <div id="tagBlock">
-          <label for="tag" id="tagLabel">Small line </label>
-          <input type="text" id="tag" value="" maxlength="32" autocomplete="off">
-        </div>
-        <div id="tag2Block">
-          <label for="tag2" id="tag2Label">Second line </label>
-          <input type="text" id="tag2" value="" maxlength="32" autocomplete="off">
-        </div>
-        <div id="avatarBlock">
-          <label>Avatar (in the well on the left)</label>
-          <div class="avatarRow">
-            <label class="btn" for="avatar">Upload avatar…</label><input type="file" id="avatar" class="vh" accept="image/png,image/jpeg,image/gif,image/webp">
-            <span class="fname" id="avatarName"></span>
-            <label><input type="checkbox" id="pixelate" checked> Pixelate</label>
-            <button type="button" id="avatarClear" style="display:none">Remove</button>
-          </div>
-        </div>
-
-        <div id="listBlock">
-          <label>Lines <small id="listCnt"></small></label>
-          <div class="list3">
-            <input type="text" id="li1" maxlength="34" autocomplete="off" placeholder="Line 1">
-            <input type="text" id="li2" maxlength="34" autocomplete="off" placeholder="Line 2">
-            <input type="text" id="li3" maxlength="34" autocomplete="off" placeholder="Line 3">
-          </div>
-        </div>
-
-        <div id="daysBlock">
-          <label>Live days</label>
-          <div class="days" id="days" role="group" aria-label="Days of the week"></div>
-          <label for="time">Go-live time</label>
-          <input type="text" id="time" value="7:00 PM CT" maxlength="14" autocomplete="off">
-        </div>
-
-        <div id="socBlock">
-          <label>Platforms (up to 6 — one row each)</label>
-          <div class="checks" id="socials"></div>
-          <div id="handles"></div>
-        </div>
-
-        <div id="goalBlock">
-          <div id="xferField"><label for="xfer">File name in the "DCC SEND" gag</label><input type="text" id="xfer" value="thank_you.wav" maxlength="18" autocomplete="off"></div>
-          <label class="inline" style="margin-top:8px"><input type="checkbox" id="showGoal"> Show a numeric goal instead</label>
-          <div class="two" id="goalFields">
-            <div><label for="goalLabel">Goal label</label><input type="text" id="goalLabel" value="sub goal" maxlength="14" autocomplete="off"></div>
-            <div><label for="goal">Progress (e.g. 31 / 50)</label><input type="text" id="goal" value="31 / 50" maxlength="11" autocomplete="off"></div>
-          </div>
-        </div>
-
-        <div id="ctaBlock">
-          <div class="two">
-            <div><label for="cta">Prompt line — the ask</label><input type="text" id="cta" value="" maxlength="16" placeholder="/follow" autocomplete="off" spellcheck="false"></div>
-            <div><label for="ctaNote">…and a note after it</label><input type="text" id="ctaNote" value="" maxlength="26" placeholder="to get notified" autocomplete="off"></div>
-          </div>
-        </div>
-
-        <details class="more"><summary>More options for this panel</summary><div class="in">
-          <label>Title icon</label>
-          <div class="row icons" id="iconRow" role="group" aria-label="Title icon"></div>
-          <label for="st">Status bar text (after CONNECTED)</label>
-          <input type="text" id="st" value="" maxlength="24" autocomplete="off">
-          <div id="nickBlock"><label class="inline" style="margin-top:10px"><input type="checkbox" id="nickOn" checked> Nick list on the right when the lines leave room</label></div>
-          <div id="inviteBlock"><label for="invite">Discord invite link (goes in the description text)</label><input type="text" id="invite" value="" maxlength="32" placeholder="discord.gg/…" autocomplete="off"></div>
-          <div id="tipBlock"><label for="tip">Tip link (goes in the description text)</label><input type="text" id="tip" value="" maxlength="40" placeholder="streamelements.com/you/tip" autocomplete="off"></div>
-          <label for="link">"Image Links To" for this panel (not drawn — listed in the README)</label>
-          <input type="text" id="link" value="" maxlength="80" placeholder="https://…" autocomplete="off" spellcheck="false">
-        </div></details>
-      </section>
-
-      <section class="grp">
-        <div class="lg"><span>Theme</span><small>used on every panel</small></div>
-        <div class="themes" id="themes" role="group" aria-label="Color themes"></div>
-        <details class="more"><summary>Custom colours &amp; the details on every panel</summary><div class="in">
-          <div class="colors">
-            <label>Background <input type="color" id="c1" value="#16181d"></label>
-            <label>Frame <input type="color" id="c2" value="#90a4ae"></label>
-            <label>Channel <input type="color" id="c3" value="#6bc5ff"></label>
-          </div>
-          <div class="hint">Every colour is auto-lifted to at least 5:1 on your background. Most viewers use Twitch's dark mode — a light panel will glow on their page.</div>
-          <div class="two">
-            <div><label for="srv">Server name (title bar)</label><input type="text" id="srv" value="StreamLive IRC" maxlength="18" autocomplete="off" spellcheck="false"></div>
-            <div><label for="nl">Nick list — two mods / regulars</label><input type="text" id="nl" value="ModMike, VIPVictor" maxlength="32" autocomplete="off" spellcheck="false"></div>
-          </div>
-          <label class="inline" style="margin-top:10px"><input type="checkbox" id="ts" checked> [hh:mm] timestamps (they count up from your go-live time, and drop off any panel where a line would not fit)</label>
-        </div></details>
-      </section>
-
-      <div class="dl-row" id="dlRow">
-        <button class="primary" id="dlOne">Download this panel</button>
-        <button id="dlAll">Download the set (.zip)</button>
-        <button id="showSet" aria-pressed="false">Preview the set</button>
-        <span class="note" id="dlNote"></span>
-      </div>
-      <div id="setBox">
-        <div class="lab">Your set at Twitch size — exactly what the .zip contains, in upload order.</div>
-        <div id="setCol"></div>
+<nav class="catalog-nav" aria-label="Panel navigation"><a href="/panels">All Stream Panels</a></nav>
+  <div class="win">
+    <div class="tb">#panel-maker — IRC Minimal · make YOUR panels</div>
+    <div class="body">
+      <label>Quick presets</label>
+      <div class="row">
+        <button class="preset" onclick="preset('#about','/whois streamer','get to know the streamer',[])">#about</button>
+        <button class="preset" onclick="preset('#schedule','/topic #schedule','sign-on times, updated weekly',[])">#schedule</button>
+        <button class="preset" onclick="preset('#rules','/motd #rules','keep the channel friendly',[])">#rules</button>
+        <button class="preset" onclick="preset('#socials','/links','find me everywhere else',[])">#socials</button>
+        <button class="preset" onclick="preset('#donate','/msg streamer support','support keeps the server up',[])">#donate</button>
       </div>
 
-      <details class="more sugg"><summary>Text for this panel's Twitch description box</summary><div class="in">
-        <textarea id="suggText" rows="2" readonly></textarea>
-        <div class="hint">Twitch gives each image <b>one</b> link ("Image Links To") — the rest go here. <button type="button" class="linkish" id="copySugg">copy</button></div>
-      </div></details>
-      <details class="more" id="help"><summary>How to put these on Twitch</summary><div class="in howto">
-        Your channel &rarr; <b>About</b> &rarr; toggle <b>Edit Panels</b> &rarr; the big <b>+</b> &rarr; <b>Add a Text or Image Panel</b> &rarr; <b>Add Image</b> and pick a PNG.<br>
-        Leave the panel title blank (the image is the title). Put the panel's link in <b>Image Links To</b> and the text above in the description. Repeat per image, then toggle Edit Panels off.<br>
-        The .zip has every panel numbered in upload order plus a README with all of this.
-      </div></details>
-    </main>
+      <label for="title">Panel title (channel style: #about)</label>
+      <input type="text" id="title" value="#about" maxlength="24" oninput="draw()">
+
+      <label for="icon">Pixel icon</label><select id="icon" onchange="draw()"><option value="#about">About</option><option value="#schedule">Schedule</option><option value="#rules">Rules</option><option value="#socials">Socials</option><option value="#donate">Donate</option><option value="">None</option></select><label for="cmd">Command line</label>
+      <input type="text" id="cmd" value="/whois streamer" maxlength="36" oninput="draw()">
+
+      <label for="subtitle">Small line (optional)</label>
+      <input type="text" id="subtitle" value="get to know the streamer" maxlength="44" oninput="draw()">
+
+      <label>Social tags (rendered as [irc] style tags on the prompt line)</label>
+      <div class="checks">
+        <label><input type="checkbox" value="yt" onchange="draw()"> YouTube</label>
+        <label><input type="checkbox" value="ig" onchange="draw()"> Instagram</label>
+        <label><input type="checkbox" value="x"  onchange="draw()"> X</label>
+        <label><input type="checkbox" value="tt" onchange="draw()"> TikTok</label>
+        <label><input type="checkbox" value="dc" onchange="draw()"> Discord</label>
+        <label><input type="checkbox" value="tw" onchange="draw()"> Twitch</label>
+      </div>
+
+      <div class="colors">
+        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Frame
+          <input type="color" id="accent" value="#647078" oninput="draw()"></label>
+        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Background
+          <input type="color" id="winbg" value="#1c1c1c" oninput="draw()"></label>
+        <label style="display:inline-flex;align-items:center;gap:6px;margin:0;">Title
+          <input type="color" id="titlecol" value="#6bc5ff" oninput="draw()"></label>
+      </div>
+    </div>
   </div>
 
-  <!-- ── status bar: kit CTA ───────────────────────────────────────── -->
-  <div class="statusbar">
-    <span class="dot">&#9679;</span><span class="conn">CONNECTED</span>
-    <span class="sep">|</span>
-    <span class="task">Part of the <b>IRC Minimal Stream Kit</b> — chat, alerts, scenes, goal bar &amp; game frame</span>
-    <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
-    <a class="btn start" href="https://www.etsy.com/listing/4473131682/irc-minimal-chat-widget-for-streamlabs?utm_source=panel-maker&utm_medium=web&utm_campaign=irc-minimal" target="_blank" rel="noopener noreferrer">
-      <canvas class="ico" data-icon="heart" width="16" height="16" aria-hidden="true"></canvas> View on Etsy &#8594;
-    </a>
-    <span class="cur">&#9608;</span>
+  <div class="win">
+    <div class="tb">preview — 640 x 200 (Twitch shows it at 320 wide)</div>
+    <div class="body">
+      <canvas id="cv" width="640" height="200"></canvas>
+      <div class="row" style="margin-top:12px;">
+        <button class="dl" id="dlOne" onclick="download()">&#11015; Download PNG</button>
+      </div>
+      <div class="hint">
+        Make as many as you like: set the text, click Download, repeat.
+        Upload on Twitch under <b>About &rarr; Edit Panels &rarr; Add a Text or Image Panel &rarr; Add Image</b>.
+        Put your links in the panel's "Image Links To" / description fields on Twitch.
+      </div>
+    </div>
   </div>
-</div>
+
+  <div class="win">
+    <div class="body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <span style="font-size:12px;">Part of the <b>IRC Minimal Stream Kit</b> — chat, alerts, scenes, goal bars &amp; game frame.</span>
+      <!-- Swap this href to the Full Kit listing URL once it is live on Etsy -->
+      <a class="dl" href="https://www.etsy.com/listing/4473131682/irc-minimal-chat-widget-for-streamlabs?utm_source=panel-maker&utm_medium=web&utm_campaign=irc-minimal">View on Etsy &#8594;</a>
+    </div>
+  </div>
 
 <script>
-(function () {
-  'use strict';
+/* Shared by the supplied PNG panels and the editable Panel Maker. */
+const IRC_PANEL_FONT = "'IBM Plex Mono', 'Courier New', monospace";
+const ircIconCache = new Map();
+async function drawIrcPanel(ctx, options) {
+  if (document.fonts) await Promise.all([document.fonts.load('24px "IBM Plex Mono"'), document.fonts.load('700 30px "IBM Plex Mono"')]);
+  let icon = null;
+  if (options.iconSvg) {
+    if (!ircIconCache.has(options.iconSvg)) ircIconCache.set(options.iconSvg, new Promise(resolve => {
+      const image = new Image(); image.onload = () => resolve(image); image.onerror = () => resolve(null);
+      let svg = options.iconSvg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+      image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }));
+    icon = await ircIconCache.get(options.iconSvg);
+  }
+  const green='#6bff6b', text='#d4d4d4', muted='#bcc5cb';
+  ctx.clearRect(0,0,640,200);
+  ctx.fillStyle=options.bg || '#1c1c1c';ctx.fillRect(0,0,640,200);
+  ctx.fillStyle=options.accent || '#647078';
+  ctx.fillRect(0,0,640,2);ctx.fillRect(0,198,640,2);ctx.fillRect(0,0,2,200);ctx.fillRect(638,0,2,200);
+  ctx.fillStyle='#2a2a2a';ctx.fillRect(2,2,636,54);
+  ctx.fillStyle='#454b50';ctx.fillRect(2,56,636,2);
+  ctx.textAlign='left';ctx.textBaseline='middle';ctx.imageSmoothingEnabled=false;
+  if(icon)ctx.drawImage(icon,22,13,32,32);
+  const titleX=icon?68:22;
+  let titleSize=30;
+  ctx.font='700 '+titleSize+'px '+IRC_PANEL_FONT;
+  while(ctx.measureText(options.title||'').width > 556-titleX && titleSize>20){titleSize--;ctx.font='700 '+titleSize+'px '+IRC_PANEL_FONT;}
+  ctx.fillStyle=options.titleColor || '#6bc5ff';ctx.fillText(options.title||'',titleX,30);
+  ctx.font='18px '+IRC_PANEL_FONT;ctx.fillStyle=muted;ctx.textAlign='right';ctx.fillText('irc',618,30);
+  ctx.textAlign='left';ctx.font='24px '+IRC_PANEL_FONT;
+  let command=options.command || '', x=22;
+  if (/^[/$>]/.test(command)) {
+    ctx.fillStyle=green;ctx.font='700 24px '+IRC_PANEL_FONT;ctx.fillText(command[0],x,91);
+    x+=ctx.measureText(command[0]).width;command=command.slice(1);
+  }
+  ctx.font='24px '+IRC_PANEL_FONT;ctx.fillStyle=text;ctx.fillText(command,x,91,618-x);
+  ctx.font='22px '+IRC_PANEL_FONT;ctx.fillStyle=muted;ctx.fillText(options.subtitle||'',22,128,596);
+  ctx.font='700 18px '+IRC_PANEL_FONT;ctx.fillStyle=green;ctx.fillText('>',22,169);x=22+ctx.measureText('> ').width;
+  ctx.font='18px '+IRC_PANEL_FONT;
+  for(const tag of options.socials || []){ctx.fillStyle='#6bc5ff';ctx.fillText('['+tag+']',x,169);x+=ctx.measureText('['+tag+'] ').width;}
+  ctx.fillStyle=green;ctx.fillRect(x,161,9,16);
+  return {titleSize, titleFits:titleSize>=20, command:options.command, title:options.title, icon:!!icon};
+}
 
-  /* ───────────────────────── pixel art ───────────────────────── */
-  // Icon palette keys map to the CURRENT theme's tokens, so icons recolour with the theme:
-  // A accent · T text · B channel/title · G prompt green · Y gold · R red · k background
-  var ICONS = {
-    about: [
-      '................',
-      '.AAAAAAAAAAAAAA.',
-      '.A............A.',
-      '.A............A.',
-      '.A.GGGG..BBBBBA.',
-      '.A.GGGG..BBBBBA.',
-      '.A.GGGG.......A.',
-      '.A.GGGG..TTTTTA.',
-      '.A.GGGG..TTTTTA.',
-      '.A............A.',
-      '.A.TTTTTTTTTT.A.',
-      '.A.TTTTTTTTTT.A.',
-      '.A............A.',
-      '.AAAAAAAAAAAAAA.',
-      '................',
-      '................'
-    ],
-    calendar: [
-      '................',
-      '....TT....TT....',
-      '..BBBBBBBBBBBB..',
-      '..BBBBBBBBBBBB..',
-      '..BBBBBBBBBBBB..',
-      '..A..........A..',
-      '..A.GG.TT.TT.A..',
-      '..A.GG.TT.TT.A..',
-      '..A..........A..',
-      '..A.TT.GG.TT.A..',
-      '..A.TT.GG.TT.A..',
-      '..A..........A..',
-      '..A.TT.......A..',
-      '..A.TT.......A..',
-      '..AAAAAAAAAAAA..',
-      '................'
-    ],
-    rules: [
-      '................',
-      '..AAAAAAAAAAAA..',
-      '..A..........A..',
-      '..A.GG.TTTTT.A..',
-      '..A.GG.......A..',
-      '..A..........A..',
-      '..A.GG.TTTTT.A..',
-      '..A.GG.......A..',
-      '..A..........A..',
-      '..A.GG.TTTTT.A..',
-      '..A.GG.......A..',
-      '..A..........A..',
-      '..A.TT.TTT...A..',
-      '..A..........A..',
-      '..AAAAAAAAAAAA..',
-      '................'
-    ],
-    share: [
-      '................',
-      '..BBBB..........',
-      '..BBBB..........',
-      '..BBBB..........',
-      '..BBBB.A........',
-      '....A...A.......',
-      '....A....A......',
-      '....A.....TTTT..',
-      '....A.....TTTT..',
-      '....A.....TTTT..',
-      '....A....ATTTT..',
-      '....A...A.......',
-      '..GGGG.A........',
-      '..GGGG..........',
-      '..GGGG..........',
-      '..GGGG..........'
-    ],
-    hash: [
-      '................',
-      '................',
-      '.....BB...BB....',
-      '.....BB...BB....',
-      '..BBBBBBBBBBBB..',
-      '..BBBBBBBBBBBB..',
-      '.....BB...BB....',
-      '.....BB...BB....',
-      '..BBBBBBBBBBBB..',
-      '..BBBBBBBBBBBB..',
-      '.....BB...BB....',
-      '.....BB...BB....',
-      '................',
-      '................',
-      '................',
-      '................'
-    ],
-    star: [
-      '................',
-      '.......YY.......',
-      '.......YY.......',
-      '......YYYY......',
-      '......YYYY......',
-      '.YYYYYYYYYYYYYY.',
-      '.YYYYYYYYYYYYYY.',
-      '..YYYYYYYYYYYY..',
-      '...YYYYYYYYYY...',
-      '....YYYYYYYY....',
-      '....YYYYYYYY....',
-      '...YYYY..YYYY...',
-      '...YYY....YYY...',
-      '..YY........YY..',
-      '................',
-      '................'
-    ],
-    heart: [
-      '................',
-      '..GGGG....GGGG..',
-      '.GGGGGG..GGGGGG.',
-      'GGGGGGGGGGGGGGGG',
-      'GGGGGGGGGGGGGGGG',
-      'GGGGGGGGGGGGGGGG',
-      'GGGGGGGGGGGGGGGG',
-      '.GGGGGGGGGGGGGG.',
-      '..GGGGGGGGGGGG..',
-      '...GGGGGGGGGG...',
-      '....GGGGGGGG....',
-      '.....GGGGGG.....',
-      '......GGGG......',
-      '.......GG.......',
-      '................',
-      '................'
-    ],
-    prompt: [
-      '................',
-      '.AAAAAAAAAAAAAA.',
-      '.A............A.',
-      '.A.GG.........A.',
-      '.A.GGG........A.',
-      '.A..GGG.......A.',
-      '.A...GGG......A.',
-      '.A....GGG.....A.',
-      '.A...GGG......A.',
-      '.A..GGG.......A.',
-      '.A.GGG........A.',
-      '.A.GG..TTTTT..A.',
-      '.A............A.',
-      '.AAAAAAAAAAAAAA.',
-      '................',
-      '................'
-    ],
-    chip: [
-      '................',
-      '...T.T.T.T.T....',
-      '..AAAAAAAAAAAA..',
-      '.TA..........AT.',
-      '..A.BBBBBBBB.A..',
-      '.TA.BBBBBBBB.AT.',
-      '..A.BBBBBBBB.A..',
-      '.TA.BBBBBBBB.AT.',
-      '..A.BBBBBBBB.A..',
-      '.TA.BBBBBBBB.AT.',
-      '..A..........A..',
-      '..AAAAAAAAAAAA..',
-      '...T.T.T.T.T....',
-      '................',
-      '................',
-      '................'
-    ],
-    play: [
-      '................',
-      '.AAAAAAAAAAAAAA.',
-      '.A............A.',
-      '.A............A.',
-      '.A...TT.......A.',
-      '.A...TTTT.....A.',
-      '.A...TTTTTT...A.',
-      '.A...TTTTTTTT.A.',
-      '.A...TTTTTTTT.A.',
-      '.A...TTTTTT...A.',
-      '.A...TTTT.....A.',
-      '.A...TT.......A.',
-      '.A............A.',
-      '.AAAAAAAAAAAAAA.',
-      '................',
-      '................'
-    ],
-    tag: [
-      '................',
-      '.AAAAAAAA.......',
-      '.A......AA......',
-      '.A.GG....AA.....',
-      '.A.GG.....AA....',
-      '.A.........AA...',
-      '.AA.........AA..',
-      '..AA.........AA.',
-      '...AA.........A.',
-      '....AA.......AA.',
-      '.....AA.....AA..',
-      '......AA...AA...',
-      '.......AA.AA....',
-      '........AAA.....',
-      '................',
-      '................'
-    ],
-    user: [
-      '................',
-      '......AAAA......',
-      '.....AAAAAA.....',
-      '.....AATTAA.....',
-      '.....AATTAA.....',
-      '.....AAAAAA.....',
-      '......AAAA......',
-      '.......AA.......',
-      '....AAAAAAAA....',
-      '...AAAAAAAAAA...',
-      '..AAAAAAAAAAAA..',
-      '..AAAAAAAAAAAA..',
-      '..AAAAAAAAAAAA..',
-      '..AAAAAAAAAAAA..',
-      '................',
-      '................'
-    ],
-    file: [
-      '................',
-      '..AAAAAAAA......',
-      '..A......AA.....',
-      '..A......A.A....',
-      '..A......AAAA...',
-      '..A.........A...',
-      '..A.GGGGGG..A...',
-      '..A.........A...',
-      '..A.TTTTTTT.A...',
-      '..A.........A...',
-      '..A.TTTTT...A...',
-      '..A.........A...',
-      '..A.TTTTTTT.A...',
-      '..A.........A...',
-      '..AAAAAAAAAAA...',
-      '................'
-    ]
-  };
-  var ICON_KEYS = ['about', 'calendar', 'rules', 'share', 'hash', 'star', 'heart', 'prompt', 'chip', 'file', 'play', 'tag'];
-
-  function drawPixels(ctx, key, x, y, s, rows, pal) {
-    rows = rows || ICONS[key];
-    if (!rows) return;
-    pal = pal || iconPal(DEFAULT_TOKENS);
-    for (var r = 0; r < rows.length; r++) {
-      var row = rows[r];
-      for (var c = 0; c < row.length; c++) {
-        var ch = row[c];
-        if (ch === '.') continue;
-        ctx.fillStyle = pal[ch] || '#f0f';
-        ctx.fillRect(x + c * s, y + r * s, s, s);
-      }
-    }
-  }
-
-  /* ───────────────────────── presets ─────────────────────────── */
-  var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  var DAY_FULL = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' };
-  var SOCIALS = [
-    { key: 'TW', name: 'Twitch',    sw: '#9146ff', tag: 'TV' },
-    { key: 'YT', name: 'YouTube',   sw: '#e02020', tag: 'YT' },
-    { key: 'DC', name: 'Discord',   sw: '#5865f2', tag: 'DC' },
-    { key: 'TT', name: 'TikTok',    sw: '#00c8c8', tag: 'TT' },
-    { key: 'IG', name: 'Instagram', sw: '#e0407a', tag: 'IG' },
-    { key: 'X',  name: 'X',         sw: null,      tag: 'X'  },   // null = text colour on the field, so it reads on any theme
-    { key: 'BS', name: 'Bluesky',   sw: '#1185fe', tag: 'BS' }
-  ];
-  var PRESETS = [
-    { key: 'about',     label: 'About Me',  icon: 'about',    layout: 'info',
-      title: '#about', tag: 'Retro games, cozy vibes.', tag2: 'Live Tue / Thu / Sat since 2019', st: 'joined: 2019',
-      readme: 'Who you are, what you stream, when you started. Keep it to 3 lines.' },
-    { key: 'schedule',  label: 'Schedule',  icon: 'calendar', layout: 'days',
-      title: '#schedule', tag: 'may shift a little', cta: '/follow', ctaNote: 'to get notified', st: 'topic: go-live time',
-      readme: 'Tue / Thu / Sat - 7:00 PM CT (your time zone). Mention if it changes.' },
-    { key: 'rules',     label: 'Rules',     icon: 'rules',    layout: 'list',
-      title: '#rules', lines: ['Be cool', 'No spoilers', 'Mods decide'], st: 'mode: +nt',
-      readme: 'Your full rules list. Short numbered lines read best.' },
-    { key: 'socials',   label: 'Socials',   icon: 'share',    layout: 'buttons',
-      title: '#socials', tag: '', st: 'links in the description',
-      readme: 'One link per line: YouTube, Discord, TikTok... Set "Image Links To" to the one that matters most.' },
-    { key: 'discord',   label: 'Discord',   icon: 'hash',     layout: 'invite',
-      title: '#discord', tag: 'Hang out between streams', cta: '/join #discord', ctaNote: '', st: '3 ops online',
-      readme: 'Paste your permanent invite link in "Image Links To" so the whole banner is clickable.' },
-    { key: 'subscribe', label: 'Subscribe', icon: 'star',     layout: 'list',
-      title: '#subscribe', lines: ['No ads, custom emotes', 'Sub badge in chat', ''], cta: '/subscribe', ctaNote: '', nick: false, st: 'mode +v for subs',
-      readme: 'What subs get. Link "Image Links To" to your subscribe page.' },
-    { key: 'support',   label: 'Support',   icon: 'heart',    layout: 'transfer',
-      title: '#support', tag: '', cta: '/tip', ctaNote: 'bits & subs welcome too', st: 'DCC: transfer complete',
-      readme: 'Your tip / Ko-fi / StreamElements link. Update the goal numbers in the maker as you go.' },
-    { key: 'commands',  label: 'Commands',  icon: 'prompt',   layout: 'list',
-      title: '#commands', lines: ['!discord - join the server', '!specs - my PC build', '!schedule - when I am live'], st: 'type !commands in chat',
-      readme: 'List every chat command and what it does.' },
-    { key: 'specs',     label: 'Specs',     icon: 'chip',     layout: 'list',
-      title: '#specs', lines: ['CPU - Ryzen 7 7800X3D', 'GPU - RTX 4070', 'RAM - 32 GB'], st: 'topic: the rig',
-      readme: 'Full build: CPU, GPU, RAM, mic, camera, capture card.' },
-    { key: 'custom',    label: 'Custom',    icon: 'file',     layout: 'list',
-      title: '#giveaways', lines: ['Every 100 followers', 'Winners picked live', 'Must be in chat'], st: 'online',
-      readme: 'Anything else: giveaways, merch, sponsors, emotes. Retitle it and change the three lines.' },
-    // two more custom slots, off by default: Twitch gives one link per image, so YouTube / merch / sponsors want their own panel
-    { key: 'custom2',   label: 'Custom 2',  icon: 'play',     layout: 'list', off: true,
-      title: '#youtube', lines: ['Full VODs & highlights', 'New video every Friday', 'Link below'], st: 'online',
-      readme: 'A second extra panel (YouTube, TikTok, merch...). Tick its box in step 1 to include it.' },
-    { key: 'custom3',   label: 'Custom 3',  icon: 'tag',      layout: 'list', off: true,
-      title: '#business', lines: ['Sponsors & collabs welcome', 'hello@yourname.tv', 'Replies within 48h'], st: 'mode: +o',
-      readme: 'A third extra panel (business / contact, merch, sponsors). Tick its box in step 1 to include it.' }
-  ];
-  // Themes: the widget's own defaults first (panels.json tokens), then classic terminal looks.
-  // mono = single-phosphor display: nick colours collapse to the theme instead of red/gold/blue.
-  var THEMES = [
-    { name: 'IRC Dark',   bg: '#16181d', bar: '#2a2a2a', acc: '#90a4ae', text: '#d4d4d4', chan: '#6bc5ff', ok: '#6bff6b' },
-    { name: 'Phosphor',   bg: '#07140b', bar: '#143a22', acc: '#2e8b4a', text: '#8dff9e', chan: '#d0ffd8', ok: '#5cff70', mono: true },
-    { name: 'Amber',      bg: '#181004', bar: '#43300c', acc: '#a8741c', text: '#ffb84a', chan: '#ffe2a8', ok: '#ffd060', mono: true },
-    { name: 'mIRC Light', bg: '#ffffff', bar: '#e6e6e6', acc: '#7a8a96', text: '#1a1a1a', chan: '#0038c8', ok: '#0a7a28' },
-    { name: 'Solarized',  bg: '#002b36', bar: '#1c4a57', acc: '#586e75', text: '#93a1a1', chan: '#268bd2', ok: '#9bbb1a' }
-  ];
-  var DEFAULT_TOKENS = THEMES[0];
-
-  /* ───────────────────────── state ───────────────────────────── */
-  var $ = function (id) { return document.getElementById(id); };
-  var state = {
-    preset: 'about',
-    days: { Mon: false, Tue: true, Wed: false, Thu: true, Fri: false, Sat: true, Sun: false },
-    socials: { TW: false, YT: true, DC: true, TT: true, IG: false, X: false, BS: false },
-    handles: {},
-    theme: { bar: THEMES[0].bar, text: THEMES[0].text, ok: THEMES[0].ok, mono: false },   // tokens the pickers do not expose
-    avatar: null,        // 32x32 / 64x64 canvas when the buyer uploads a picture
-    avatarSrc: null      // original Image (re-pixelated when the checkbox toggles)
-  };
-  var edits = {};   // per-preset edits: {title, tag, tag2, st, lines, icon}
-  var include = {};  // preset key → in the zip / preview-all (default true)
-  function included() { return PRESETS.filter(function (p) { return include[p.key] != null ? include[p.key] : !p.off; }); }
-
-  function presetDef(key) {
-    for (var i = 0; i < PRESETS.length; i++) if (PRESETS[i].key === key) return PRESETS[i];
-    return PRESETS[0];
-  }
-  function shared() {
-    return {
-      screen: $('sn').value.trim() || 'RetroStreamer', server: $('srv').value.trim(), ts: $('ts').checked, nl: $('nl').value,
-      time: $('time').value.trim(), days: state.days, socials: state.socials, handles: state.handles,
-      goalLabel: $('goalLabel').value.trim(), goal: $('goal').value.trim(), showGoal: $('showGoal').checked, xfer: $('xfer').value.trim(),
-      avatar: state.avatar,
-      bg: $('c1').value, acc: $('c2').value, chan: $('c3').value,
-      bar: state.theme.bar, text: state.theme.text, ok: state.theme.ok, mono: !!state.theme.mono
-    };
-  }
-  function panelFor(p) {   // preset defaults + saved edits + shared personalization
-    var e = edits[p.key] || {}, s = shared();
-    s.preset = p;
-    s.title = e.title != null ? e.title : p.title;
-    s.tag = e.tag != null ? e.tag : (p.tag || '');
-    s.tag2 = e.tag2 != null ? e.tag2 : (p.tag2 || '');
-    s.st = e.st != null ? e.st : (p.st || '').replace('RetroStreamer', s.screen);
-    s.lines = e.lines || p.lines || [];
-    s.icon = e.icon || p.icon;
-    s.nick = e.nick != null ? e.nick : p.nick !== false;
-    s.cta = e.cta != null ? e.cta : (p.cta || '');
-    s.link = e.link || '';
-    s.ctaNote = e.ctaNote != null ? e.ctaNote : (p.ctaNote || '');
-    return s;
-  }
-  function currentPanel() { return panelFor(presetDef(state.preset)); }
-
-  /* ───────────────────────── colour helpers ──────────────────── */
-  function hexToRgb(h) {
-    h = h.replace('#', '');
-    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-    var n = parseInt(h, 16);
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  }
-  function rgbToHex(c) { return '#' + c.map(function (v) { return ('0' + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2); }).join(''); }
-  function lin(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
-  function lum(h) { var c = hexToRgb(h); return 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]); }   // WCAG relative luminance
-  function contrast(a, b) { var la = lum(a), lb = lum(b); return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05); }
-  function mix(a, b, t) { var x = hexToRgb(a), y = hexToRgb(b); return rgbToHex([x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t]); }
-  function isLight(bg) { return lum(bg) > 0.35; }
-  function inkFor(bg) { return isLight(bg) ? '#000000' : '#ffffff'; }
-  // contrast guard: push a colour towards the field's ink (white on dark, black on light) until it reads at ≥ min
-  function readable(hex, field, min) {
-    var ink = inkFor(field), t = 0, out = hex;
-    while (contrast(out, field) < min && t < 1) { t += 0.05; out = mix(hex, ink, t); }
-    return out;
-  }
-  // every colour that touches text is guarded here, so all five themes and any picker combo stay ≥ 5:1
-  function palette(P) {
-    var bg = P.bg, light = isLight(bg);
-    var text = readable(P.text || (light ? '#1a1a1a' : '#d4d4d4'), bg, 7);
-    var dim = readable(mix(text, bg, 0.42), bg, 7);
-    var pal = {
-      bg: bg, light: light,
-      bar: P.bar || mix(bg, inkFor(bg), 0.08),
-      frame: P.acc,                                  // the 1px frame / separators: decorative, unguarded
-      line: mix(bg, P.acc, 0.35),                    // hairlines inside the field
-      acc: readable(P.acc, bg, 5),                   // accent used for text
-      title: readable(P.chan, bg, 6),                 // the channel/title colour (picker 3)
-      ok: readable(P.ok, bg, 5),
-      text: text, dim: dim,
-      dimBar: readable(dim, P.bar || mix(bg, inkFor(bg), 0.08), 7)   // dim text on the (lighter) bars: guarded against the bar, not the field
-    };
-    if (P.mono) { pal.r = pal.title; pal.g = pal.ok; pal.y = pal.text; pal.b = pal.acc; pal.p = pal.dim; }
-    else { pal.r = readable('#ff6b6b', bg, 5); pal.g = readable('#6bff6b', bg, 5); pal.y = readable('#ffd700', bg, 5); pal.b = readable('#6bc5ff', bg, 5); pal.p = readable('#c8a8ff', bg, 5); }
-    return pal;
-  }
-  function iconPal(T) {   // T: theme tokens or a palette()
-    var pal = T.frame ? T : palette(T);
-    return { A: pal.acc, T: pal.text, B: pal.title, G: pal.ok, Y: pal.y, R: pal.r, k: pal.bg, w: '#ffffff', n: '#000000' };
-  }
-
-  /* ───────────────────────── bitmap text engine ──────────────── */
-  // Glyph atlas: four faces pre-rendered at 1x through FreeType's mono rasteriser
-  // (see make_atlas.py). Each glyph = [advance, left, top(rel. baseline), w, h, hexRows].
-  var ATLAS = {"T":{"size":16,"cap":12,"xh":9,"asc":15,"desc":3,"g":{" ":[10,0,0,0,0,[]],"!":[10,3,-12,3,12,["3","3","3","3","3","3","3","2","0","7","7","7"]],"\"":[10,2,-13,6,5,["33","33","33","33","33"]],"#":[10,1,-12,9,12,["36","36","66","1e7","1ef","6c","6c","1ef","1cf","cc","d8","d8"]],"$":[10,1,-13,8,15,["18","18","7e","fe","da","d8","f8","7e","1f","1b","1b","ff","7e","18","18"]],"%":[10,1,-12,10,12,["1c3","3e6","366","36c","36c","3e0","1de","3f","b3","1b3","1bf","31e"]],"&":[10,1,-12,9,12,["78","fc","c8","c0","e0","67","f7","1be","19c","18c","1f6","f7"]],"'":[10,4,-13,2,5,["3","3","3","3","3"]],"(":[10,3,-13,5,15,["3","6","c","c","18","18","18","18","18","18","18","c","c","6","3"]],")":[10,2,-13,5,15,["18","c","6","6","3","3","3","3","3","3","3","6","6","c","18"]],"*":[10,1,-10,8,8,["18","18","db","ff","7e","3c","7e","66"]],"+":[10,1,-9,8,8,["18","18","18","ff","ff","18","18","18"]],",":[10,3,-2,3,5,["3","7","7","6","6"]],"-":[10,2,-6,5,2,["1f","1f"]],".":[10,3,-3,3,3,["7","7","7"]],"/":[10,1,-13,7,16,["3","3","7","6","6","e","c","c","1c","18","18","38","30","30","70","60"]],"0":[10,1,-12,9,12,["7c","fe","c6","183","183","1b3","1b3","183","183","c6","fe","7c"]],"1":[10,0,-12,9,12,["78","78","f8","1d8","98","18","18","18","18","18","ff","ff"]],"2":[10,1,-12,8,12,["3c","fe","e3","43","3","7","e","1c","38","f0","ff","ff"]],"3":[10,0,-12,8,12,["3c","7f","63","3","3","1e","1e","3","3","e3","7e","3c"]],"4":[10,1,-12,9,12,["1c","1c","3c","6c","6c","cc","cc","18c","1ff","1ff","c","c"]],"5":[10,1,-12,8,12,["fe","fe","c0","c0","dc","fe","c7","3","3","c7","fe","7c"]],"6":[10,1,-12,8,12,["1c","38","70","60","dc","fe","e7","c3","c3","e7","7e","3c"]],"7":[10,1,-12,8,12,["ff","ff","c7","c7","6","e","c","1c","1c","18","38","38"]],"8":[10,1,-12,8,12,["3c","ff","c3","c3","c3","7e","7e","c3","c3","c3","7e","3c"]],"9":[10,1,-12,8,12,["3c","7e","e7","c3","c3","e7","7f","3a","6","c","1c","38"]],":":[10,3,-9,3,9,["7","7","7","0","0","0","7","7","7"]],";":[10,3,-9,3,11,["7","7","7","0","0","0","7","7","6","6","4"]],"<":[10,1,-11,7,10,["1","7","1e","78","70","70","3c","f","7","1"]],"=":[10,1,-8,8,6,["ff","ff","0","0","ff","ff"]],">":[10,1,-11,7,10,["40","70","3c","f","7","7","1e","78","70","40"]],"?":[10,1,-12,7,12,["1c","3e","73","3","3","7","e","c","0","1c","1c","1c"]],"@":[10,1,-12,8,14,["3c","7e","63","cf","df","db","db","db","db","df","cf","60","7c","3c"]],"A":[10,0,-12,9,12,["3c","3c","7c","6c","6e","66","e6","fe","ff","c7","1c3","1c3"]],"B":[10,1,-12,7,12,["7e","7f","63","63","63","7e","7e","63","63","63","7f","7e"]],"C":[10,1,-12,8,12,["3c","7e","67","c6","c0","c0","c0","c0","c6","67","7e","3c"]],"D":[10,1,-12,8,12,["fc","fe","c6","c3","c3","c3","c3","c3","c3","c6","fe","fc"]],"E":[10,1,-12,7,12,["7f","7f","60","60","60","7f","7f","60","60","60","7f","7f"]],"F":[10,1,-12,8,12,["ff","ff","c0","c0","c0","fe","fe","c0","c0","c0","c0","c0"]],"G":[10,1,-12,8,12,["3c","7e","67","c0","c0","cf","cf","c3","c3","e7","7f","3b"]],"H":[10,1,-12,7,12,["63","63","63","63","63","7f","7f","63","63","63","63","63"]],"I":[10,1,-12,7,12,["7f","7f","c","c","c","c","c","c","c","c","7f","7f"]],"J":[10,1,-12,7,12,["3f","3f","3","3","3","3","3","3","23","73","3e","1c"]],"K":[10,1,-12,8,12,["c7","ce","cc","dc","f8","f8","f8","fc","cc","ce","c6","c7"]],"L":[10,1,-12,7,12,["60","60","60","60","60","60","60","60","60","60","7f","7f"]],"M":[10,1,-12,8,12,["e7","e7","f7","ff","db","db","db","db","d3","c3","c3","c3"]],"N":[10,1,-12,8,12,["e3","e3","f3","f3","fb","db","db","df","cf","cf","c7","c7"]],"O":[10,1,-12,8,12,["3c","7e","66","c3","c3","c3","c3","c3","c3","e6","7e","3c"]],"P":[10,1,-12,7,12,["7e","7e","63","63","63","63","7e","7e","60","60","60","60"]],"Q":[10,1,-12,8,15,["3c","7e","e6","c3","c3","c3","c3","c3","c3","66","7e","3c","18","1e","e"]],"R":[10,1,-12,7,12,["7e","7e","63","63","63","63","7f","7e","6e","66","67","63"]],"S":[10,1,-12,8,12,["3e","7f","c2","c0","e0","7e","3f","3","3","c3","fe","7c"]],"T":[10,1,-12,9,12,["1ff","1ff","30","30","30","30","30","30","30","30","30","30"]],"U":[10,1,-12,8,12,["c3","c3","c3","c3","c3","c3","c3","c3","c3","c3","7e","3c"]],"V":[10,0,-12,9,12,["1c3","c3","c7","e7","e6","e6","6e","6e","7c","7c","3c","3c"]],"W":[10,1,-12,9,12,["183","183","183","1bb","1bb","1ab","1ab","1ab","1ab","1ef","1ef","1ef"]],"X":[10,0,-12,9,12,["c7","e7","66","7e","3c","3c","3c","7c","6e","e6","c7","1c7"]],"Y":[10,1,-12,8,12,["c3","e7","66","66","3c","3c","3c","18","18","18","18","18"]],"Z":[10,1,-12,8,12,["ff","ff","7","e","c","1c","38","30","70","e0","ff","ff"]],"[":[10,3,-13,5,16,["1f","1f","18","18","18","18","18","18","18","18","18","18","18","18","1f","1f"]],"\\":[10,1,-13,7,16,["60","30","30","30","18","18","18","c","c","c","6","6","6","3","3","3"]],"]":[10,1,-13,6,16,["3f","3f","3","3","3","3","3","3","3","3","3","3","3","3","3f","3f"]],"^":[10,0,-12,9,7,["38","3c","6c","66","e6","c7","1c3"]],"_":[10,1,1,8,2,["ff","ff"]],"`":[10,3,-14,3,4,["2","6","6","3"]],"a":[10,1,-9,9,9,["f8","1fc","8c","c","fc","1fc","18c","1ff","e7"]],"b":[10,1,-13,8,13,["c0","c0","c0","c0","dc","fe","c7","c3","c3","c3","c7","fe","dc"]],"c":[10,1,-9,7,9,["1e","3f","62","60","60","60","63","3f","1e"]],"d":[10,1,-13,8,13,["3","3","3","3","3b","7f","e3","c3","c3","c3","e3","7f","3b"]],"e":[10,1,-9,8,9,["3c","7e","c3","ff","ff","c0","e2","7f","3c"]],"f":[10,1,-13,8,13,["f","1f","18","18","ff","ff","18","18","18","18","18","ff","ff"]],"g":[10,1,-11,8,14,["6","6","3c","7e","66","66","7e","3c","60","7e","3f","c3","ff","7e"]],"h":[10,1,-13,7,13,["60","60","60","60","6e","7f","63","63","63","63","63","63","63"]],"i":[10,1,-13,7,13,["1c","1c","1c","0","7c","7c","1c","1c","1c","1c","1c","7f","7f"]],"j":[10,1,-13,5,16,["3","3","3","0","1f","1f","3","3","3","3","3","3","3","3","1f","1e"]],"k":[10,1,-13,8,13,["c0","c0","c0","c0","c6","cc","d8","f8","f8","dc","cc","ce","c7"]],"l":[10,1,-13,7,13,["7c","7c","c","c","c","c","c","c","c","c","c","7f","7f"]],"m":[10,1,-9,8,9,["d6","ff","db","db","db","db","db","db","db"]],"n":[10,1,-9,7,9,["6e","7f","63","63","63","63","63","63","63"]],"o":[10,1,-9,8,9,["3c","7e","e7","c3","c3","c3","e7","7e","3c"]],"p":[10,1,-9,8,12,["dc","fe","c7","c3","c3","c3","c7","fe","dc","c0","c0","c0"]],"q":[10,1,-9,8,12,["3b","7f","e3","c3","c3","c3","e3","7f","3b","3","3","3"]],"r":[10,1,-9,8,9,["f7","ff","38","30","30","30","30","fe","fe"]],"s":[10,1,-9,7,9,["3e","7f","62","70","3e","7","63","7f","3e"]],"t":[10,1,-12,8,12,["30","30","30","ff","ff","30","30","30","30","30","3f","1f"]],"u":[10,1,-9,7,9,["63","63","63","63","63","63","63","7f","3b"]],"v":[10,1,-9,8,9,["c3","c7","e6","66","66","6c","3c","3c","38"]],"w":[10,0,-9,9,9,["199","19b","1bb","1bb","af","ef","ef","e7","e7"]],"x":[10,1,-9,8,9,["e7","66","7c","3c","38","3c","6e","e6","c7"]],"y":[10,0,-9,9,12,["1c3","c7","e6","66","6c","6c","3c","38","38","30","f0","e0"]],"z":[10,1,-9,7,9,["7f","7f","7","e","1c","38","70","7f","7f"]],"{":[10,1,-13,7,16,["f","1f","18","18","18","c","c","78","78","c","c","18","18","18","1f","1f"]],"|":[10,4,-13,2,15,["3","3","3","3","3","3","3","3","3","3","3","3","3","3","3"]],"}":[10,1,-13,7,16,["7c","7c","c","c","c","18","18","f","f","18","18","c","c","c","7c","7c"]],"~":[10,1,-7,8,4,["73","fb","de","8e"]],"\u2026":[10,1,-2,8,2,["db","db"]],"\u00e9":[10,1,-15,8,14,["c","c","18","18","0","3c","7e","c3","ff","ff","c0","e2","7f","3c"]],"\u2019":[10,3,-13,4,5,["7","6","6","c","c"]],"\u00b7":[10,3,-6,3,3,["7","7","7"]],"\u2013":[10,1,-6,8,2,["ff","ff"]],"\u2014":[10,0,-6,10,2,["3ff","3ff"]]}},"E":{"size":14,"cap":11,"xh":8,"asc":13,"desc":3,"g":{" ":[8,0,0,0,0,[]],"!":[8,3,-11,2,11,["3","3","3","3","3","3","2","0","3","3","3"]],"\"":[8,2,-11,5,5,["1b","1b","1b","1b","1b"]],"#":[8,1,-11,8,11,["36","36","36","f7","36","24","6c","ef","6c","6c","6c"]],"$":[8,1,-12,7,14,["c","c","3e","7e","6c","6c","3e","1f","f","f","7f","7e","c","c"]],"%":[8,1,-11,8,11,["73","db","da","de","dc","70","6","2f","6f","6f","c6"]],"&":[8,1,-11,8,11,["3c","64","60","70","70","7b","da","ce","ce","c6","7b"]],"'":[8,3,-11,2,5,["3","3","3","3","3"]],"(":[8,2,-11,5,13,["3","6","c","8","18","18","18","18","18","8","c","6","3"]],")":[8,1,-11,5,13,["18","c","6","2","3","3","3","3","3","2","6","c","18"]],"*":[8,0,-9,8,8,["18","18","ff","ff","3c","3c","66","24"]],"+":[8,1,-8,7,7,["18","18","18","7f","18","18","18"]],",":[8,2,-3,4,5,["7","6","6","6","c"]],"-":[8,2,-5,4,1,["f"]],".":[8,3,-3,3,3,["7","7","7"]],"/":[8,1,-11,6,14,["3","3","3","6","6","6","c","c","c","18","18","18","30","30"]],"0":[8,1,-11,8,11,["3c","66","c3","c3","c3","db","c3","c3","c3","66","3c"]],"1":[8,1,-11,7,11,["3c","7c","6c","4c","c","c","c","c","c","c","7f"]],"2":[8,1,-11,7,11,["3c","62","23","3","3","7","e","1c","38","70","7f"]],"3":[8,0,-11,7,11,["3e","33","23","3","3","1c","3","3","23","63","3e"]],"4":[8,0,-11,9,11,["1c","1c","2c","2c","6c","4c","cc","8c","1ff","c","c"]],"5":[8,1,-11,7,11,["7e","60","60","60","7e","67","3","3","43","66","7c"]],"6":[8,1,-11,7,11,["c","18","30","30","6e","77","63","63","63","26","1c"]],"7":[8,1,-11,7,11,["7f","63","63","6","6","6","c","c","c","18","18"]],"8":[8,1,-11,7,11,["3e","63","63","63","22","1c","63","63","63","63","3e"]],"9":[8,1,-11,7,11,["1c","36","63","63","63","77","3b","6","6","c","18"]],":":[8,3,-8,3,8,["7","7","7","0","0","7","7","7"]],";":[8,3,-8,3,10,["7","7","7","0","0","7","7","6","6","4"]],"<":[8,1,-10,6,9,["1","7","1e","38","30","3c","e","3","1"]],"=":[8,1,-7,7,5,["7f","0","0","0","7f"]],">":[8,1,-10,6,9,["20","38","1e","7","3","f","1c","30","20"]],"?":[8,1,-11,7,11,["3e","73","23","3","3","6","18","0","1c","1c","1c"]],"@":[8,1,-11,7,12,["1e","33","63","6f","7b","7b","7b","7b","6f","60","30","1c"]],"A":[8,0,-11,8,11,["1c","3c","3c","3e","36","76","66","7e","63","e3","c3"]],"B":[8,1,-11,7,11,["7c","66","66","66","66","7c","63","63","63","63","7e"]],"C":[8,1,-11,7,11,["1e","33","63","60","60","60","60","60","63","33","1e"]],"D":[8,1,-11,7,11,["7c","66","63","63","63","63","63","63","63","66","7c"]],"E":[8,1,-11,6,11,["3f","30","30","30","30","3f","30","30","30","30","3f"]],"F":[8,1,-11,7,11,["7f","60","60","60","60","7e","60","60","60","60","60"]],"G":[8,1,-11,7,11,["1e","37","63","60","60","6f","63","63","63","37","3b"]],"H":[8,1,-11,7,11,["63","63","63","63","63","7f","63","63","63","63","63"]],"I":[8,1,-11,6,11,["3f","c","c","c","c","c","c","c","c","c","3f"]],"J":[8,1,-11,6,11,["1f","3","3","3","3","3","3","3","33","33","1e"]],"K":[8,1,-11,7,11,["63","66","6e","6c","78","7c","7c","6e","66","67","63"]],"L":[8,1,-11,7,11,["60","60","60","60","60","60","60","60","60","60","7f"]],"M":[8,1,-11,7,11,["77","77","77","77","7f","6b","6b","6b","6b","63","63"]],"N":[8,1,-11,7,11,["73","73","73","7b","6b","6b","6b","6f","67","67","67"]],"O":[8,1,-11,8,11,["3c","66","c3","c3","c3","c3","c3","c3","c3","66","3c"]],"P":[8,1,-11,7,11,["7e","63","63","63","63","63","7e","60","60","60","60"]],"Q":[8,1,-11,8,14,["3c","66","c2","c3","c3","c3","c3","c3","c3","66","7e","18","18","1e"]],"R":[8,1,-11,7,11,["7e","63","63","63","63","63","7e","6e","66","67","63"]],"S":[8,1,-11,7,11,["3e","62","60","70","7e","7f","3f","3","3","62","7c"]],"T":[8,1,-11,8,11,["ff","18","18","18","18","18","18","18","18","18","18"]],"U":[8,1,-11,7,11,["63","63","63","63","63","63","63","63","63","63","3e"]],"V":[8,0,-11,8,11,["e3","e3","63","66","66","76","36","36","3c","3c","1c"]],"W":[8,1,-11,8,11,["c3","c3","c3","db","db","db","db","db","ef","e7","e7"]],"X":[8,0,-11,8,11,["63","66","36","3c","3c","1c","3c","3e","66","67","e3"]],"Y":[8,0,-11,8,11,["c3","66","66","7e","3c","3c","18","18","18","18","18"]],"Z":[8,1,-11,7,11,["7f","7","6","e","c","1c","18","38","30","70","7f"]],"[":[8,3,-11,5,13,["1f","18","18","18","18","18","18","18","18","18","18","18","1f"]],"\\":[8,1,-11,6,14,["30","10","18","18","8","c","c","4","6","6","2","3","3","1"]],"]":[8,1,-11,5,13,["1f","3","3","3","3","3","3","3","3","3","3","3","1f"]],"^":[8,1,-10,7,6,["1c","3c","26","66","63","42"]],"_":[8,1,1,7,1,["7f"]],"`":[8,2,-13,3,3,["6","3","3"]],"a":[8,1,-8,8,8,["78","4c","c","c","7c","cc","cc","7f"]],"b":[8,1,-11,7,11,["60","60","60","7e","67","63","63","63","63","67","7e"]],"c":[8,1,-8,6,8,["f","13","30","30","30","30","11","f"]],"d":[8,1,-11,7,11,["3","3","3","3f","73","63","63","63","63","63","3f"]],"e":[8,1,-8,7,8,["1e","23","63","7f","60","60","32","1e"]],"f":[8,1,-11,7,11,["f","18","18","7f","18","18","18","18","18","18","7f"]],"g":[8,1,-9,8,12,["6","7c","c6","c6","c6","7c","c0","c0","7e","c3","c3","7e"]],"h":[8,1,-11,7,11,["60","60","60","6e","73","63","63","63","63","63","63"]],"i":[8,1,-11,7,11,["18","0","0","78","18","18","18","18","18","18","7f"]],"j":[8,1,-11,5,14,["3","0","0","1f","3","3","3","3","3","3","3","3","3","1e"]],"k":[8,1,-11,7,11,["60","60","60","67","6e","7c","78","7c","6e","66","67"]],"l":[8,1,-11,7,11,["78","18","18","18","18","18","18","18","18","18","7f"]],"m":[8,1,-8,8,8,["ff","db","db","db","db","db","db","db"]],"n":[8,1,-8,7,8,["6e","73","63","63","63","63","63","63"]],"o":[8,1,-8,7,8,["1c","26","63","63","63","63","26","1c"]],"p":[8,1,-8,7,11,["7e","67","63","63","63","63","67","7e","60","60","60"]],"q":[8,1,-8,7,11,["3b","77","63","63","63","63","63","3b","3","3","3"]],"r":[8,1,-8,7,8,["7b","1c","18","18","18","18","18","7e"]],"s":[8,1,-8,6,8,["1f","32","38","3e","1f","7","23","3e"]],"t":[8,1,-11,7,11,["18","18","18","7f","18","18","18","18","18","18","f"]],"u":[8,1,-8,7,8,["63","63","63","63","63","63","63","3f"]],"v":[8,1,-8,7,8,["63","67","66","36","36","3c","3c","1c"]],"w":[8,0,-8,8,8,["d9","d9","db","d7","57","57","57","67"]],"x":[8,1,-8,7,8,["67","76","3c","1c","1c","3c","66","67"]],"y":[8,0,-8,8,11,["e3","63","66","76","34","3c","3c","18","18","18","70"]],"z":[8,1,-8,6,8,["3f","7","6","e","1c","18","38","3f"]],"{":[8,1,-11,7,13,["1f","18","18","1c","c","c","70","c","c","1c","18","18","1f"]],"|":[8,3,-11,2,13,["3","3","3","3","3","3","3","3","3","3","3","3","3"]],"}":[8,1,-11,7,13,["7c","c","c","1c","18","18","7","18","18","1c","c","c","7c"]],"~":[8,1,-7,7,4,["33","5b","4a","4e"]],"\u2026":[8,1,-1,8,1,["db"]],"\u00e9":[8,1,-12,7,12,["e","c","8","0","1e","23","63","7f","60","60","32","1e"]],"\u2019":[8,3,-11,3,5,["7","7","6","6","4"]],"\u00b7":[8,3,-6,3,3,["7","7","7"]],"\u2013":[8,1,-5,7,1,["7f"]],"\u2014":[8,0,-5,8,1,["ff"]]}},"B":{"size":14,"cap":11,"xh":8,"asc":13,"desc":3,"g":{" ":[8,0,0,0,0,[]],"!":[8,3,-11,2,11,["3","3","3","3","3","3","2","0","0","3","3"]],"\"":[8,2,-11,4,4,["f","f","f","f"]],"#":[8,1,-11,8,11,["12","16","36","36","e7","24","24","ef","6c","6c","48"]],"$":[8,1,-12,7,14,["8","8","3e","6a","68","68","3c","e","b","b","6b","7e","8","8"]],"%":[8,1,-11,8,11,["61","92","92","96","94","60","6","29","49","49","86"]],"&":[8,1,-11,8,11,["3c","64","60","60","30","73","ca","ce","c6","c6","7b"]],"'":[8,3,-11,2,4,["3","3","3","3"]],"(":[8,3,-11,5,13,["2","6","c","8","18","18","18","18","18","8","c","6","3"]],")":[8,1,-11,5,13,["18","c","6","2","3","3","3","3","3","2","6","c","18"]],"*":[8,1,-8,8,7,["18","18","db","ff","3c","3c","66"]],"+":[8,1,-8,7,7,["18","18","18","7f","18","18","18"]],",":[8,3,-2,2,4,["3","3","3","2"]],"-":[8,2,-5,4,1,["f"]],".":[8,3,-2,2,2,["3","3"]],"/":[8,1,-11,6,14,["1","3","2","2","6","4","4","c","8","8","18","10","30","30"]],"0":[8,1,-11,7,11,["1c","36","63","63","63","6f","6f","63","63","36","1c"]],"1":[8,1,-11,7,11,["1c","3c","6c","4c","c","c","c","c","c","c","7f"]],"2":[8,1,-11,7,11,["3e","63","43","3","3","6","e","1c","30","60","7f"]],"3":[8,1,-11,7,11,["3e","63","3","3","6","1c","6","3","3","67","3c"]],"4":[8,0,-11,8,11,["e","e","1e","16","36","26","66","46","ff","6","6"]],"5":[8,1,-11,6,11,["3f","20","20","20","3e","27","3","3","23","26","1c"]],"6":[8,1,-11,7,11,["c","18","30","30","6e","77","63","63","63","36","1c"]],"7":[8,1,-11,7,11,["7f","62","62","6","4","4","4","c","8","8","18"]],"8":[8,1,-11,7,11,["3e","63","63","63","22","1c","22","63","63","63","3e"]],"9":[8,1,-11,7,11,["1c","36","63","63","63","77","3b","6","6","c","18"]],":":[8,3,-8,2,8,["3","3","0","0","0","0","3","3"]],";":[8,3,-8,2,9,["3","3","0","0","0","3","3","2","2"]],"<":[8,1,-10,6,9,["1","7","c","38","30","18","e","3","1"]],"=":[8,1,-7,7,4,["7f","0","0","7f"]],">":[8,1,-10,6,9,["20","38","c","7","1","6","1c","30","20"]],"?":[8,2,-11,6,11,["1e","23","23","3","6","1c","18","0","0","18","18"]],"@":[8,1,-11,7,12,["1e","23","41","4f","59","59","59","59","4f","40","20","1e"]],"A":[8,0,-11,8,11,["18","1c","3c","34","34","26","66","7e","62","43","c3"]],"B":[8,1,-11,7,11,["7c","66","66","66","66","78","66","63","63","63","7e"]],"C":[8,1,-11,7,11,["1e","33","61","60","60","60","60","60","61","33","1e"]],"D":[8,1,-11,7,11,["7c","66","63","63","63","63","63","63","63","66","7c"]],"E":[8,1,-11,7,11,["7f","60","60","60","60","7e","60","60","60","60","7f"]],"F":[8,1,-11,7,11,["7f","60","60","60","60","7e","60","60","60","60","60"]],"G":[8,1,-11,7,11,["1e","37","63","60","60","60","6f","63","63","33","3f"]],"H":[8,1,-11,7,11,["63","63","63","63","63","7f","63","63","63","63","63"]],"I":[8,1,-11,6,11,["3f","c","c","c","c","c","c","c","c","c","3f"]],"J":[8,1,-11,6,11,["1f","3","3","3","3","3","3","3","23","23","1e"]],"K":[8,1,-11,7,11,["63","62","66","6c","68","7c","7c","66","66","63","61"]],"L":[8,2,-11,6,11,["30","30","30","30","30","30","30","30","30","30","3f"]],"M":[8,1,-11,7,11,["73","77","77","77","6b","6b","6b","6b","63","63","63"]],"N":[8,1,-11,7,11,["73","73","73","73","6b","6b","6b","6f","67","67","67"]],"O":[8,1,-11,7,11,["1c","36","63","63","63","63","63","63","63","36","1c"]],"P":[8,1,-11,7,11,["7e","63","63","63","63","63","7e","60","60","60","60"]],"Q":[8,1,-11,7,13,["1c","36","63","63","63","63","63","63","63","3e","1c","c","e"]],"R":[8,1,-11,7,11,["7e","63","63","63","63","63","7e","6c","66","66","63"]],"S":[8,1,-11,7,11,["3e","63","60","60","7c","3e","f","3","3","62","3e"]],"T":[8,1,-11,8,11,["ff","18","18","18","18","18","18","18","18","18","18"]],"U":[8,1,-11,7,11,["63","63","63","63","63","63","63","63","63","63","3e"]],"V":[8,0,-11,8,11,["c3","43","62","62","66","26","34","34","3c","1c","18"]],"W":[8,0,-11,8,11,["c3","c3","43","5b","5b","5b","57","77","76","66","66"]],"X":[8,1,-11,7,11,["43","62","26","34","1c","18","1c","34","26","62","43"]],"Y":[8,0,-11,8,11,["c3","c3","66","66","3c","3c","18","18","18","18","18"]],"Z":[8,1,-11,7,11,["7f","3","6","6","c","8","18","30","30","60","7f"]],"[":[8,3,-11,5,13,["1f","18","18","18","18","18","18","18","18","18","18","18","1f"]],"\\":[8,1,-11,6,14,["30","10","10","18","8","8","c","4","4","6","2","3","1","1"]],"]":[8,1,-11,5,13,["1f","3","3","3","3","3","3","3","3","3","3","3","1f"]],"^":[8,1,-11,7,6,["18","1c","34","26","62","43"]],"_":[8,1,1,7,1,["7f"]],"`":[8,3,-12,2,3,["2","2","1"]],"a":[8,1,-8,7,8,["3c","66","6","6","3e","66","66","3f"]],"b":[8,1,-11,7,11,["60","60","60","6e","77","63","63","63","63","67","7e"]],"c":[8,1,-8,7,8,["1e","33","60","60","60","60","33","1e"]],"d":[8,1,-11,7,11,["3","3","3","3b","77","63","63","63","63","73","3f"]],"e":[8,1,-8,7,8,["1c","32","63","7f","60","62","33","1e"]],"f":[8,1,-11,7,11,["f","18","18","7f","18","18","18","18","18","18","7e"]],"g":[8,1,-9,7,12,["7","3c","66","66","66","3c","60","40","3e","63","63","3e"]],"h":[8,1,-11,6,11,["30","30","30","36","3b","33","33","33","33","33","33"]],"i":[8,1,-11,6,11,["c","c","0","3c","c","c","c","c","c","c","3f"]],"j":[8,1,-11,5,14,["3","3","0","1f","3","3","3","3","3","3","3","3","3","1e"]],"k":[8,1,-11,7,11,["60","60","60","63","66","6c","78","7c","66","62","63"]],"l":[8,1,-11,6,11,["3c","c","c","c","c","c","c","c","c","c","3f"]],"m":[8,1,-8,8,8,["ff","db","db","db","db","db","db","db"]],"n":[8,1,-8,6,8,["36","3b","33","33","33","33","33","33"]],"o":[8,1,-8,7,8,["1c","36","63","63","63","63","36","1c"]],"p":[8,1,-8,7,11,["6e","77","63","63","63","63","67","7e","60","60","60"]],"q":[8,1,-8,7,11,["3b","77","63","63","63","63","73","3f","3","3","3"]],"r":[8,1,-8,7,8,["7b","1c","18","18","18","18","18","7e"]],"s":[8,1,-8,6,8,["1e","32","30","3e","1f","3","23","1e"]],"t":[8,1,-11,7,11,["18","18","18","7f","18","18","18","18","18","18","f"]],"u":[8,1,-8,6,8,["33","33","33","33","33","33","33","1f"]],"v":[8,1,-8,7,8,["43","62","66","26","34","34","1c","18"]],"w":[8,0,-8,8,8,["d9","d9","59","55","57","56","66","66"]],"x":[8,1,-8,6,8,["31","13","1e","c","c","1e","13","31"]],"y":[8,1,-8,7,11,["43","62","66","24","34","3c","18","18","18","10","70"]],"z":[8,1,-8,6,8,["3f","3","6","c","c","18","30","3f"]],"{":[8,1,-11,6,13,["f","c","c","c","6","6","38","6","6","c","c","c","f"]],"|":[8,4,-11,2,13,["3","3","3","3","3","3","3","3","3","3","3","3","3"]],"}":[8,2,-11,5,13,["1e","6","6","6","c","c","3","c","c","6","6","6","1e"]],"~":[8,1,-6,7,3,["31","5a","4e"]],"\u2026":[8,1,-2,8,2,["db","db"]],"\u00e9":[8,1,-13,7,12,["4","8","8","0","1c","32","63","7f","60","62","33","1e"]],"\u2019":[8,3,-11,3,4,["3","6","6","4"]],"\u00b7":[8,3,-5,2,2,["3","3"]],"\u2013":[8,1,-5,7,1,["7f"]],"\u2014":[8,0,-5,8,1,["ff"]]}},"D":{"size":13,"cap":9,"xh":7,"asc":12,"desc":3,"g":{" ":[8,0,0,0,0,[]],"!":[8,3,-9,2,9,["1","1","1","1","1","1","0","3","3"]],"\"":[8,2,-10,4,4,["9","9","9","9"]],"#":[8,1,-9,7,9,["1a","12","12","77","14","77","24","24","2c"]],"$":[8,1,-12,6,13,["4","4","1e","35","24","34","1e","7","5","25","3f","c","4"]],"%":[8,1,-9,7,9,["31","4a","4a","30","2","15","25","25","42"]],"&":[8,1,-9,7,9,["1c","24","20","30","33","4a","46","46","3b"]],"'":[8,3,-10,1,4,["1","1","1","1"]],"(":[8,2,-10,3,12,["1","2","2","4","4","4","4","4","4","2","2","1"]],")":[8,2,-10,3,12,["4","2","2","1","1","1","1","1","1","2","2","4"]],"*":[8,0,-7,7,6,["8","8","7f","1c","1c","36"]],"+":[8,1,-7,6,6,["4","4","3f","4","4","4"]],",":[8,3,-2,2,4,["3","3","2","2"]],"-":[8,2,-5,4,1,["f"]],".":[8,3,-2,2,2,["3","3"]],"/":[8,1,-10,6,12,["3","2","2","4","4","c","8","8","18","10","10","30"]],"0":[8,1,-9,6,9,["1e","12","21","21","25","21","21","12","1e"]],"1":[8,0,-9,7,9,["c","14","64","4","4","4","4","4","3f"]],"2":[8,1,-9,6,9,["1e","31","1","1","2","6","c","30","3f"]],"3":[8,1,-9,5,9,["e","11","1","1","e","1","1","11","1e"]],"4":[8,0,-9,8,9,["c","1c","14","24","64","44","ff","4","4"]],"5":[8,1,-9,6,9,["3e","20","20","2e","33","1","1","23","1e"]],"6":[8,1,-9,6,9,["c","18","10","2e","33","21","21","33","1e"]],"7":[8,1,-9,7,9,["7f","42","46","4","c","8","18","18","30"]],"8":[8,1,-9,6,9,["1e","21","21","21","1e","21","21","21","1e"]],"9":[8,1,-9,6,9,["1e","21","21","21","1f","3","2","6","1c"]],":":[8,3,-7,2,7,["3","3","0","0","0","3","3"]],";":[8,3,-7,2,9,["3","3","0","0","0","3","3","2","2"]],"<":[8,1,-8,6,8,["1","6","1c","30","30","1c","7","1"]],"=":[8,1,-6,6,4,["3f","0","0","3f"]],">":[8,1,-8,6,8,["20","30","c","7","7","c","30","20"]],"?":[8,1,-9,6,9,["1e","31","1","1","6","4","0","c","c"]],"@":[8,1,-9,6,10,["1e","11","27","29","29","29","29","27","10","1e"]],"A":[8,0,-9,7,9,["c","1c","16","12","12","3f","23","21","61"]],"B":[8,1,-9,6,9,["3c","22","22","22","3c","23","21","21","3e"]],"C":[8,1,-9,6,9,["1e","13","20","20","20","20","20","13","1e"]],"D":[8,1,-9,6,9,["3e","22","21","21","21","21","21","22","3c"]],"E":[8,1,-9,5,9,["1f","10","10","10","1f","10","10","10","1f"]],"F":[8,1,-9,5,9,["1f","10","10","10","1f","10","10","10","10"]],"G":[8,1,-9,6,9,["1e","13","20","20","27","21","21","33","1d"]],"H":[8,1,-9,6,9,["21","21","21","21","3f","21","21","21","21"]],"I":[8,1,-9,6,9,["3f","8","8","8","8","8","8","8","3f"]],"J":[8,1,-9,5,9,["f","1","1","1","1","1","1","19","e"]],"K":[8,1,-9,6,9,["23","26","2c","28","3c","3c","26","22","23"]],"L":[8,1,-9,5,9,["10","10","10","10","10","10","10","10","1f"]],"M":[8,1,-9,6,9,["33","33","3b","2d","2d","29","21","21","21"]],"N":[8,1,-9,6,9,["31","31","39","29","2d","25","27","23","23"]],"O":[8,1,-9,6,9,["1e","12","21","21","21","21","21","12","1e"]],"P":[8,1,-9,6,9,["3e","21","21","21","3e","20","20","20","20"]],"Q":[8,1,-9,6,11,["1e","12","21","21","21","21","21","13","e","4","7"]],"R":[8,1,-9,6,9,["3e","21","21","21","3e","26","26","23","21"]],"S":[8,1,-9,6,9,["1e","21","20","30","1e","3","1","21","1e"]],"T":[8,1,-9,7,9,["7f","8","8","8","8","8","8","8","8"]],"U":[8,1,-9,6,9,["21","21","21","21","21","21","21","21","1e"]],"V":[8,0,-9,7,9,["61","21","33","32","12","12","1e","1c","c"]],"W":[8,1,-9,7,9,["43","43","5b","5b","5b","57","76","66","66"]],"X":[8,1,-9,6,9,["21","33","16","1c","c","1c","16","33","21"]],"Y":[8,0,-9,7,9,["63","22","36","14","1c","8","8","8","8"]],"Z":[8,1,-9,6,9,["3f","3","2","4","c","8","10","30","3f"]],"[":[8,3,-10,4,12,["f","8","8","8","8","8","8","8","8","8","8","f"]],"\\":[8,1,-10,6,12,["30","10","10","18","8","8","c","4","4","2","2","3"]],"]":[8,1,-10,4,12,["f","1","1","1","1","1","1","1","1","1","1","f"]],"^":[8,1,-9,6,6,["c","1c","12","32","21","21"]],"_":[8,1,1,6,1,["3f"]],"`":[8,2,-10,2,2,["3","1"]],"a":[8,1,-7,6,7,["1c","22","2","1e","22","22","1f"]],"b":[8,1,-10,6,10,["20","20","20","2e","33","21","21","21","23","3e"]],"c":[8,1,-7,5,7,["f","11","10","10","10","11","f"]],"d":[8,1,-10,6,10,["1","1","1","1d","33","21","21","21","31","1f"]],"e":[8,1,-7,6,7,["1e","33","21","3f","20","31","1e"]],"f":[8,1,-10,6,10,["f","8","8","3f","8","8","8","8","8","3f"]],"g":[8,1,-8,6,11,["1","e","11","11","11","e","10","1f","21","21","1e"]],"h":[8,1,-10,5,10,["10","10","10","1e","11","11","11","11","11","11"]],"i":[8,1,-10,6,10,["c","c","0","38","8","8","8","8","8","3f"]],"j":[8,1,-10,5,13,["3","3","0","1e","2","2","2","2","2","2","2","2","1e"]],"k":[8,1,-10,6,10,["20","20","20","26","2c","28","3c","24","26","23"]],"l":[8,1,-10,6,10,["38","8","8","8","8","8","8","8","8","3f"]],"m":[8,1,-7,7,7,["7f","49","49","49","49","49","49"]],"n":[8,1,-7,5,7,["1e","11","11","11","11","11","11"]],"o":[8,1,-7,6,7,["1e","33","21","21","21","33","1e"]],"p":[8,1,-7,6,10,["2e","33","21","21","21","23","3e","20","20","20"]],"q":[8,1,-7,6,10,["1d","33","21","21","21","31","1f","1","1","1"]],"r":[8,1,-7,7,7,["77","18","10","10","10","10","7e"]],"s":[8,1,-7,6,7,["1e","21","20","1e","1","21","1e"]],"t":[8,1,-9,6,9,["8","8","3f","8","8","8","8","8","f"]],"u":[8,1,-7,5,7,["11","11","11","11","11","11","f"]],"v":[8,1,-7,6,7,["21","33","32","12","1e","c","c"]],"w":[8,0,-7,7,7,["6d","6d","2d","35","35","33","33"]],"x":[8,1,-7,6,7,["33","12","1c","c","1c","12","23"]],"y":[8,1,-7,6,10,["21","23","32","12","1e","c","c","8","8","30"]],"z":[8,1,-7,6,7,["3f","3","6","c","18","30","3f"]],"{":[8,1,-10,5,12,["7","4","4","2","2","1c","2","2","4","4","4","7"]],"|":[8,3,-10,1,12,["1","1","1","1","1","1","1","1","1","1","1","1"]],"}":[8,2,-10,5,12,["1c","4","4","8","8","7","8","8","4","4","4","1c"]],"~":[8,1,-6,6,3,["39","2d","26"]],"\u2026":[8,1,-2,8,2,["93","93"]],"\u00e9":[8,1,-11,6,11,["4","6","c","0","1e","33","21","3f","20","31","1e"]],"\u2019":[8,3,-10,2,4,["3","3","2","2"]],"\u00b7":[8,3,-5,2,2,["3","3"]],"\u2013":[8,1,-5,6,1,["3f"]],"\u2014":[8,0,-5,8,1,["ff"]]}}};
-  function mkFont(key) {
-    var a = ATLAS[key], H = a.g['H'];
-    return { key: key, g: a.g, cap: H[4], asc: a.asc, desc: a.desc, size: a.size, adv: a.g['0'][0] };
-  }
-  var FONT_T = mkFont('T');   // titles: Plex Mono Bold 16
-  var FONT_E = mkFont('E');   // emphasis: nicks, keys, chips — Bold 14
-  var FONT_B = mkFont('B');   // body — Medium 14
-  var FONT_D = mkFont('D');   // dim: timestamps, server name, status — Regular 13
-  var CAP_REF = FONT_B.cap;   // all faces share one baseline per row (mixed faces on a line stay aligned)
-  var CELL = FONT_B.adv * 2;  // 16px at 2x: the character cell every 13/14px face sits on
-  var glyphCache = {};
-  function glyphOf(font, ch) { return font.g[ch] || font.g['?']; }
-  function measure1x(s, font) { var w = 0; for (var i = 0; i < s.length; i++) w += glyphOf(font, s[i])[0]; return w; }
-  function rasterise(s, font, color, bold) {
-    var key = font.key + '|' + color + '|' + (bold ? 1 : 0) + '|' + s;
-    if (glyphCache[key]) return glyphCache[key];
-    var bo = bold ? 1 : 0;
-    var w = measure1x(s, font) + bo + 2, h = font.asc + font.desc + 2, base = font.asc + 1;
-    var c = document.createElement('canvas'); c.width = w; c.height = h;
-    var x = c.getContext('2d'); x.fillStyle = color;
-    var pen = 1;
-    for (var i = 0; i < s.length; i++) {
-      var g = glyphOf(font, s[i]), rows = g[5];
-      for (var r = 0; r < rows.length; r++) {
-        var bits = parseInt(rows[r], 16), gw = g[3];
-        for (var q = 0; q < gw; q++) if (bits & (1 << (gw - 1 - q))) {
-          x.fillRect(pen + g[1] + q, base + g[2] + r, 1 + bo, 1);
-        }
-      }
-      pen += g[0];
-    }
-    var out = { c: c, w: w - 2, base: base, cap: font.cap };
-    if (Object.keys(glyphCache).length > 600) glyphCache = {};
-    glyphCache[key] = out;
-    return out;
-  }
-  // truncate with an ellipsis to fit maxW (1x units)
-  function fit(s, font, maxW, bold) {
-    var extra = bold ? 1 : 0;
-    if (!maxW || measure1x(s, font) + extra <= maxW) return s;
-    while (s.length > 1 && measure1x(s + '...', font) + extra > maxW) s = s.slice(0, -1);
-    return s + '...';
-  }
-  // draw text on the 2x canvas: (x, cy) in 2x px — cy is the vertical centre of the body cap height;
-  // every face shares that row's baseline, so a 13px timestamp and a 14px nick sit on one line
-  function text(ctx, s, x, cy, font, color, align, maxW, bold, noComp) {
-    if (!s) return 0;
-    s = fit(s, font, maxW ? maxW / 2 : 0, bold);
-    var g = rasterise(s, font, color, bold), sc = 2;
-    var w2 = g.w * sc;
-    var px = align === 'right' ? x - w2 : align === 'center' ? x - w2 / 2 : x;
-    // row starts: pull the first glyph's side bearing back to the common 1px letter bearing, so '[', '*' and '-'
-    // rows share one ink edge with letter rows (the rest of the row keeps its cell grid)
-    if (!align || align === 'left') { if (!noComp) px -= (glyphOf(font, s[0])[1] - 1) * sc; }
-    px = Math.round(px / 2) * 2 - sc;                      // the bitmap has 1px (1x) left padding
-    var base = Math.round((cy + CAP_REF) / 2) * 2;         // shared baseline: cap box of the body face centred on cy
-    var py = base - g.base * sc;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(g.c, 0, 0, g.c.width, g.c.height, px, py, g.c.width * sc, g.c.height * sc);
-    return w2;
-  }
-  function width2x(s, font, bold) { return (measure1x(s, font) + (bold ? 1 : 0)) * 2; }
-  // a chat line made of coloured runs: [[str, font, colour], ...]; each run is clipped to what is left of maxW.
-  // A run tagged 'cursor' draws the block cursor (one cell) instead of text.
-  function runs(ctx, segs, x, cy, maxW, noComp) {
-    var px = x;
-    for (var i = 0; i < segs.length; i++) {
-      var s = segs[i], room = maxW ? maxW - (px - x) : 0;
-      if (maxW && room < CELL) break;
-      if (s[3] === 'cursor') { block(ctx, px + 4, cy, s[1], s[2]); px += CELL; continue; }
-      px += text(ctx, s[0], px, cy, s[1], s[2], 'left', maxW ? room : 0, false, i > 0 || noComp);
-    }
-    return px - x;
-  }
-  function runsWidth(segs) { var t = 0; segs.forEach(function (s) { t += s[3] === 'cursor' ? CELL : width2x(s[0], s[1]); }); return t; }
-
-  /* ───────────────────────── the panel ───────────────────────── */
-  // 2x geometry: 1px frame · title bar 2..48 · rule · log 50..168 · rule · status bar 170..198 (28px: a 13px face + descenders)
-  var W = 640, H = 200, BODY_Y = 50, BODY_H = 118, NICK_MAX = 14;
-  var meta = { ts: null };   // what the last render decided (timestamps kept or dropped) — shown in the preview status
-  function pad2(n) { return (n < 10 ? '0' : '') + n; }
-  // [hh:mm] stamps counted up from the buyer's go-live time (falls back to 20:15)
-  function stamps(P) {
-    var m = /(\d{1,2})(?::(\d{2}))?\s*([ap]m)?/i.exec(P.time || ''), h = 20, mi = 15;
-    if (m) { h = +m[1]; mi = m[2] ? +m[2] : 0; var ap = (m[3] || '').toLowerCase(); if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0; }
-    var out = [];
-    for (var i = 0; i < 4; i++) { var t = ((h % 24) * 60 + mi + i) % 1440; out.push('[' + pad2(Math.floor(t / 60)) + ':' + pad2(t % 60) + ']'); }
-    return out;
-  }
-  // vertical centres (2x px, even) for n rows on a 34px pitch, centred in the log area
-  function rowsY(n) {
-    var pitch = 34, y0 = 2 * Math.round((BODY_Y + (BODY_H - pitch * n) / 2 + pitch / 2) / 2), out = [];
-    for (var i = 0; i < n; i++) out.push(y0 + i * pitch);
-    return out;
-  }
-  function drawIcon(ctx, P, pal, x, y, s) {   // preset icon, or the uploaded avatar on About Me
-    if (P.preset.layout === 'info' && P.avatar) {
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(P.avatar, x, y, 16 * s, 16 * s);
-    } else drawPixels(ctx, P.icon, x, y, s, null, iconPal(pal));
-  }
-  function block(ctx, x, cy, capFont, color) {   // block cursor sized to a face's cap height, on the row baseline
-    var base = Math.round((cy + CAP_REF) / 2) * 2, h = capFont.cap * 2;
-    ctx.fillStyle = color; ctx.fillRect(x, base - h, 12, h);
-  }
-  // the prompt line: "> /command█  note" — the panel's call to action, never timestamped
-  function ctaRow(P, pal) {   // the cursor sits at the END of the input line, after the note
-    var segs = [['> ', FONT_E, pal.ok], [P.cta, FONT_E, pal.title]];
-    if (P.ctaNote) segs.push(['  ' + P.ctaNote, FONT_B, pal.text]);
-    segs.push(['', FONT_E, pal.ok, 'cursor']);
-    segs.cta = true;
-    return segs;
-  }
-  // the nick list on the right of the log: the buyer as @op plus their own mods / regulars (section 2).
-  // The column is capped at NICK_MAX cells (long nicks get an ellipsis) so a long nick never reshapes the set.
-  function nickNames(P) {
-    var list = [{ n: '@' + P.screen, c: 'text' }];
-    (P.nl || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 2).forEach(function (s) {
-      list.push({ n: /^[@+%~&]/.test(s) ? s : '+' + s, c: 'dim' });
-    });
-    list.forEach(function (e) { if (e.n.length > NICK_MAX) e.n = e.n.slice(0, NICK_MAX - 1) + '…'; });
-    return list;
-  }
-  function nickWidth(P) { var w = 10; nickNames(P).forEach(function (e) { w = Math.max(w, e.n.length); }); return Math.min(w, NICK_MAX) * CELL; }
-  function nickList(ctx, P, pal, b, nickW) {
-    var x = b.x + b.w - 12 - nickW, names = nickNames(P);
-    ctx.fillStyle = pal.line; ctx.fillRect(x - 14, b.y + 8, 2, b.h - 16);
-    var ys = rowsY(3);   // the same three rows as the log, so the two columns share a grid
-    names.forEach(function (e, i) { text(ctx, e.n, x, ys[i], FONT_B, pal[e.c], 'left', nickW); });
-  }
-  // rows of coloured runs on the shared left edge; timestamps stay only if every stamped row still fits,
-  // and the nick list fills the right side whenever the rows leave it room (and the panel allows it)
-  function layoutRows(ctx, P, b, pal, rows, ts) {
-    var L = b.x + 12, R = b.x + b.w - 12, full = R - L;
-    var maxRow = 0, maxStamped = 0;
-    rows.forEach(function (r) { var w = runsWidth(r); maxRow = Math.max(maxRow, w); if (!r.cta) maxStamped = Math.max(maxStamped, w); });
-    var tsW = width2x('[00:00] ', FONT_D);
-    var useTs = P.ts && maxStamped + tsW <= full;
-    meta.ts = P.ts ? useTs : null;
-    var need = Math.max(maxRow, maxStamped + (useTs ? tsW : 0)), nickW = nickWidth(P);
-    var nick = P.nick !== false && need <= full - nickW - 26;
-    var maxW = nick ? full - nickW - 26 : full;
-    var ys = rowsY(rows.length);
-    rows.forEach(function (segs, i) { runs(ctx, useTs && !segs.cta ? [[ts[i] + ' ', FONT_D, pal.dim]].concat(segs) : segs, L, ys[i], maxW); });
-    if (nick) nickList(ctx, P, pal, b, nickW);
-  }
-
-  function renderPanel(P, canvas) {
-    var cv = canvas || document.createElement('canvas');
-    cv.width = W; cv.height = H;
-    var ctx = cv.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, W, H);
-    var pal = palette(P);
-    meta.ts = null;
-
-    // window: 1px frame in the kit accent, field, title bar, rules
-    ctx.fillStyle = pal.frame; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = pal.bg;    ctx.fillRect(2, 2, W - 4, H - 4);
-    ctx.fillStyle = pal.bar;   ctx.fillRect(2, 2, W - 4, 46); ctx.fillRect(2, 170, W - 4, 28);
-    ctx.fillStyle = pal.frame; ctx.fillRect(2, 48, W - 4, 2); ctx.fillRect(2, 168, W - 4, 2);
-
-    // title bar: icon · #channel — server   (icon on the 2px grid so it survives Twitch's downscale)
-    drawIcon(ctx, P, pal, 10, 10, 2);
-    var tx = 52, tcy = 25, R = W - 14;
-    var tw = text(ctx, P.title || '#', tx, tcy, FONT_T, pal.title, 'left', R - tx);
-    if (P.server) {
-      var sx = tx + tw + 16;
-      if (sx + width2x('— ' + P.server, FONT_D) <= R) runs(ctx, [['— ', FONT_D, pal.dimBar], [P.server, FONT_D, pal.dimBar]], sx, tcy, 0, true);
-    }
-
-    // status bar: ● CONNECTED  label: value █  — only the dot and the cursor carry the green
-    var scy = 178, x = 28;   // baseline 190: cap 172..190, descenders end at 196, frame at 198
-    ctx.fillStyle = pal.ok; ctx.fillRect(14, 178, 6, 6);
-    x += text(ctx, 'CONNECTED', x, scy, FONT_D, pal.dimBar);
-    if (P.st) {
-      x += 16;
-      var i = P.st.indexOf(': ');   // "label: value" → dim label, bright value (a bare "03:12:44" stays whole)
-      if (i > 0 && i < P.st.length - 2) x += runs(ctx, [[P.st.slice(0, i + 1), FONT_D, pal.dimBar], [P.st.slice(i + 1), FONT_D, pal.text]], x, scy, R - x - 24, true);
-      else x += text(ctx, P.st, x, scy, FONT_D, pal.text, 'left', R - x - 24, false, true);
-    }
-    block(ctx, x + 8, scy, FONT_D, pal.ok);
-
-    // log area
-    var box = { x: 2, y: BODY_Y, w: W - 4, h: BODY_H };
-    LAYOUTS[P.preset.layout](ctx, P, box, pal);
-    return cv;
-  }
-
-  var LAYOUTS = {
-    // whois card: avatar in a framed well, <nick> in the streamer colour, two lines
-    info: function (ctx, P, b, pal) {
-      var L = b.x + 14, R = b.x + b.w - 12, well = 72, ys = rowsY(3), wy = ys[1] - well / 2 + 2;   // well centred on the text block
-      ctx.fillStyle = pal.line; ctx.fillRect(L, wy, well, well);
-      ctx.fillStyle = P.avatar ? pal.bg : pal.bar; ctx.fillRect(L + 2, wy + 2, well - 4, well - 4);
-      if (P.avatar) drawIcon(ctx, P, pal, L + 4, wy + 4, 4); else drawPixels(ctx, 'user', L + 4, wy + 4, 4, null, iconPal(pal));
-      var lx = L + well + 14, maxW = R - lx;
-      text(ctx, '<' + P.screen + '>', lx, ys[0], FONT_E, pal.r, 'left', maxW);
-      text(ctx, P.tag, lx, ys[1], FONT_B, pal.text, 'left', maxW);
-      text(ctx, P.tag2, lx, ys[2], FONT_B, pal.text, 'left', maxW);
-    },
-
-    // schedule: a mode line of [DAY] tags (live days lit in prompt green), *** time + note, then the prompt line
-    days: function (ctx, P, b, pal) {
-      var L = b.x + 12, R = b.x + b.w - 12, ys = rowsY(3), x = L;
-      for (var i = 0; i < 7; i++) {
-        var d = DAYS[i].toUpperCase(), on = !!P.days[DAYS[i]], f = on ? FONT_E : FONT_D;
-        x += runs(ctx, [['[', f, pal.dim], [d, f, on ? pal.ok : pal.dim], [']', f, pal.dim]], x, ys[0], 0, i > 0) + 4;
-      }
-      var segs = [['*** ', FONT_D, pal.dim]];
-      if (P.time) segs.push([P.time, FONT_E, pal.title]);
-      if (P.tag) segs.push([(P.time ? '  ' : '') + P.tag, FONT_B, pal.text]);
-      runs(ctx, segs, L, ys[1], R - L);
-      if (P.cta) runs(ctx, ctaRow(P, pal), L, ys[2], R - L);
-      else if (P.tag2) runs(ctx, [['--- ', FONT_D, pal.dim], [P.tag2, FONT_D, pal.dim]], L, ys[2], R - L);
-    },
-
-    // socials: one row per platform — [TAG] in the brand colour, platform, that platform's handle.
-    // Handles are never truncated while there is a way out: the platform-name column goes first.
-    buttons: function (ctx, P, b, pal) {
-      var list = SOCIALS.filter(function (s) { return P.socials[s.key]; }).slice(0, 6);
-      if (!list.length) list = SOCIALS.slice(0, 3);
-      var L = b.x + 12, R = b.x + b.w - 12, cols = list.length > 3 ? 2 : 1, n = Math.ceil(list.length / cols);
-      var colW = cols === 1 ? R - L : Math.floor((R - L - 24) / 4) * 2, ys = rowsY(n), tagW = 4 * CELL;
-      var nameW = 0, handles = {}, longest = 0;
-      list.forEach(function (s) {
-        nameW = Math.max(nameW, width2x(s.name, FONT_E));
-        var h = (P.handles && P.handles[s.key]) || '';
-        h = h ? (/[\/.]/.test(h) || h[0] === '@' ? h : '@' + h) : defaultHandle(s, P.screen);
-        handles[s.key] = h; longest = Math.max(longest, width2x(h, FONT_B));
-      });
-      var names = cols === 1 && tagW + CELL + nameW + CELL + longest <= R - L;
-      list.forEach(function (s, i) {
-        var col = Math.floor(i / n), x = L + col * (colW + 24), cy = ys[i % n];
-        var sw = P.mono ? pal.ok : (s.sw ? readable(s.sw, pal.bg, 5) : pal.text);
-        runs(ctx, [['[', FONT_E, pal.dim], [s.tag, FONT_E, sw], [']', FONT_E, pal.dim]], x, cy);
-        var hx = x + tagW + CELL;
-        if (names) { text(ctx, s.name, hx, cy, FONT_E, pal.title, 'left', 0, false, true); hx += nameW + CELL; }
-        text(ctx, handles[s.key], hx, cy, FONT_B, pal.text, 'left', (cols === 1 ? R : x + colW) - hx, false, true);
-      });
-    },
-
-    // DCC SEND gag (or the opt-in numeric goal), a segmented [████] bar, then the prompt line
-    transfer: function (ctx, P, b, pal) {
-      var L = b.x + 12, R = b.x + b.w - 12, ys = rowsY(3), ts = stamps(P), pct, r1, right;
-      if (P.showGoal) {
-        var m = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(P.goal || '');
-        pct = m && +m[2] > 0 ? Math.min(100, Math.round(100 * +m[1] / +m[2])) : 100;
-        r1 = [[(P.goalLabel || 'goal') + ': ', FONT_B, pal.text], [P.goal || 'complete', FONT_E, pal.title]]; right = pct + '%';
-      } else {
-        pct = 100;
-        r1 = [['DCC SEND ', FONT_E, pal.acc], [P.xfer || 'thank_you.wav', FONT_E, pal.title]]; right = 'done';
-      }
-      var barInk = P.showGoal ? pal.ok : pal.acc, rightInk = P.showGoal ? pal.ok : pal.dim;   // the gag bar is chrome; only a real goal (and the prompt) gets the green
-      var rw = width2x(right, FONT_E), tsW = width2x('[00:00] ', FONT_D);
-      var r3 = P.cta ? ctaRow(P, pal) : (P.tag ? [[P.tag, FONT_B, pal.text]] : []);
-      var useTs = P.ts && runsWidth(r1) + tsW <= R - L - rw - 16 && (r3.cta || runsWidth(r3) + tsW <= R - L);
-      meta.ts = P.ts ? useTs : null;
-      runs(ctx, (useTs ? [[ts[0] + ' ', FONT_D, pal.dim]] : []).concat(r1), L, ys[0], R - L - rw - 16);
-      text(ctx, right, R, ys[0], FONT_E, rightInk, 'right');
-      var cy = ys[1];
-      text(ctx, '[', L, cy, FONT_B, pal.dim, 'left'); text(ctx, ']', R, cy, FONT_B, pal.dim, 'right');
-      var ix = L + 16, iw = R - 16 - ix, seg = 12, gap = 4, n = Math.floor((iw + gap) / (seg + gap)), fill = Math.round(n * pct / 100);
-      var sx = ix + Math.floor((iw - (n * (seg + gap) - gap)) / 4) * 2;
-      for (var i = 0; i < n; i++) { ctx.fillStyle = i < fill ? barInk : pal.line; ctx.fillRect(sx + i * (seg + gap), cy - 10, seg, 20); }
-      if (r3.length) runs(ctx, (useTs && !r3.cta ? [[ts[2] + ' ', FONT_D, pal.dim]] : []).concat(r3), L, ys[2], R - L);
-    },
-
-    // channel invite: *** nick invites you (shrinks in steps for long nicks), note, then the /join prompt; nick list if room
-    invite: function (ctx, P, b, pal) {
-      var chan = /^#\S+$/.test(P.title || '') ? P.title : '#discord';
-      var budget = b.w - 24 - width2x('[00:00] ', FONT_D);
-      var forms = [' invites you to ' + chan, ' invites you', ''], r1 = null;
-      for (var i = 0; i < forms.length && !r1; i++) {
-        var f = [['*** ', FONT_D, pal.dim], [P.screen, FONT_E, pal.r]];
-        if (forms[i]) f.push([forms[i], FONT_B, pal.text]);
-        if (runsWidth(f) <= budget || i === forms.length - 1) r1 = f;
-      }
-      var Q = P.cta ? P : Object.assign({}, P, { cta: '/join ' + chan });
-      layoutRows(ctx, Q, b, pal, [r1, [[Q.tag, FONT_B, pal.text]], ctaRow(Q, pal)], stamps(Q));
-    },
-
-    // log list: up to 3 lines with an IRC prefix per preset (2 when a prompt line is set); "key - detail" colours the key
-    list: function (ctx, P, b, pal) {
-      var items = (P.lines || []).map(function (t) { return (t || '').trim(); }).filter(Boolean).slice(0, P.cta ? 2 : 3);
-      if (!items.length) items = ['...'];
-      var key = P.preset.key;
-      var rows = items.map(function (it, i) {
-        var segs = [];
-        if (key === 'rules') segs.push([(i + 1) + '. ', FONT_E, pal.acc]);
-        else if (key === 'subscribe') segs.push(['+', FONT_E, pal.ok]);
-        else if (/^custom/.test(key)) segs.push(['* ', FONT_E, pal.acc]);
-        var cut = it.indexOf(' - ');
-        if (cut > 0) {
-          segs.push([it.slice(0, cut) + ' ', FONT_E, key === 'commands' ? pal.ok : pal.title]);
-          segs.push([it.slice(cut + 3), FONT_B, pal.text]);
-        } else segs.push([it, FONT_B, pal.text]);
-        return segs;
-      });
-      if (P.cta) rows.push(ctaRow(P, pal));
-      layoutRows(ctx, P, b, pal, rows, stamps(P));
-    }
-  };
-  function defaultHandle(s, screen) {
-    if (s.key === 'DC') return 'discord.gg/' + screen.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return '@' + screen;
-  }
-
-  /* ───────────────────────── UI wiring ───────────────────────── */
-  var cv = $('cv'), cv1 = $('cv1');
-  function slug(s) { return (s || 'panel').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'panel'; }
-  function fileName(i, P) { return (i < 9 ? '0' : '') + (i + 1) + '_' + slug(P.title) + '.png'; }
-  function downscale(src, dst) {
-    var c = dst.getContext('2d');
-    c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
-    c.clearRect(0, 0, dst.width, dst.height); c.drawImage(src, 0, 0, dst.width, dst.height);
-  }
-
-  function draw() {
-    var P = currentPanel();
-    renderPanel(P, cv);
-    var dpr = Math.min(3, Math.max(1, Math.round(window.devicePixelRatio || 1)));   // the true-size preview stays sharp on Retina
-    if (cv1.width !== 320 * dpr) { cv1.width = 320 * dpr; cv1.height = 100 * dpr; }
-    downscale(cv, cv1);
-    $('pvName').textContent = P.preset.label;
-    var t = $('suggText'); t.value = suggested(P); t.rows = Math.max(2, Math.ceil(t.value.length / Math.max(30, Math.floor((t.clientWidth || 400) / 7.4))));
-    $('stFile').textContent = fileName(Math.max(0, included().indexOf(P.preset)), P);
-    $('stTs').textContent = meta.ts === null ? '' : (meta.ts ? '\u00a0 · \u00a0[hh:mm] on' : '\u00a0 · \u00a0[hh:mm] dropped — a line is too long');
-    if ($('setBox').classList.contains('on')) drawSet();
-    save();
-  }
-  function sentence(t) { t = (t || '').trim(); return t && !/[.!?]$/.test(t) ? t + '.' : t; }
-  function suggested(P) {
-    var n = P.screen, t = P.time || '7:00 PM', inv = $('invite').value.trim() || 'discord.gg/your-invite', tip = $('tip').value.trim() || ('streamelements.com/' + n.toLowerCase() + '/tip');
-    switch (P.preset.key) {
-      case 'about': return ['Hey, I am ' + n + '.', sentence(P.tag), sentence(P.tag2), 'Say hi in chat!'].filter(Boolean).join(' ');
-      case 'schedule': return 'Live ' + DAYS.filter(function (d) { return P.days[d]; }).join(' / ') + ' at ' + t + '. Follow to get notified when I go live.';
-      case 'rules': return (P.lines || []).filter(Boolean).map(function (l, i) { return (i + 1) + '. ' + l; }).join('  ') + '  Mods have the final say.';
-      case 'socials': return 'Find me on ' + SOCIALS.filter(function (s) { return P.socials[s.key]; }).map(function (s) { var h = (P.handles && P.handles[s.key]) || defaultHandle(s, n); return s.name + ' ' + h; }).join('  -  ') + '.';
-      case 'discord': return '/join ' + inv + ' - ' + sentence(P.tag || 'hang out between streams');
-      case 'subscribe': return 'Subscribe for ' + (P.lines || []).filter(Boolean).join(', ').toLowerCase() + '. twitch.tv/' + n.toLowerCase() + '/subscribe';
-      case 'support': return 'Tips: ' + tip + ' - bits and subs in chat. Every bit helps, never required.';
-      case 'commands': return (P.lines || []).filter(Boolean).join('  ');
-      case 'specs': return (P.lines || []).filter(Boolean).join(' - ');
-      default: return (P.lines || []).filter(Boolean).join(' - ');
-    }
-  }
-  function drawSet() {
-    var col = $('setCol'); col.innerHTML = '';
-    included().forEach(function (p) {
-      var c = document.createElement('canvas'); c.width = 320; c.height = 100;
-      downscale(renderPanel(panelFor(p)), c); col.appendChild(c);
-    });
-  }
-  function remember() {
-    var e = edits[state.preset] || (edits[state.preset] = {});
-    e.title = $('title').value; e.tag = $('tag').value; e.tag2 = $('tag2').value; e.st = $('st').value;
-    e.lines = [$('li1').value, $('li2').value, $('li3').value];
-    e.nick = $('nickOn').checked;
-    e.cta = $('cta').value; e.ctaNote = $('ctaNote').value; e.link = $('link').value.trim();
-  }
-  function loadPreset(key) {
-    state.preset = key;
-    var p = presetDef(key), P = panelFor(p);
-    $('thisName').textContent = '— ' + p.label;
-    $('avatarBlock').style.display = p.layout === 'info' ? '' : 'none';
-    $('title').value = P.title; $('tag').value = P.tag; $('tag2').value = P.tag2; $('st').value = P.st; $('cta').value = P.cta; $('ctaNote').value = P.ctaNote; $('link').value = P.link;
-    $('li1').value = P.lines[0] || ''; $('li2').value = P.lines[1] || ''; $('li3').value = P.lines[2] || '';
-    var L = p.layout;
-    $('tagBlock').style.display  = L === 'list' || L === 'buttons' ? 'none' : '';
-    $('tagLabel').firstChild.nodeValue = L === 'info' ? 'First line ' : L === 'days' ? 'Note after the time ' : 'Small line ';
-    $('tag2Block').style.display = L === 'info' || L === 'days' ? '' : 'none';
-    $('tag2Label').firstChild.nodeValue = L === 'days' ? '--- line (dim) ' : 'Second line ';
-    $('nickBlock').style.display = L === 'list' || L === 'invite' ? '' : 'none';
-    $('ctaBlock').style.display = L === 'list' || L === 'days' || L === 'transfer' || L === 'invite' ? '' : 'none';
-    $('tagBlock').style.display = L === 'list' || L === 'buttons' || L === 'transfer' ? 'none' : '';
-    $('listCnt').textContent = P.cta ? '(two, plus the prompt below — "key - detail" colours the key)' : '(up to three — "key - detail" colours the key)';
-    $('nickOn').checked = P.nick !== false;
-    $('listBlock').style.display = L === 'list' ? '' : 'none';
-    $('daysBlock').style.display = L === 'days' ? '' : 'none';
-    $('socBlock').style.display  = L === 'buttons' ? '' : 'none';
-    $('goalBlock').style.display = L === 'transfer' ? '' : 'none';
-    $('inviteBlock').style.display = L === 'invite' ? '' : 'none';
-    $('tipBlock').style.display = L === 'transfer' ? '' : 'none';
-    Array.prototype.forEach.call(document.querySelectorAll('#presetRow .pick'), function (b) {
-      var on = b.dataset.key === key; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
-    });
-    syncCustomLabels();
-    Array.prototype.forEach.call(document.querySelectorAll('#iconRow button'), function (b) {
-      var on = b.dataset.icon === P.icon; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
-    });
-    draw();
-  }
-
-  // presets
-  PRESETS.forEach(function (p) {
-    var b = document.createElement('button'); b.type = 'button'; b.dataset.key = p.key;
-    var ic = document.createElement('canvas'); ic.width = 16; ic.height = 16; ic.className = 'ico';
-    drawPixels(ic.getContext('2d'), p.icon, 0, 0, 1);
-    b.appendChild(ic); b.appendChild(document.createTextNode(p.label));
-    b.className = 'pick';
-    var wrap = document.createElement('span'); wrap.className = 'pickwrap';
-    var inc = document.createElement('input'); inc.type = 'checkbox'; inc.checked = !p.off; inc.className = 'inc';
-    inc.title = 'Include in the .zip'; inc.setAttribute('aria-label', 'Include ' + p.label + ' in the download');
-    inc.addEventListener('change', function () { include[p.key] = inc.checked; refreshCounts(); draw(); });
-    b.addEventListener('click', function () { loadPreset(p.key); });
-    wrap.appendChild(b); wrap.appendChild(inc);
-    $('presetRow').appendChild(wrap);
+const panelPresets={"#about": {"iconSvg": "<svg viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='1' y='2' width='14' height='12' fill='none' stroke='#90A4AE' stroke-width='1'/><rect x='3' y='5' width='4' height='4' fill='#6BFF6B'/><line x1='9' y1='6' x2='13' y2='6' stroke='#6BC5FF' stroke-width='1'/><line x1='9' y1='8' x2='13' y2='8' stroke='#D4D4D4' stroke-width='1'/><line x1='3' y1='11' x2='13' y2='11' stroke='#D4D4D4' stroke-width='1'/></svg>", "command": "/whois streamer", "subtitle": "get to know the streamer"}, "#schedule": {"iconSvg": "<svg viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='2' y='3' width='12' height='11' fill='none' stroke='#90A4AE' stroke-width='1'/><rect x='2' y='3' width='12' height='3' fill='#6BC5FF'/><rect x='4' y='8' width='2' height='2' fill='#6BFF6B'/><rect x='7' y='8' width='2' height='2' fill='#D4D4D4'/><rect x='10' y='8' width='2' height='2' fill='#D4D4D4'/><rect x='4' y='11' width='2' height='2' fill='#D4D4D4'/><rect x='7' y='11' width='2' height='2' fill='#6BFF6B'/></svg>", "command": "/topic #schedule", "subtitle": "sign-on times, updated weekly"}, "#rules": {"iconSvg": "<svg viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='2' y='1' width='12' height='14' fill='none' stroke='#90A4AE' stroke-width='1'/><rect x='4' y='4' width='2' height='2' fill='#6BFF6B'/><line x1='8' y1='5' x2='12' y2='5' stroke='#D4D4D4' stroke-width='1'/><rect x='4' y='7' width='2' height='2' fill='#6BFF6B'/><line x1='8' y1='8' x2='12' y2='8' stroke='#D4D4D4' stroke-width='1'/><rect x='4' y='10' width='2' height='2' fill='#6BFF6B'/><line x1='8' y1='11' x2='12' y2='11' stroke='#D4D4D4' stroke-width='1'/></svg>", "command": "/motd #rules", "subtitle": "keep the channel friendly"}, "#socials": {"iconSvg": "<svg viewBox='0 0 16 16' shape-rendering='crispEdges'><line x1='4' y1='4' x2='12' y2='8' stroke='#90A4AE' stroke-width='1'/><line x1='4' y1='12' x2='12' y2='8' stroke='#90A4AE' stroke-width='1'/><line x1='4' y1='4' x2='4' y2='12' stroke='#90A4AE' stroke-width='1'/><rect x='2' y='2' width='4' height='4' fill='#6BC5FF'/><rect x='2' y='10' width='4' height='4' fill='#6BFF6B'/><rect x='10' y='6' width='4' height='4' fill='#D4D4D4'/></svg>", "command": "/links", "subtitle": "find me everywhere else"}, "#donate": {"iconSvg": "<svg viewBox='0 0 16 16' shape-rendering='crispEdges'><rect x='2' y='3' width='4' height='3' fill='#6BFF6B'/><rect x='10' y='3' width='4' height='3' fill='#6BFF6B'/><rect x='3' y='6' width='10' height='3' fill='#6BFF6B'/><rect x='5' y='9' width='6' height='2' fill='#6BFF6B'/><rect x='7' y='11' width='2' height='2' fill='#6BFF6B'/></svg>", "command": "/msg streamer support", "subtitle": "support keeps the server up"}};
+var cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+var MONO=IRC_PANEL_FONT;
+var drawVersion=0;
+var panelReady=Promise.resolve();
+function draw(){
+  const version=++drawVersion;
+  const options={title:document.getElementById('title').value,command:document.getElementById('cmd').value,subtitle:document.getElementById('subtitle').value,accent:document.getElementById('accent').value,bg:document.getElementById('winbg').value,titleColor:document.getElementById('titlecol').value,iconSvg:(panelPresets[document.getElementById('icon').value]||{}).iconSvg||'',socials:[...document.querySelectorAll('.checks input:checked')].map(c=>c.value)};
+  panelReady=panelReady.then(()=>{if(version===drawVersion)return drawIrcPanel(ctx,options)});
+  return panelReady;
+}
+function preset(t, c, s, socials) {
+  document.getElementById('icon').value=panelPresets[t]?t:'';
+  document.getElementById('title').value = t;
+  document.getElementById('cmd').value = c;
+  document.getElementById('subtitle').value = s;
+  document.querySelectorAll('.checks input').forEach(function(cb) {
+    cb.checked = socials.indexOf(cb.value) !== -1;
   });
-  function refreshCounts() {
-    var n = included().length;
-    $('dlAll').textContent = 'Download the set (' + n + ' .zip)'; $('dlAll').disabled = n === 0;
-    $('showSet').textContent = 'Preview the set (' + n + ')';
-  }
-  // the custom slots show their current #channel on the picker so the buttons match the preview
-  function syncCustomLabels() {
-    Array.prototype.forEach.call(document.querySelectorAll('#presetRow .pick'), function (b) {
-      var p = presetDef(b.dataset.key), t = panelFor(p).title || p.label;
-      b.lastChild.nodeValue = t.length > 12 ? t.slice(0, 11) + '…' : t;
-    });
-  }
-  refreshCounts();
-  // icon picker
-  ICON_KEYS.forEach(function (k) {
-    var b = document.createElement('button'); b.type = 'button'; b.dataset.icon = k; b.title = k;
-    b.setAttribute('aria-label', k + ' icon');
-    var ic = document.createElement('canvas'); ic.width = 16; ic.height = 16; ic.className = 'ico';
-    drawPixels(ic.getContext('2d'), k, 0, 0, 1);
-    b.appendChild(ic);
-    b.addEventListener('click', function () {
-      (edits[state.preset] || (edits[state.preset] = {})).icon = k;
-      Array.prototype.forEach.call(document.querySelectorAll('#iconRow button'), function (x) {
-        var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on);
-      });
-      draw();
-    });
-    $('iconRow').appendChild(b);
-  });
-  // days
-  var dayButtons = {};
-  DAYS.forEach(function (d) {
-    var b = document.createElement('button'); b.type = 'button'; b.textContent = d; dayButtons[d] = b;
-    b.addEventListener('click', function () { state.days[d] = !state.days[d]; syncDays(); draw(); });
-    $('days').appendChild(b);
-  });
-  function syncDays() { DAYS.forEach(function (d) { dayButtons[d].classList.toggle('on', !!state.days[d]); dayButtons[d].setAttribute('aria-pressed', !!state.days[d]); }); }
-  // socials
-  var socBoxes = {}, handleInputs = {};
-  SOCIALS.forEach(function (s) {
-    var l = document.createElement('label'), c = document.createElement('input');
-    c.type = 'checkbox'; socBoxes[s.key] = c;
-    c.addEventListener('change', function () { state.socials[s.key] = c.checked; syncSocials(); draw(); });
-    l.appendChild(c); l.appendChild(document.createTextNode(s.name));
-    $('socials').appendChild(l);
-    var hl = document.createElement('label'), hi = document.createElement('input');
-    hi.type = 'text'; hi.maxLength = 25; hi.autocomplete = 'off'; hi.placeholder = 'same as nick'; handleInputs[s.key] = hi;
-    hi.addEventListener('input', function () { state.handles[s.key] = hi.value.trim(); draw(); });
-    hl.appendChild(document.createTextNode(s.name + ' handle')); hl.appendChild(hi); $('handles').appendChild(hl);
-  });
-  function syncSocials() {
-    SOCIALS.forEach(function (s) {
-      socBoxes[s.key].checked = !!state.socials[s.key];
-      handleInputs[s.key].value = (state.handles && state.handles[s.key]) || '';
-      handleInputs[s.key].parentNode.style.display = state.socials[s.key] ? '' : 'none';
-    });
-  }
-  // themes
-  function applyTheme(t) {
-    $('c1').value = t.bg; $('c2').value = t.acc; $('c3').value = t.chan;
-    state.theme = { bar: t.bar, text: t.text, ok: t.ok, mono: !!t.mono };
-  }
-  THEMES.forEach(function (t) {
-    var b = document.createElement('button'); b.type = 'button';
-    var sw = document.createElement('span'); sw.className = 'sw';
-    sw.style.background = 'linear-gradient(135deg,' + t.bg + ' 50%,' + t.chan + ' 50%)'; sw.style.borderColor = t.acc;
-    b.appendChild(sw); b.appendChild(document.createTextNode(t.name));
-    b.addEventListener('click', function () { applyTheme(t); draw(); });
-    $('themes').appendChild(b);
-  });
-  // text inputs
-  ['title', 'tag', 'tag2', 'st', 'li1', 'li2', 'li3', 'cta', 'ctaNote', 'link'].forEach(function (id) {
-    $(id).addEventListener('input', function () { remember(); if (id === 'title') syncCustomLabels(); if (id === 'cta') $('listCnt').textContent = $('cta').value ? '(two, plus the prompt below — "key - detail" colours the key)' : '(up to three — "key - detail" colours the key)'; draw(); });
-  });
-  ['sn', 'srv', 'nl', 'time', 'goalLabel', 'goal', 'xfer', 'invite', 'tip', 'c1', 'c2', 'c3'].forEach(function (id) { $(id).addEventListener('input', draw); });
-  $('ts').addEventListener('change', draw);
-  $('nickOn').addEventListener('change', function () { remember(); draw(); });
+  draw();
+}
 
-  $('showGoal').addEventListener('change', function () { $('goalFields').style.display = this.checked ? '' : 'none'; $('xferField').style.display = this.checked ? 'none' : ''; draw(); });
-  $('resetOne').addEventListener('click', function () { delete edits[state.preset]; loadPreset(state.preset); });
-  $('resetAll').addEventListener('click', function () {
-    try { localStorage.removeItem(STORE); } catch (e) {}
-    location.reload();
-  });
+async function download() {
+  await draw();
+  var title = (document.getElementById('title').value || 'panel')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  cv.toBlob(function(blob) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'panel_' + (title || 'custom') + '.png';
+    a.click();
+    setTimeout(function() { URL.revokeObjectURL(a.href); }, 2000);
+  }, 'image/png');
+}
 
-  // avatar upload → 32x32 (pixelated) or 64x64 (smooth) offscreen canvas
-  function buildAvatar() {
-    var img = state.avatarSrc; if (!img) { state.avatar = null; return; }
-    var px = $('pixelate').checked, n = px ? 32 : 64, c = document.createElement('canvas'); c.width = n; c.height = n;
-    var x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
-    var side = Math.min(img.naturalWidth, img.naturalHeight);   // centre-crop to square
-    x.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, n, n);
-    state.avatar = c;
-  }
-  function setAvatarFromSrc(src) {
-    var img = new Image();
-    img.onload = function () { state.avatarSrc = img; buildAvatar(); $('avatarClear').style.display = ''; draw(); };
-    img.src = src;
-  }
-  $('avatar').addEventListener('change', function () {
-    var f = this.files && this.files[0]; if (!f) return;
-    $('avatarName').textContent = f.name;
-    var r = new FileReader(); r.onload = function () { setAvatarFromSrc(r.result); }; r.readAsDataURL(f);
-  });
-  $('pixelate').addEventListener('change', function () { buildAvatar(); draw(); });
-  $('avatarClear').addEventListener('click', function () {
-    state.avatarSrc = null; state.avatar = null; $('avatar').value = ''; $('avatarName').textContent = ''; this.style.display = 'none'; draw();
-  });
-
-  // small chrome icons on the page
-  Array.prototype.forEach.call(document.querySelectorAll('canvas.ico[data-icon]'), function (c) {
-    drawPixels(c.getContext('2d'), c.dataset.icon, 0, 0, 1);
-  });
-
-  [['copySugg', 'suggText']].forEach(function (pair) {
-    $(pair[0]).addEventListener('click', function () {
-      var t = $(pair[1]), b = $(pair[0]); t.select();
-      var done = function () { b.textContent = 'copied'; setTimeout(function () { b.textContent = 'copy'; }, 1500); };
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t.value).then(done, function () { document.execCommand('copy'); done(); });
-      else { document.execCommand('copy'); done(); }
-    });
-  });
-  // preview-all toggle (both buttons)
-  $('showSet').addEventListener('click', function () {
-    var box = $('setBox'), on = !box.classList.contains('on');
-    box.classList.toggle('on', on); this.setAttribute('aria-pressed', on); this.classList.toggle('on', on);
-    if (on) { drawSet(); if (window.innerWidth <= 760) box.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-  });
-
-  /* ───────────────────────── persistence (this browser only) ── */
-  var STORE = 'senergy.panelmaker.irc-minimal.v2', saveTimer = null;
-  function save() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () {
-      try {
-        var avatarSrc = null;
-        if (state.avatarSrc) {
-          var c = document.createElement('canvas'), side = Math.min(state.avatarSrc.naturalWidth, state.avatarSrc.naturalHeight), n = Math.min(side, 256);
-          c.width = n; c.height = n;
-          c.getContext('2d').drawImage(state.avatarSrc, (state.avatarSrc.naturalWidth - side) / 2, (state.avatarSrc.naturalHeight - side) / 2, side, side, 0, 0, n, n);
-          avatarSrc = c.toDataURL('image/png');
-        }
-        localStorage.setItem(STORE, JSON.stringify({
-          preset: state.preset, edits: edits, include: include, days: state.days, socials: state.socials, handles: state.handles, avatarSrc: avatarSrc, pixelate: $('pixelate').checked,
-          sn: $('sn').value, srv: $('srv').value, nl: $('nl').value, ts: $('ts').checked, time: $('time').value, goalLabel: $('goalLabel').value, goal: $('goal').value, showGoal: $('showGoal').checked, xfer: $('xfer').value, invite: $('invite').value, tip: $('tip').value,
-          c1: $('c1').value, c2: $('c2').value, c3: $('c3').value, theme: state.theme
-        }));
-      } catch (e) { /* private mode / quota — fine, just no persistence */ }
-    }, 250);
-  }
-  function restore() {
-    try {
-      var d = JSON.parse(localStorage.getItem(STORE) || 'null'); if (!d) return;
-      edits = d.edits || {}; include = d.include || {}; if (d.days) state.days = d.days; if (d.socials) state.socials = d.socials; if (d.handles) state.handles = d.handles;
-      Array.prototype.forEach.call(document.querySelectorAll('#presetRow .inc'), function (c, i) { var p = PRESETS[i]; c.checked = include[p.key] != null ? include[p.key] : !p.off; });
-      ['sn', 'srv', 'nl', 'time', 'goalLabel', 'goal', 'xfer', 'invite', 'tip', 'c1', 'c2', 'c3'].forEach(function (k) { if (d[k] != null) $(k).value = d[k]; });
-      if (d.theme && d.theme.bar) state.theme = d.theme;
-      if (d.ts != null) $('ts').checked = d.ts; if (d.pixelate != null) $('pixelate').checked = d.pixelate;
-      if (d.showGoal != null) { $('showGoal').checked = d.showGoal; $('goalFields').style.display = d.showGoal ? '' : 'none'; $('xferField').style.display = d.showGoal ? 'none' : ''; }
-      if (d.preset && presetDef(d.preset).key === d.preset) state.preset = d.preset;
-      if (d.avatarSrc) setAvatarFromSrc(d.avatarSrc);
-    } catch (e) {}
-  }
-
-  /* ───────────────────────── downloads ───────────────────────── */
-  function saveBlob(blob, name) {
-    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
-  }
-  function toBlob(canvas) { return new Promise(function (res) { canvas.toBlob(res, 'image/png'); }); }
-  function dlOne() {
-    var P = currentPanel();
-    toBlob(renderPanel(P)).then(function (b) { saveBlob(b, fileName(Math.max(0, included().indexOf(P.preset)), P)); });
-  }
-  $('dlOne').addEventListener('click', dlOne);
-
-  // store-only .zip writer (no libraries)
-  var CRC = (function () { var t = [], c; for (var n = 0; n < 256; n++) { c = n; for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
-  function crc32(u8) { var c = 0xFFFFFFFF; for (var i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
-  function zip(files) {
-    var parts = [], central = [], offset = 0, enc = new TextEncoder();
-    var d = new Date(), dosT = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dosD = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
-    function u16(v) { return [v & 255, (v >> 8) & 255]; }
-    function u32(v) { return [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255]; }
-    files.forEach(function (f) {
-      var name = enc.encode(f.name), crc = crc32(f.data), n = f.data.length;
-      var lh = new Uint8Array([].concat(u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(dosT), u16(dosD), u32(crc), u32(n), u32(n), u16(name.length), u16(0)));
-      parts.push(lh, name, f.data);
-      central.push(new Uint8Array([].concat(u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(dosT), u16(dosD), u32(crc), u32(n), u32(n), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset))), name);
-      offset += lh.length + name.length + n;
-    });
-    var cdSize = central.reduce(function (a, c) { return a + c.length; }, 0);
-    var end = new Uint8Array([].concat(u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length), u32(cdSize), u32(offset), u16(0)));
-    return new Blob(parts.concat(central, [end]), { type: 'application/zip' });
-  }
-  function readme() {
-    var lines = [
-      'IRC MINIMAL TWITCH PANELS  -  made with the Senergy Group panel maker',
-      '',
-      'HOW TO UPLOAD (Twitch, desktop):',
-      '  1. Open your channel  >  About  >  Edit Panels (toggle at the top).',
-      '  2. Click the big "+"  >  Add a Text or Image Panel.',
-      '  3. Add Image  >  pick the PNG. Leave the title blank (the banner IS the title).',
-      '  4. "Image Links To": paste the link this panel should open.',
-      '  5. Description: the details below. Save. Repeat per panel, then toggle Edit Panels off.',
-      '',
-      'Panels are 640x200 (2x). Twitch shows them 320 wide, so they stay crisp on any screen.',
-      'The [hh:mm] stamps count up from your go-live time, so they never go stale.',
-      '',
-      'WHAT TO PUT IN EACH DESCRIPTION:'
-    ];
-    included().forEach(function (p, i) {
-      var P = panelFor(p);
-      lines.push('  ' + fileName(i, P) + '  -  ' + p.readme, '      Image Links To: ' + (P.link || '(paste the link this panel should open)'), '      description: ' + suggested(P));
-    });
-    lines.push('', 'Part of the IRC Minimal Stream Kit by Senergy Group  -  https://www.etsy.com/shop/SenergyGroup', '');
-    return lines.join('\r\n');
-  }
-  function dlAll() {
-    var set = included(), btns = [$('dlAll')], notes = [$('dlNote')];
-    var note = function (t) { notes.forEach(function (n) { n.textContent = t; }); };
-    btns.forEach(function (b) { b.disabled = true; }); note('Rendering ' + set.length + ' panels...');
-    var jobs = set.map(function (p, i) {
-      var P = panelFor(p);
-      return toBlob(renderPanel(P)).then(function (b) { return b.arrayBuffer(); }).then(function (ab) {
-        return { name: fileName(i, P), data: new Uint8Array(ab) };
-      });
-    });
-    Promise.all(jobs).then(function (files) {
-      files.push({ name: 'README.txt', data: new TextEncoder().encode(readme()) });
-      saveBlob(zip(files), 'irc_minimal_panels_' + slug($('sn').value || 'set') + '.zip');
-      note(set.length + ' PNGs + README saved.'); btns.forEach(function (b) { b.disabled = false; });
-      setTimeout(function () { note(''); }, 4000);
-    }).catch(function () { note('Something went wrong - try the single download.'); btns.forEach(function (b) { b.disabled = false; }); });
-  }
-  $('dlAll').addEventListener('click', dlAll);
-
-  // exposed for automated capture (harmless in normal use)
-  window.__panelMaker = {
-    render: function (key) { return renderPanel(panelFor(presetDef(key))).toDataURL('image/png'); },
-    presets: PRESETS.map(function (p) { return p.key; }),
-    load: loadPreset,
-    setTheme: function (i) { applyTheme(THEMES[i] || THEMES[0]); draw(); },
-    setNick: function (s) { $('sn').value = s; draw(); },
-    setAvatar: setAvatarFromSrc,
-    setNickList: function (s) { $('nl').value = s; draw(); },
-    include: function (key, on) { include[key] = on; refreshCounts(); draw(); },
-    themes: THEMES.map(function (t) { return t.name; }),
-    palette: function () { return palette(currentPanel()); }
-  };
-
-  /* ───────────────────────── boot ────────────────────────────── */
-  restore(); syncDays(); syncSocials(); refreshCounts();
-  $('goalFields').style.display = $('showGoal').checked ? '' : 'none'; $('xferField').style.display = $('showGoal').checked ? 'none' : '';
-  function boot() { glyphCache = {}; loadPreset(state.preset); }
-  boot();
-})();
+draw();
+if (document.fonts && document.fonts.ready) { document.fonts.ready.then(draw); }
 </script>
 </body>
 </html>
