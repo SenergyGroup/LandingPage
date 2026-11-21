@@ -420,7 +420,8 @@
     "claimPlatforms": [
       "streamlabs",
       "streamelements"
-    ]
+    ],
+    "matchingSet": "sku-06-irc-minimal"
   },
   {
     "id": "sku-07-retro-email",
@@ -854,5 +855,19 @@
       "streamelements"
     ],
     "matchingSet": "sku-legacy-17-retro-messenger"
+  },
+  {
+    "id": "sku-irc-01-alert-popups",
+    "storeActive": false,
+    "name": "IRC Minimal Alerts",
+    "description": "Classic IRC notices for follows, subscriptions, tips, cheers and raids. Includes the setup guide and one-click StreamElements install.",
+    "aesthetic": "retro-terminal",
+    "category": "alert",
+    "productType": "alert",
+    "freebie": true,
+    "claimPlatforms": [
+      "streamelements"
+    ],
+    "matchingSet": "sku-06-irc-minimal"
   }
 ]
