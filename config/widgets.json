@@ -85,7 +85,8 @@
     "claimPlatforms": [
       "streamlabs",
       "streamelements"
-    ]
+    ],
+    "matchingSet": "sku-legacy-02-windowsxp"
   },
   {
     "id": "sku-legacy-03-windowsvista",
@@ -869,5 +870,19 @@
       "streamelements"
     ],
     "matchingSet": "sku-06-irc-minimal"
+  },
+  {
+    "id": "sku-xp-01-alert-popups",
+    "storeActive": false,
+    "name": "Windows XP Alerts",
+    "description": "Classic XP notification balloons and blue dialog alerts for follows, subscriptions, tips, cheers and raids. Includes the StreamElements installer and setup guide.",
+    "aesthetic": "windows",
+    "category": "alert",
+    "productType": "alert",
+    "freebie": true,
+    "claimPlatforms": [
+      "streamelements"
+    ],
+    "matchingSet": "sku-legacy-02-windowsxp"
   }
 ]
