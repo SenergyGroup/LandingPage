@@ -321,7 +321,8 @@
     "claimPlatforms": [
       "streamlabs",
       "streamelements"
-    ]
+    ],
+    "matchingSet": "sku-legacy-17-retro-messenger"
   },
   {
     "id": "sku-01-crt-terminal",
@@ -839,5 +840,19 @@
       "streamelements"
     ],
     "matchingSet": "sku-41-flip-phone-sms"
+  },
+  {
+    "id": "sku-mk-01-alert-popups",
+    "storeActive": false,
+    "name": "Retro Messenger Alerts",
+    "description": "Classic messenger popups for follows, subscriptions, tips, cheers and raids. Includes the StreamElements install link and setup guide.",
+    "aesthetic": "y2k",
+    "category": "alert",
+    "productType": "alert",
+    "freebie": true,
+    "claimPlatforms": [
+      "streamelements"
+    ],
+    "matchingSet": "sku-legacy-17-retro-messenger"
   }
 ]
