@@ -302,7 +302,8 @@
     "claimPlatforms": [
       "streamlabs",
       "streamelements"
-    ]
+    ],
+    "matchingSet": "sku-legacy-16-retro-mp3"
   },
   {
     "id": "sku-legacy-17-retro-messenger",
@@ -884,5 +885,19 @@
       "streamelements"
     ],
     "matchingSet": "sku-legacy-02-windowsxp"
+  },
+  {
+    "id": "sku-mp3-01-alert-popups",
+    "storeActive": false,
+    "name": "Retro MP3 Alerts",
+    "description": "Retro MP3 Alerts alert widget. Includes a setup guide and install link.",
+    "aesthetic": "y2k",
+    "category": "alert",
+    "productType": "alert",
+    "freebie": true,
+    "claimPlatforms": [
+      "streamelements"
+    ],
+    "matchingSet": "sku-legacy-16-retro-mp3"
   }
 ]
